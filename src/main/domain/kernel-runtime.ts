@@ -253,7 +253,7 @@ export function createKernelRuntimeManager(options: {
 }
 
 export function createMockKernelRuntimeManager(executablePath: string): KernelRuntimeManager {
-  const manifest = validateKernelRuntimeManifest({
+  const defaultManifest = validateKernelRuntimeManifest({
     ...DEFAULT_KERNEL_RUNTIME_MANIFEST,
     version: 'e2e-kernel',
     baseChromiumRevision: 'e2e-mock',
@@ -261,14 +261,18 @@ export function createMockKernelRuntimeManager(executablePath: string): KernelRu
     artifactUrl: 'mock://fingerbrowser-kernel',
     sha256: '1111111111111111111111111111111111111111111111111111111111111111'
   });
+  let manifest = defaultManifest;
+  let source: KernelManifestSource = 'default';
+  let manifestPath: string | null = null;
+  let importedAt: string | null = null;
   const status = (): KernelRuntimeStatus => ({
     manifest,
     installed: true,
     executablePath,
     runtimeRoot: path.dirname(executablePath),
-    source: 'default',
-    manifestPath: null,
-    importedAt: null
+    source,
+    manifestPath,
+    importedAt
   });
   return {
     manifest: () => manifest,
@@ -280,10 +284,18 @@ export function createMockKernelRuntimeManager(executablePath: string): KernelRu
         alreadyInstalled: true
       };
     },
-    importManifest(): KernelRuntimeStatus {
+    importManifest(nextManifestPath: string): KernelRuntimeStatus {
+      manifest = loadKernelRuntimeManifestFile(nextManifestPath);
+      source = 'imported';
+      manifestPath = nextManifestPath;
+      importedAt = new Date().toISOString();
       return status();
     },
     clearManifest(): KernelRuntimeStatus {
+      manifest = defaultManifest;
+      source = 'default';
+      manifestPath = null;
+      importedAt = null;
       return status();
     }
   };

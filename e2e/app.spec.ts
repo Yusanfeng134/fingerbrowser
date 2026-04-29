@@ -1,5 +1,6 @@
 import { _electron as electron, expect, test } from '@playwright/test';
-import { mkdtempSync } from 'node:fs';
+import { createHash } from 'node:crypto';
+import { mkdtempSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import net from 'node:net';
@@ -7,6 +8,23 @@ import { createManualActivationCode } from '../src/main/domain/license';
 
 test('中文 UI 完成激活 license、新建环境、代理测试、导出审计和上限拦截', async () => {
   const dataDir = mkdtempSync(path.join(tmpdir(), 'fingerbrowser-e2e-'));
+  const importedManifestPath = path.join(dataDir, 'fingerbrowser-kernel-e2e.manifest.json');
+  const importedArtifactPath = path.join(dataDir, 'fingerbrowser-kernel-e2e.zip');
+  writeFileSync(importedArtifactPath, 'e2e imported kernel');
+  writeFileSync(
+    importedManifestPath,
+    JSON.stringify({
+      version: 'e2e-imported-kernel',
+      baseChromiumRevision: 'refs/tags/e2e-imported',
+      patchsetVersion: 'e2e-imported',
+      platform: 'darwin',
+      arch: 'arm64',
+      artifactUrl: `file://${importedArtifactPath}`,
+      sha256: createHash('sha256').update('e2e imported kernel').digest('hex'),
+      executableRelativePath: 'FingerBrowser Kernel.app/Contents/MacOS/Chromium',
+      policySchemaVersion: 1
+    })
+  );
   const activationCode = createManualActivationCode({
     signingSecret: 'fingerbrowser-commercial-trial-dev-secret',
     planId: 'trial',
@@ -74,6 +92,10 @@ test('中文 UI 完成激活 license、新建环境、代理测试、导出审�
     await expect(page.getByText('版本中心')).toBeVisible();
     await page.getByRole('tab', { name: '配置' }).click();
     await expect(page.getByRole('button', { name: '保存环境' })).toBeVisible();
+    await page.evaluate(async (manifestPath) => window.fingerBrowser.kernel.importManifest(manifestPath), importedManifestPath);
+    await page.reload();
+    await expect(page.getByText('来源：应用内导入')).toBeVisible();
+    await expect(page.getByText('版本：e2e-imported-kernel')).toBeVisible();
     await sideNav.getByRole('link', { name: '环境' }).click();
     await expect(sideNav.getByRole('link', { name: '环境' })).toHaveClass(/active/);
 
@@ -184,7 +206,7 @@ test('中文 UI 完成激活 license、新建环境、代理测试、导出审�
     await expect(page.getByText(/环境 2\/2/)).toBeVisible();
     await expect(page.getByText('自研内核：已安装')).toBeVisible();
     await page.getByRole('button', { name: '检查自研内核' }).click();
-    await expect(page.getByText(/自研内核 e2e-kernel 已就绪/)).toBeVisible();
+    await expect(page.getByText(/自研内核 e2e-imported-kernel 已就绪/)).toBeVisible();
     await page.getByRole('button', { name: '启动 Chromium' }).click();
     await expect(page.getByText('运行中')).toBeVisible();
     await page.getByRole('button', { name: '关闭环境' }).click();
