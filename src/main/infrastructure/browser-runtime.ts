@@ -10,6 +10,7 @@ import {
   writeProxyAuthExtension
 } from '../domain/chromium';
 import type { SecretBox } from '../domain/encryption';
+import { writeEnvironmentCheckPage } from '../domain/environment-check-page';
 import { writeKernelPolicyFile, type KernelRuntimeManager } from '../domain/kernel-runtime';
 import type { ChromiumInstaller } from './chromium-installer';
 
@@ -21,7 +22,7 @@ export function createBrowserController(options: {
   isE2E: boolean;
 }): BrowserController {
   if (options.isE2E) {
-    return new MockBrowserController();
+    return new MockBrowserController(options.dataDir);
   }
   return new ExternalChromiumController(
     options.chromiumInstaller,
@@ -61,12 +62,14 @@ class ExternalChromiumController implements BrowserController {
     if (profile.runtimeChannel === 'custom-kernel') {
       kernelPolicyPath = writeKernelPolicyFile(profile);
     }
+    const environmentCheckPage = writeEnvironmentCheckPage({ dataDir: this.dataDir });
     const plan = buildChromiumLaunchPlan({
       executablePath: kernelInstallation?.executablePath ?? officialInstallation?.executablePath ?? '',
       profile,
       proxy,
       proxyAuthExtensionDir,
-      kernelPolicyPath
+      kernelPolicyPath,
+      startUrl: environmentCheckPage.url
     });
     const child = spawn(plan.executablePath, plan.args, {
       env: plan.env,

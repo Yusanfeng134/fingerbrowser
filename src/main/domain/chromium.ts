@@ -4,6 +4,7 @@ import path from 'node:path';
 import type { BrowserProfile, ProxyConfig, RuntimeChannel } from '../../shared/types';
 import { formatProxyServer } from './proxy';
 import { writeKernelPolicyFile } from './kernel-runtime';
+import { writeEnvironmentCheckPage } from './environment-check-page';
 
 export interface ChromiumLaunchPlanInput {
   executablePath: string;
@@ -11,12 +12,14 @@ export interface ChromiumLaunchPlanInput {
   proxy: ProxyConfig | null;
   proxyAuthExtensionDir?: string;
   kernelPolicyPath?: string;
+  startUrl?: string;
 }
 
 export interface ChromiumLaunchPlan {
   executablePath: string;
   args: string[];
   env: NodeJS.ProcessEnv;
+  startUrl?: string;
 }
 
 export interface BrowserController {
@@ -65,9 +68,14 @@ export function buildChromiumLaunchPlan(input: ChromiumLaunchPlanInput): Chromiu
     }
   }
 
+  if (input.startUrl) {
+    args.push(input.startUrl);
+  }
+
   return {
     executablePath: input.executablePath,
     args,
+    startUrl: input.startUrl,
     env: {
       ...process.env,
       TZ: fingerprintPolicy.timezone
@@ -150,8 +158,13 @@ export class ManagedBrowserController implements BrowserController {
 export class MockBrowserController implements BrowserController {
   private readonly running = new Set<string>();
 
+  constructor(private readonly dataDir?: string) {}
+
   async launch(profile: BrowserProfile): Promise<BrowserLaunchResult> {
     this.running.add(profile.id);
+    if (this.dataDir) {
+      writeEnvironmentCheckPage({ dataDir: this.dataDir });
+    }
     const kernelPolicyPath = profile.runtimeChannel === 'custom-kernel' ? writeKernelPolicyFile(profile) : undefined;
     return {
       pid: 4242,
