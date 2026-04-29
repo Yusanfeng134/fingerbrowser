@@ -86,6 +86,13 @@ export function validateKernelRuntimeManifest(input: unknown): KernelRuntimeMani
   return manifest;
 }
 
+export function loadKernelRuntimeManifestFile(manifestPath: string): KernelRuntimeManifest {
+  if (!existsSync(manifestPath)) {
+    throw new Error(`自研内核 manifest 不存在：${manifestPath}`);
+  }
+  return validateKernelRuntimeManifest(JSON.parse(readFileSync(manifestPath, 'utf8')) as unknown);
+}
+
 export function verifyKernelArtifact(
   manifest: KernelRuntimeManifest,
   artifactPath: string

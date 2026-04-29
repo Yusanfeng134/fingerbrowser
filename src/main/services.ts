@@ -12,6 +12,7 @@ import { createProfileService, type ProfileService } from './domain/profile-serv
 import {
   createKernelRuntimeManager,
   createMockKernelRuntimeManager,
+  loadKernelRuntimeManifestFile,
   type KernelRuntimeManager
 } from './domain/kernel-runtime';
 import { openApplicationDatabase } from './infrastructure/database';
@@ -76,7 +77,12 @@ export function createApplicationServices(): ApplicationServices {
     : createChromiumInstaller(path.join(dataDir, 'chromium'));
   const kernelRuntimeManager = isE2E
     ? createMockKernelRuntimeManager(process.execPath)
-    : createKernelRuntimeManager({ dataDir });
+    : createKernelRuntimeManager({
+        dataDir,
+        manifest: process.env.FINGERBROWSER_KERNEL_MANIFEST
+          ? loadKernelRuntimeManifestFile(process.env.FINGERBROWSER_KERNEL_MANIFEST)
+          : undefined
+      });
   const browserController = createBrowserController({
     chromiumInstaller,
     kernelRuntimeManager,

@@ -8,6 +8,7 @@ import {
   KERNEL_POLICY_SCHEMA_VERSION,
   buildKernelPolicyDocument,
   createKernelRuntimeManager,
+  loadKernelRuntimeManifestFile,
   validateKernelRuntimeManifest,
   verifyKernelArtifact
 } from '../src/main/domain/kernel-runtime';
@@ -126,5 +127,25 @@ describe('kernel runtime domain', () => {
       executablePath: path.join(dir, 'kernel-runtime', '0.1.0', 'FingerBrowser Kernel.app/Contents/MacOS/Chromium')
     });
     await expect(manager.ensureInstalled()).rejects.toThrow('自研内核未安装');
+  });
+
+  it('loads a custom kernel manifest from the build-machine output file', () => {
+    const dir = createTempDir();
+    const manifestPath = path.join(dir, 'fingerbrowser-kernel.manifest.json');
+    const manifest: KernelRuntimeManifest = {
+      version: '0.2.0',
+      baseChromiumRevision: 'chromium-abcdef',
+      patchsetVersion: '2026.04.30.1',
+      platform: 'darwin',
+      arch: 'arm64',
+      artifactUrl: 'file:///tmp/fingerbrowser-kernel-v0.2.0-mac-arm64.zip',
+      sha256: '2222222222222222222222222222222222222222222222222222222222222222',
+      executableRelativePath: 'FingerBrowser Kernel.app/Contents/MacOS/Chromium',
+      policySchemaVersion: KERNEL_POLICY_SCHEMA_VERSION
+    };
+    writeFileSync(manifestPath, JSON.stringify(manifest));
+
+    expect(loadKernelRuntimeManifestFile(manifestPath)).toEqual(manifest);
+    expect(() => loadKernelRuntimeManifestFile(path.join(dir, 'missing.json'))).toThrow('自研内核 manifest 不存在');
   });
 });
