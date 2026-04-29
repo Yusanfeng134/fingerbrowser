@@ -1,7 +1,8 @@
 import { mkdirSync } from 'node:fs';
 import { hostname, userInfo } from 'node:os';
 import path from 'node:path';
-import { app, safeStorage } from 'electron';
+import { app, clipboard, safeStorage } from 'electron';
+import { createCredentialService, type CredentialService } from './domain/credential-service';
 import { createNodeSecretBox, createSafeStorageSecretBox, type SecretBox } from './domain/encryption';
 import { getDeviceFingerprint } from './domain/license';
 import { createLicenseService, type LicenseService } from './domain/license-service';
@@ -19,6 +20,7 @@ export interface ApplicationServices {
   dataDir: string;
   secretBox: SecretBox;
   profileService: ProfileService;
+  credentialService: CredentialService;
   licenseService: LicenseService;
   chromiumInstaller: ChromiumInstaller;
   browserController: BrowserController;
@@ -38,6 +40,11 @@ export function createApplicationServices(): ApplicationServices {
     db,
     dataDir,
     secretBox
+  });
+  const credentialService = createCredentialService({
+    db,
+    secretBox,
+    writeClipboard: (value) => clipboard.writeText(value)
   });
   const deviceSeed = `${process.platform}:${hostname()}:${userInfo().username}:${app.getPath('userData')}`;
   const licenseService = createLicenseService({
@@ -60,6 +67,7 @@ export function createApplicationServices(): ApplicationServices {
     dataDir,
     secretBox,
     profileService,
+    credentialService,
     licenseService,
     chromiumInstaller,
     browserController

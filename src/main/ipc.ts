@@ -1,6 +1,13 @@
 import { ipcMain } from 'electron';
 import path from 'node:path';
-import type { ActivateLicenseInput, CreateProfileInput, ProxyConnectionInput, UpdateProfileInput } from '../shared/types';
+import type {
+  ActivateLicenseInput,
+  CreateCredentialInput,
+  CreateProfileInput,
+  ProxyConnectionInput,
+  UpdateCredentialInput,
+  UpdateProfileInput
+} from '../shared/types';
 import { exportAuditEvents, exportProfiles, packageSupportLogs } from './domain/commercial-ops';
 import type { ApplicationServices } from './services';
 import { testProxyConnection } from './domain/proxy';
@@ -102,6 +109,62 @@ export function registerIpcHandlers(services: ApplicationServices): void {
     services.profileService.recordAudit(null, 'CHROMIUM_INSTALLED', {
       version: result.version,
       alreadyInstalled: result.alreadyInstalled
+    });
+    return result;
+  });
+
+  ipcMain.handle('credentials.list', (_event, profileId: string) => {
+    services.licenseService.assertCanUseCredentials();
+    return services.credentialService.listCredentials(profileId);
+  });
+
+  ipcMain.handle('credentials.create', (_event, input: CreateCredentialInput) => {
+    services.licenseService.assertCanUseCredentials();
+    const credential = services.credentialService.createCredential(input);
+    services.profileService.recordAudit(credential.profileId, 'CREDENTIAL_CREATED', {
+      credentialId: credential.id,
+      title: credential.title,
+      websiteUrl: credential.websiteUrl
+    });
+    return credential;
+  });
+
+  ipcMain.handle('credentials.update', (_event, input: UpdateCredentialInput) => {
+    services.licenseService.assertCanUseCredentials();
+    const credential = services.credentialService.updateCredential(input);
+    services.profileService.recordAudit(credential.profileId, 'CREDENTIAL_UPDATED', {
+      credentialId: credential.id,
+      title: credential.title,
+      websiteUrl: credential.websiteUrl
+    });
+    return credential;
+  });
+
+  ipcMain.handle('credentials.delete', (_event, id: string) => {
+    services.licenseService.assertCanUseCredentials();
+    const credential = services.credentialService.deleteCredential(id);
+    services.profileService.recordAudit(credential.profileId, 'CREDENTIAL_DELETED', {
+      credentialId: credential.id,
+      title: credential.title,
+      websiteUrl: credential.websiteUrl
+    });
+    return { id };
+  });
+
+  ipcMain.handle('credentials.copyUsername', (_event, id: string) => {
+    services.licenseService.assertCanUseCredentials();
+    const result = services.credentialService.copyUsername(id);
+    services.profileService.recordAudit(result.profileId, 'CREDENTIAL_USERNAME_COPIED', {
+      credentialId: id
+    });
+    return result;
+  });
+
+  ipcMain.handle('credentials.copyPassword', (_event, id: string) => {
+    services.licenseService.assertCanUseCredentials();
+    const result = services.credentialService.copyPassword(id);
+    services.profileService.recordAudit(result.profileId, 'CREDENTIAL_PASSWORD_COPIED', {
+      credentialId: id
     });
     return result;
   });

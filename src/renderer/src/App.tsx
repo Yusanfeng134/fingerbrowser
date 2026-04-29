@@ -3,12 +3,15 @@ import {
   BadgeCheck,
   CheckCircle2,
   Circle,
+  Clipboard,
   Clock3,
   Download,
+  Edit3,
   FolderPlus,
   Globe2,
   History,
   KeyRound,
+  LockKeyhole,
   Mail,
   PackageCheck,
   Play,
@@ -19,6 +22,7 @@ import {
   Settings,
   ShieldCheck,
   SlidersHorizontal,
+  Trash2,
   Wifi
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -26,6 +30,7 @@ import { DEFAULT_FINGERPRINT_POLICY } from '../../shared/defaults';
 import type {
   AuditEvent,
   BrowserProfile,
+  CredentialEntry,
   CreateProfileInput,
   FingerprintPolicy,
   ProfileDetails,
@@ -49,7 +54,15 @@ interface DraftState {
   fingerprintPolicy: FingerprintPolicy;
 }
 
-type ActiveTab = 'config' | 'audit' | 'license';
+interface CredentialDraftState {
+  id: string | null;
+  title: string;
+  websiteUrl: string;
+  username: string;
+  password: string;
+}
+
+type ActiveTab = 'config' | 'credentials' | 'audit' | 'license';
 
 const emptyDraft: DraftState = {
   id: null,
@@ -63,6 +76,14 @@ const emptyDraft: DraftState = {
   proxyPassword: '',
   proxyBypassList: 'localhost,127.0.0.1',
   fingerprintPolicy: DEFAULT_FINGERPRINT_POLICY
+};
+
+const emptyCredentialDraft: CredentialDraftState = {
+  id: null,
+  title: '',
+  websiteUrl: '',
+  username: '',
+  password: ''
 };
 
 const statusText: Record<BrowserProfile['status'], string> = {
@@ -92,6 +113,11 @@ const actionLabel: Record<string, string> = {
   AUDIT_EXPORTED: '导出审计',
   PROFILES_EXPORTED: '导出配置',
   SUPPORT_LOGS_PACKAGED: '打包支持日志',
+  CREDENTIAL_CREATED: '创建密码项',
+  CREDENTIAL_UPDATED: '更新密码项',
+  CREDENTIAL_DELETED: '删除密码项',
+  CREDENTIAL_USERNAME_COPIED: '复制账号',
+  CREDENTIAL_PASSWORD_COPIED: '复制密码',
   ERROR_RECORDED: '记录错误'
 };
 
@@ -181,6 +207,9 @@ export function App(): JSX.Element {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [draft, setDraft] = useState<DraftState>(emptyDraft);
   const [audits, setAudits] = useState<AuditEvent[]>([]);
+  const [credentials, setCredentials] = useState<CredentialEntry[]>([]);
+  const [credentialDraft, setCredentialDraft] = useState<CredentialDraftState>(emptyCredentialDraft);
+  const [credentialQuery, setCredentialQuery] = useState('');
   const [license, setLicense] = useState<RedactedLicenseState | null>(null);
   const [usage, setUsage] = useState<UsageSummary | null>(null);
   const [activationCode, setActivationCode] = useState('');
@@ -212,12 +241,26 @@ export function App(): JSX.Element {
     return (license.status === 'active' || license.status === 'grace') && usage.profilesUsed < usage.profileLimit;
   }, [license, usage]);
 
+  const credentialsEnabled = useMemo(() => {
+    return Boolean(selectedProfile && (license?.status === 'active' || license?.status === 'grace'));
+  }, [license?.status, selectedProfile]);
+
   const licenseUsagePercent = useMemo(() => {
     if (!usage || usage.profileLimit === 0) {
       return 0;
     }
     return Math.min(100, Math.round((usage.profilesUsed / usage.profileLimit) * 100));
   }, [usage]);
+
+  const filteredCredentials = useMemo(() => {
+    const keyword = credentialQuery.trim().toLowerCase();
+    if (!keyword) {
+      return credentials;
+    }
+    return credentials.filter((credential) =>
+      [credential.title, credential.websiteUrl, credential.username].join(' ').toLowerCase().includes(keyword)
+    );
+  }, [credentialQuery, credentials]);
 
   const loadProfiles = useCallback(async () => {
     const nextProfiles = await window.fingerBrowser.profiles.list();
@@ -230,6 +273,15 @@ export function App(): JSX.Element {
   const loadAudits = useCallback(async (profileId?: string) => {
     const nextAudits = await window.fingerBrowser.audit.list(profileId);
     setAudits(nextAudits);
+  }, []);
+
+  const loadCredentials = useCallback(async (profileId: string, enabled: boolean) => {
+    if (!enabled) {
+      setCredentials([]);
+      return;
+    }
+    const nextCredentials = await window.fingerBrowser.credentials.list(profileId);
+    setCredentials(nextCredentials);
   }, []);
 
   const loadCommercialState = useCallback(async () => {
@@ -251,11 +303,17 @@ export function App(): JSX.Element {
     if (selectedProfile) {
       setDraft(profileToDraft(selectedProfile));
       void loadAudits(selectedProfile.id);
+      void loadCredentials(selectedProfile.id, credentialsEnabled).catch((error) =>
+        setNotice(error instanceof Error ? error.message : '加载密码库失败')
+      );
     } else {
       setDraft(emptyDraft);
+      setCredentials([]);
       void loadAudits();
     }
-  }, [loadAudits, selectedProfile]);
+    setCredentialDraft(emptyCredentialDraft);
+    setCredentialQuery('');
+  }, [credentialsEnabled, loadAudits, loadCredentials, selectedProfile]);
 
   const run = useCallback(async (label: string, task: () => Promise<string | void>) => {
     setBusy(true);
@@ -410,6 +468,82 @@ export function App(): JSX.Element {
       const result = await window.fingerBrowser.support.packageLogs();
       await loadAudits();
       return `支持日志已打包：${result.filePath}`;
+    });
+  };
+
+  const handleEditCredential = (credential: CredentialEntry): void => {
+    setCredentialDraft({
+      id: credential.id,
+      title: credential.title,
+      websiteUrl: credential.websiteUrl,
+      username: credential.username,
+      password: ''
+    });
+  };
+
+  const handleResetCredential = (): void => {
+    setCredentialDraft(emptyCredentialDraft);
+  };
+
+  const handleSaveCredential = (): void => {
+    if (!selectedProfile) {
+      setNotice('请先选择浏览器环境');
+      return;
+    }
+    void run('保存密码项', async () => {
+      if (credentialDraft.id) {
+        await window.fingerBrowser.credentials.update({
+          id: credentialDraft.id,
+          title: credentialDraft.title,
+          websiteUrl: credentialDraft.websiteUrl,
+          username: credentialDraft.username,
+          password: credentialDraft.password || undefined
+        });
+      } else {
+        await window.fingerBrowser.credentials.create({
+          profileId: selectedProfile.id,
+          title: credentialDraft.title,
+          websiteUrl: credentialDraft.websiteUrl,
+          username: credentialDraft.username,
+          password: credentialDraft.password
+        });
+      }
+      await loadCredentials(selectedProfile.id, true);
+      await loadAudits(selectedProfile.id);
+      setCredentialDraft(emptyCredentialDraft);
+    });
+  };
+
+  const handleDeleteCredential = (credential: CredentialEntry): void => {
+    void run('删除密码项', async () => {
+      await window.fingerBrowser.credentials.delete(credential.id);
+      if (selectedProfile) {
+        await loadCredentials(selectedProfile.id, true);
+        await loadAudits(selectedProfile.id);
+      }
+      setCredentialDraft((current) => (current.id === credential.id ? emptyCredentialDraft : current));
+    });
+  };
+
+  const handleCopyUsername = (credential: CredentialEntry): void => {
+    void run('复制账号', async () => {
+      await window.fingerBrowser.credentials.copyUsername(credential.id);
+      if (selectedProfile) {
+        await loadCredentials(selectedProfile.id, true);
+        await loadAudits(selectedProfile.id);
+      }
+      return '账号已复制到剪贴板';
+    });
+  };
+
+  const handleCopyPassword = (credential: CredentialEntry): void => {
+    void run('复制密码', async () => {
+      await window.fingerBrowser.credentials.copyPassword(credential.id);
+      if (selectedProfile) {
+        await loadCredentials(selectedProfile.id, true);
+        await loadAudits(selectedProfile.id);
+      }
+      return '密码已复制到剪贴板';
     });
   };
 
@@ -572,6 +706,15 @@ export function App(): JSX.Element {
             onClick={() => setActiveTab('config')}
           >
             配置
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'credentials'}
+            className={activeTab === 'credentials' ? 'active' : ''}
+            onClick={() => setActiveTab('credentials')}
+          >
+            密码
           </button>
           <button
             type="button"
@@ -758,6 +901,142 @@ export function App(): JSX.Element {
               保存环境
             </button>
           </form>
+        ) : activeTab === 'credentials' ? (
+          <section className="credential-panel">
+            {license?.status !== 'active' && license?.status !== 'grace' ? (
+              <div className="credential-locked">
+                <LockKeyhole size={18} />
+                <div>
+                  <strong>密码库需要有效许可证</strong>
+                  <p>激活或恢复许可证后即可保存、搜索和复制当前环境的登录项。</p>
+                </div>
+                <button type="button" className="secondary-button" onClick={() => setActiveTab('license')}>
+                  <KeyRound size={16} />
+                  前往授权
+                </button>
+              </div>
+            ) : !selectedProfile ? (
+              <div className="empty-state">请选择环境后管理密码</div>
+            ) : (
+              <>
+                <section className="form-section">
+                  <div className="form-title">
+                    <LockKeyhole size={17} />
+                    {credentialDraft.id ? '编辑登录项' : '新增登录项'}
+                  </div>
+                  <label>
+                    名称
+                    <input
+                      aria-label="密码名称"
+                      value={credentialDraft.title}
+                      onChange={(event) => setCredentialDraft({ ...credentialDraft, title: event.target.value })}
+                      placeholder="后台、邮箱、CRM"
+                    />
+                  </label>
+                  <label>
+                    网站地址
+                    <input
+                      aria-label="网站地址"
+                      value={credentialDraft.websiteUrl}
+                      onChange={(event) => setCredentialDraft({ ...credentialDraft, websiteUrl: event.target.value })}
+                      placeholder="https://example.com/login"
+                    />
+                  </label>
+                  <label>
+                    用户名
+                    <input
+                      aria-label="登录用户名"
+                      value={credentialDraft.username}
+                      onChange={(event) => setCredentialDraft({ ...credentialDraft, username: event.target.value })}
+                    />
+                  </label>
+                  <label>
+                    密码
+                    <input
+                      aria-label="登录密码"
+                      type="password"
+                      value={credentialDraft.password}
+                      onChange={(event) => setCredentialDraft({ ...credentialDraft, password: event.target.value })}
+                      placeholder={credentialDraft.id ? '留空则不修改' : ''}
+                    />
+                  </label>
+                  <div className="ops-row">
+                    <button className="primary-button" type="button" onClick={handleSaveCredential} disabled={busy}>
+                      <Save size={16} />
+                      保存密码项
+                    </button>
+                    <button className="secondary-button" type="button" onClick={handleResetCredential} disabled={busy}>
+                      清空
+                    </button>
+                  </div>
+                </section>
+
+                <div className="search-row credential-search">
+                  <Search size={16} />
+                  <input
+                    aria-label="搜索密码"
+                    value={credentialQuery}
+                    onChange={(event) => setCredentialQuery(event.target.value)}
+                    placeholder="搜索名称、网站或用户名"
+                  />
+                </div>
+
+                <div className="credential-list" aria-label="密码列表">
+                  {filteredCredentials.map((credential) => (
+                    <article className="credential-row" key={credential.id}>
+                      <div className="credential-main">
+                        <strong>{credential.title}</strong>
+                        <span>{credential.websiteUrl || '未设置网站地址'}</span>
+                        <small>{credential.username || '未设置用户名'}</small>
+                      </div>
+                      <div className="credential-mask" aria-label="密码已隐藏">
+                        ••••••••
+                      </div>
+                      <div className="credential-actions">
+                        <button
+                          type="button"
+                          className="icon-button"
+                          onClick={() => handleCopyUsername(credential)}
+                          title="复制账号"
+                          aria-label={`复制账号 ${credential.title}`}
+                        >
+                          <Clipboard size={15} />
+                        </button>
+                        <button
+                          type="button"
+                          className="icon-button"
+                          onClick={() => handleCopyPassword(credential)}
+                          title="复制密码"
+                          aria-label={`复制密码 ${credential.title}`}
+                        >
+                          <KeyRound size={15} />
+                        </button>
+                        <button
+                          type="button"
+                          className="icon-button"
+                          onClick={() => handleEditCredential(credential)}
+                          title="编辑密码项"
+                          aria-label={`编辑密码项 ${credential.title}`}
+                        >
+                          <Edit3 size={15} />
+                        </button>
+                        <button
+                          type="button"
+                          className="icon-button"
+                          onClick={() => handleDeleteCredential(credential)}
+                          title="删除密码项"
+                          aria-label={`删除密码项 ${credential.title}`}
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
+                    </article>
+                  ))}
+                  {filteredCredentials.length === 0 ? <div className="empty-state">暂无密码项</div> : null}
+                </div>
+              </>
+            )}
+          </section>
         ) : activeTab === 'audit' ? (
           <section className="audit-list" id="audit">
             <div className="ops-row">

@@ -250,6 +250,8 @@ p {
 .search-row input,
 .detail-form input,
 .detail-form select,
+.credential-panel input,
+.credential-panel select,
 .license-panel input,
 .license-panel select {
   width: 100%;
@@ -389,7 +391,8 @@ p {
 }
 
 .detail-form,
-.audit-list {
+.audit-list,
+.credential-panel {
   display: grid;
   gap: 14px;
   overflow: auto;
@@ -415,7 +418,8 @@ p {
   font-weight: 780;
 }
 
-.detail-form label {
+.detail-form label,
+.credential-panel label {
   display: grid;
   gap: 6px;
   color: #6d726b;
@@ -425,6 +429,8 @@ p {
 
 .detail-form input,
 .detail-form select,
+.credential-panel input,
+.credential-panel select,
 .license-panel input,
 .license-panel select {
   height: 36px;
@@ -464,6 +470,101 @@ p {
 
 .audit-list {
   align-content: start;
+}
+
+.credential-panel {
+  align-content: start;
+}
+
+.credential-search {
+  margin: 0;
+}
+
+.credential-locked {
+  display: grid;
+  grid-template-columns: 24px 1fr auto;
+  gap: 12px;
+  align-items: center;
+  padding: 14px;
+  border: 1px solid #d9e0d8;
+  border-radius: 8px;
+  color: #46524a;
+  background: rgba(255, 255, 255, 0.66);
+}
+
+.credential-locked strong {
+  font-size: 14px;
+}
+
+.credential-locked p {
+  margin-top: 4px;
+  color: #73776f;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.credential-list {
+  display: grid;
+  gap: 10px;
+}
+
+.credential-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 72px 156px;
+  gap: 10px;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid #d9e0d8;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.66);
+}
+
+.credential-main {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.credential-main strong,
+.credential-main span,
+.credential-main small {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.credential-main strong {
+  color: #29312c;
+  font-size: 13px;
+}
+
+.credential-main span,
+.credential-main small {
+  color: #73776f;
+  font-size: 12px;
+}
+
+.credential-mask {
+  display: grid;
+  place-items: center;
+  height: 28px;
+  border-radius: 8px;
+  color: #73776f;
+  background: #edf1ec;
+  font-size: 12px;
+  letter-spacing: 0;
+}
+
+.credential-actions {
+  display: grid;
+  grid-template-columns: repeat(4, 32px);
+  gap: 6px;
+  justify-content: end;
+}
+
+.credential-actions .icon-button {
+  width: 32px;
+  min-height: 32px;
 }
 
 .audit-row {

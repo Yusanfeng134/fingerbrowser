@@ -33,6 +33,7 @@ export interface LicenseService {
   refresh(): Promise<LicenseState>;
   deactivate(): Promise<LicenseState>;
   assertCanCreateProfiles(currentProfiles: number, requestedProfiles: number): void;
+  assertCanUseCredentials(): void;
   redactedStatus(): Promise<RedactedLicenseState>;
 }
 
@@ -111,6 +112,16 @@ export function createLicenseService(options: LicenseServiceOptions): LicenseSer
       const nextCount = currentProfiles + requestedProfiles;
       if (nextCount > state.plan.profileLimit) {
         throw new Error(`当前套餐最多可创建 ${state.plan.profileLimit} 个环境`);
+      }
+    },
+    assertCanUseCredentials(): void {
+      const row = currentRow();
+      if (!row) {
+        throw new Error('请先激活许可证');
+      }
+      const state = rowToState(row);
+      if (state.status !== 'active' && state.status !== 'grace') {
+        throw new Error('许可证已过期，请联系销售续期');
       }
     },
     async redactedStatus(): Promise<RedactedLicenseState> {

@@ -2,8 +2,10 @@ import { contextBridge, ipcRenderer } from 'electron';
 import type {
   ActivateLicenseInput,
   AppApi,
+  CreateCredentialInput,
   CreateProfileInput,
   ProxyConnectionInput,
+  UpdateCredentialInput,
   UpdateProfileInput
 } from '../shared/types';
 
@@ -29,6 +31,18 @@ const api: AppApi = {
   },
   chromium: {
     ensureInstalled: () => ipcRenderer.invoke('chromium.ensureInstalled') as ReturnType<AppApi['chromium']['ensureInstalled']>
+  },
+  credentials: {
+    list: (profileId: string) => ipcRenderer.invoke('credentials.list', profileId) as ReturnType<AppApi['credentials']['list']>,
+    create: (input: CreateCredentialInput) =>
+      ipcRenderer.invoke('credentials.create', input) as ReturnType<AppApi['credentials']['create']>,
+    update: (input: UpdateCredentialInput) =>
+      ipcRenderer.invoke('credentials.update', input) as ReturnType<AppApi['credentials']['update']>,
+    delete: (id: string) => ipcRenderer.invoke('credentials.delete', id) as ReturnType<AppApi['credentials']['delete']>,
+    copyUsername: (id: string) =>
+      ipcRenderer.invoke('credentials.copyUsername', id) as ReturnType<AppApi['credentials']['copyUsername']>,
+    copyPassword: (id: string) =>
+      ipcRenderer.invoke('credentials.copyPassword', id) as ReturnType<AppApi['credentials']['copyPassword']>
   },
   license: {
     activate: (input: ActivateLicenseInput) =>

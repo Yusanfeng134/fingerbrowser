@@ -51,6 +51,20 @@ export function openApplicationDatabase(filePath: string): ApplicationDatabase {
       expires_at text not null,
       last_checked_at text not null
     );
+
+    create table if not exists profile_credentials (
+      id text primary key,
+      profile_id text not null,
+      title text not null,
+      website_url text not null,
+      username text not null,
+      encrypted_password text not null,
+      created_at text not null,
+      updated_at text not null,
+      last_copied_at text
+    );
+
+    create index if not exists idx_profile_credentials_profile_id on profile_credentials(profile_id);
   `);
   return db;
 }

@@ -20,6 +20,11 @@ export type AuditAction =
   | 'AUDIT_EXPORTED'
   | 'PROFILES_EXPORTED'
   | 'SUPPORT_LOGS_PACKAGED'
+  | 'CREDENTIAL_CREATED'
+  | 'CREDENTIAL_UPDATED'
+  | 'CREDENTIAL_DELETED'
+  | 'CREDENTIAL_USERNAME_COPIED'
+  | 'CREDENTIAL_PASSWORD_COPIED'
   | 'ERROR_RECORDED';
 
 export interface LicensePlan {
@@ -113,6 +118,39 @@ export interface AuditEvent {
   createdAt: string;
 }
 
+export interface CredentialEntry {
+  id: string;
+  profileId: string;
+  title: string;
+  websiteUrl: string;
+  username: string;
+  createdAt: string;
+  updatedAt: string;
+  lastCopiedAt: string | null;
+}
+
+export interface CreateCredentialInput {
+  profileId: string;
+  title: string;
+  websiteUrl: string;
+  username: string;
+  password: string;
+}
+
+export interface UpdateCredentialInput {
+  id: string;
+  title: string;
+  websiteUrl: string;
+  username: string;
+  password?: string;
+}
+
+export interface CredentialCopyResult {
+  id: string;
+  profileId: string;
+  copiedAt: string;
+}
+
 export interface CreateProxyInput {
   scheme: ProxyScheme;
   host: string;
@@ -191,6 +229,14 @@ export interface AppApi {
   };
   chromium: {
     ensureInstalled: () => Promise<ChromiumInstallResult>;
+  };
+  credentials: {
+    list: (profileId: string) => Promise<CredentialEntry[]>;
+    create: (input: CreateCredentialInput) => Promise<CredentialEntry>;
+    update: (input: UpdateCredentialInput) => Promise<CredentialEntry>;
+    delete: (id: string) => Promise<{ id: string }>;
+    copyUsername: (id: string) => Promise<CredentialCopyResult>;
+    copyPassword: (id: string) => Promise<CredentialCopyResult>;
   };
   license: {
     activate: (input: ActivateLicenseInput) => Promise<RedactedLicenseState>;

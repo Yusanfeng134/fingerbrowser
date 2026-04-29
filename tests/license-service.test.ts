@@ -92,4 +92,36 @@ describe('license service', () => {
 
     expect(state.status).toBe('inactive');
   });
+
+  it('allows credential features only when the license is active or in grace', async () => {
+    const { licenseService } = createHarness();
+    const activationCode = createManualActivationCode({
+      signingSecret,
+      planId: 'trial',
+      teamName: '试卖团队',
+      issuedAt: new Date('2026-04-29T08:00:00.000Z'),
+      expiresAt: new Date('2026-04-28T08:00:00.000Z')
+    });
+
+    expect(() => licenseService.assertCanUseCredentials()).toThrow('请先激活许可证');
+    await licenseService.activate({ activationCode });
+
+    expect(() => licenseService.assertCanUseCredentials()).not.toThrow();
+    await licenseService.deactivate();
+    expect(() => licenseService.assertCanUseCredentials()).toThrow('请先激活许可证');
+  });
+
+  it('blocks credential features when the cached license is expired', async () => {
+    const { licenseService } = createHarness();
+    const activationCode = createManualActivationCode({
+      signingSecret,
+      planId: 'trial',
+      teamName: '试卖团队',
+      issuedAt: new Date('2026-04-20T08:00:00.000Z'),
+      expiresAt: new Date('2026-04-26T08:00:00.000Z')
+    });
+    await licenseService.activate({ activationCode });
+
+    expect(() => licenseService.assertCanUseCredentials()).toThrow('许可证已过期，请联系销售续期');
+  });
 });
