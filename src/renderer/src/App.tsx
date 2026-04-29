@@ -40,7 +40,6 @@ import type {
   FeedbackSeverity,
   CreateProfileInput,
   FingerprintPolicy,
-  ListCredentialsInput,
   OnboardingStatus,
   ProfileDetails,
   ProxyScheme,
@@ -50,6 +49,13 @@ import type {
   UpdateProfileInput,
   UsageSummary
 } from '../../shared/types';
+import {
+  buildCredentialVaultMenu,
+  filterCredentialVaultItems,
+  getCredentialVaultListInput,
+  sortRecentlyCopiedCredentials
+} from './credential-vault';
+import type { CredentialVaultMenuId } from './credential-vault';
 
 interface DraftState {
   id: string | null;
@@ -76,7 +82,7 @@ interface CredentialDraftState {
 
 type ActiveTab = 'config' | 'credentials' | 'audit' | 'license' | 'trial';
 type WorkspaceView = 'profiles' | 'vault';
-type CredentialBindingFilter = 'all' | 'unbound' | 'bound' | 'profile';
+type VaultEditorMode = 'view' | 'edit' | 'new';
 
 interface FeedbackDraftState {
   issueType: FeedbackIssueType;
@@ -245,11 +251,13 @@ export function App(): JSX.Element {
   const [credentials, setCredentials] = useState<CredentialEntry[]>([]);
   const [credentialDraft, setCredentialDraft] = useState<CredentialDraftState>(emptyCredentialDraft);
   const [credentialQuery, setCredentialQuery] = useState('');
+  const [vaultAllCredentials, setVaultAllCredentials] = useState<CredentialEntry[]>([]);
   const [vaultCredentials, setVaultCredentials] = useState<CredentialEntry[]>([]);
   const [vaultDraft, setVaultDraft] = useState<CredentialDraftState>(emptyCredentialDraft);
   const [vaultQuery, setVaultQuery] = useState('');
-  const [vaultBindingFilter, setVaultBindingFilter] = useState<CredentialBindingFilter>('all');
-  const [vaultProfileFilter, setVaultProfileFilter] = useState('');
+  const [vaultMenuId, setVaultMenuId] = useState<CredentialVaultMenuId>('all');
+  const [selectedVaultCredentialId, setSelectedVaultCredentialId] = useState<string | null>(null);
+  const [vaultEditorMode, setVaultEditorMode] = useState<VaultEditorMode>('view');
   const [appVersion, setAppVersion] = useState<AppVersionInfo | null>(null);
   const [releaseCheck, setReleaseCheck] = useState<ReleaseCheckResult | null>(null);
   const [onboarding, setOnboarding] = useState<OnboardingStatus | null>(null);
@@ -310,18 +318,25 @@ export function App(): JSX.Element {
     );
   }, [credentialQuery, credentials]);
 
-  const filteredVaultCredentials = useMemo(() => {
-    const keyword = vaultQuery.trim().toLowerCase();
-    if (!keyword) {
-      return vaultCredentials;
-    }
-    return vaultCredentials.filter((credential) =>
-      [credential.title, credential.websiteUrl, credential.username, credential.profileName ?? '']
-        .join(' ')
-        .toLowerCase()
-        .includes(keyword)
-    );
-  }, [vaultCredentials, vaultQuery]);
+  const vaultMenuItems = useMemo(
+    () => buildCredentialVaultMenu(vaultAllCredentials, profiles),
+    [profiles, vaultAllCredentials]
+  );
+
+  const activeVaultMenuItem = useMemo(
+    () => vaultMenuItems.find((item) => item.id === vaultMenuId) ?? vaultMenuItems[0] ?? null,
+    [vaultMenuId, vaultMenuItems]
+  );
+
+  const filteredVaultCredentials = useMemo(
+    () => filterCredentialVaultItems(vaultCredentials, vaultQuery),
+    [vaultCredentials, vaultQuery]
+  );
+
+  const selectedVaultCredential = useMemo(
+    () => vaultCredentials.find((credential) => credential.id === selectedVaultCredentialId) ?? null,
+    [selectedVaultCredentialId, vaultCredentials]
+  );
 
   const onboardingPercent = useMemo(() => {
     if (!onboarding || onboarding.totalCount === 0) {
@@ -354,22 +369,27 @@ export function App(): JSX.Element {
 
   const loadVaultCredentials = useCallback(async () => {
     if (!passwordVaultEnabled) {
+      setVaultAllCredentials([]);
       setVaultCredentials([]);
+      setSelectedVaultCredentialId(null);
       return;
     }
-    const input: ListCredentialsInput = {};
-    if (vaultBindingFilter === 'profile') {
-      if (vaultProfileFilter) {
-        input.profileId = vaultProfileFilter;
-      } else {
-        input.binding = 'bound';
-      }
-    } else if (vaultBindingFilter !== 'all') {
-      input.binding = vaultBindingFilter;
-    }
-    const nextCredentials = await window.fingerBrowser.credentials.list(input);
+    const allCredentials = await window.fingerBrowser.credentials.list({});
+    const nextCredentials =
+      vaultMenuId === 'recent'
+        ? sortRecentlyCopiedCredentials(allCredentials)
+        : vaultMenuId === 'all'
+          ? allCredentials
+          : await window.fingerBrowser.credentials.list(getCredentialVaultListInput(vaultMenuId));
+    setVaultAllCredentials(allCredentials);
     setVaultCredentials(nextCredentials);
-  }, [passwordVaultEnabled, vaultBindingFilter, vaultProfileFilter]);
+    setSelectedVaultCredentialId((current) => {
+      if (current && nextCredentials.some((credential) => credential.id === current)) {
+        return current;
+      }
+      return nextCredentials[0]?.id ?? null;
+    });
+  }, [passwordVaultEnabled, vaultMenuId]);
 
   const loadCommercialState = useCallback(async () => {
     const [nextLicense, nextUsage] = await Promise.all([
@@ -438,10 +458,18 @@ export function App(): JSX.Element {
     setWorkspaceView('profiles');
   };
 
-  const handleOpenVault = (): void => {
+  const handleOpenVault = (menuId: CredentialVaultMenuId = 'all'): void => {
     setWorkspaceView('vault');
+    setVaultMenuId(menuId);
     setVaultDraft(emptyCredentialDraft);
-    void loadVaultCredentials().catch((error) => setNotice(error instanceof Error ? error.message : '加载全局密码库失败'));
+    setVaultEditorMode('view');
+  };
+
+  const handleSelectVaultMenu = (menuId: CredentialVaultMenuId): void => {
+    setVaultMenuId(menuId);
+    setVaultQuery('');
+    setVaultEditorMode('view');
+    setVaultDraft(emptyCredentialDraft);
   };
 
   const handleNewProfile = (): void => {
@@ -641,6 +669,8 @@ export function App(): JSX.Element {
   };
 
   const handleEditVaultCredential = (credential: CredentialEntry): void => {
+    setSelectedVaultCredentialId(credential.id);
+    setVaultEditorMode('edit');
     setVaultDraft({
       id: credential.id,
       profileId: credential.profileId,
@@ -652,12 +682,25 @@ export function App(): JSX.Element {
   };
 
   const handleNewVaultCredential = (): void => {
-    setVaultDraft(emptyCredentialDraft);
+    setVaultDraft({
+      ...emptyCredentialDraft,
+      profileId: vaultMenuId.startsWith('profile:') ? vaultMenuId.replace('profile:', '') : null
+    });
+    setSelectedVaultCredentialId(null);
+    setVaultEditorMode('new');
     setNotice('正在新增全局密码项');
+  };
+
+  const handleOpenSelectedProfileVault = (): void => {
+    if (!selectedProfile) {
+      return;
+    }
+    handleOpenVault(`profile:${selectedProfile.id}`);
   };
 
   const handleResetVaultCredential = (): void => {
     setVaultDraft(emptyCredentialDraft);
+    setVaultEditorMode('view');
   };
 
   const refreshCredentialViews = useCallback(async () => {
@@ -679,8 +722,9 @@ export function App(): JSX.Element {
       return;
     }
     void run('保存密码项', async () => {
+      let saved: CredentialEntry;
       if (vaultDraft.id) {
-        await window.fingerBrowser.credentials.update({
+        saved = await window.fingerBrowser.credentials.update({
           id: vaultDraft.id,
           profileId: vaultDraft.profileId,
           title: vaultDraft.title,
@@ -689,7 +733,7 @@ export function App(): JSX.Element {
           password: vaultDraft.password || undefined
         });
       } else {
-        await window.fingerBrowser.credentials.create({
+        saved = await window.fingerBrowser.credentials.create({
           profileId: vaultDraft.profileId,
           title: vaultDraft.title,
           websiteUrl: vaultDraft.websiteUrl,
@@ -698,6 +742,8 @@ export function App(): JSX.Element {
         });
       }
       await refreshCredentialViews();
+      setSelectedVaultCredentialId(saved.id);
+      setVaultEditorMode('view');
       setVaultDraft(emptyCredentialDraft);
     });
   };
@@ -708,6 +754,8 @@ export function App(): JSX.Element {
       await refreshCredentialViews();
       setCredentialDraft((current) => (current.id === credential.id ? emptyCredentialDraft : current));
       setVaultDraft((current) => (current.id === credential.id ? emptyCredentialDraft : current));
+      setSelectedVaultCredentialId((current) => (current === credential.id ? null : current));
+      setVaultEditorMode((current) => (selectedVaultCredentialId === credential.id ? 'view' : current));
     });
   };
 
@@ -986,7 +1034,7 @@ export function App(): JSX.Element {
           <header className="topbar">
             <div>
               <p className="section-kicker">全局资产</p>
-              <h2>密码库</h2>
+              <h2>{activeVaultMenuItem?.label ?? '密码库'}</h2>
             </div>
             <button className="primary-button" type="button" onClick={handleNewVaultCredential}>
               <LockKeyhole size={17} />
@@ -1014,113 +1062,88 @@ export function App(): JSX.Element {
               </button>
             </div>
           ) : (
-            <>
-              <div className="search-row">
-                <Search size={16} />
-                <input
-                  aria-label="搜索全局密码"
-                  value={vaultQuery}
-                  onChange={(event) => setVaultQuery(event.target.value)}
-                  placeholder="搜索名称、网站、用户名或绑定环境"
-                />
-              </div>
+            <div className="vault-layout">
+              <nav className="vault-menu" aria-label="密码库菜单">
+                <div className="vault-menu-section">
+                  {vaultMenuItems
+                    .filter((item) => item.kind === 'system')
+                    .map((item) => (
+                      <button
+                        type="button"
+                        className={item.id === vaultMenuId ? 'active' : ''}
+                        onClick={() => handleSelectVaultMenu(item.id)}
+                        key={item.id}
+                      >
+                        {item.id === 'recent' ? <Clock3 size={15} /> : <LockKeyhole size={15} />}
+                        <span>{item.label}</span>
+                        <strong>{item.count}</strong>
+                      </button>
+                    ))}
+                </div>
+                <div className="vault-menu-section">
+                  <p>按环境</p>
+                  {vaultMenuItems
+                    .filter((item) => item.kind === 'profile')
+                    .map((item) => (
+                      <button
+                        type="button"
+                        className={item.id === vaultMenuId ? 'active' : ''}
+                        onClick={() => handleSelectVaultMenu(item.id)}
+                        key={item.id}
+                      >
+                        <Globe2 size={15} />
+                        <span>{item.label}</span>
+                        <strong>{item.count}</strong>
+                      </button>
+                    ))}
+                  {profiles.length === 0 ? <div className="vault-menu-empty">暂无环境</div> : null}
+                </div>
+              </nav>
 
-              <div className="vault-filter-row">
-                <select
-                  aria-label="密码绑定筛选"
-                  value={vaultBindingFilter === 'profile' ? `profile:${vaultProfileFilter}` : vaultBindingFilter}
-                  onChange={(event) => {
-                    const value = event.target.value;
-                    if (value.startsWith('profile:')) {
-                      setVaultBindingFilter('profile');
-                      setVaultProfileFilter(value.replace('profile:', ''));
-                    } else {
-                      setVaultBindingFilter(value as CredentialBindingFilter);
-                      setVaultProfileFilter('');
-                    }
-                  }}
-                >
-                  <option value="all">全部</option>
-                  <option value="unbound">未绑定</option>
-                  <option value="bound">已绑定</option>
-                  {profiles.map((profile) => (
-                    <option value={`profile:${profile.id}`} key={profile.id}>
-                      指定环境：{profile.name}
-                    </option>
+              <div className="vault-list-pane">
+                <div className="vault-list-header">
+                  <div>
+                    <p>{activeVaultMenuItem?.kind === 'profile' ? '环境密码' : '密码分组'}</p>
+                    <strong>{activeVaultMenuItem?.label ?? '全部密码'}</strong>
+                  </div>
+                  <span>{filteredVaultCredentials.length} 项</span>
+                </div>
+
+                <div className="search-row vault-search">
+                  <Search size={16} />
+                  <input
+                    aria-label="搜索全局密码"
+                    value={vaultQuery}
+                    onChange={(event) => setVaultQuery(event.target.value)}
+                    placeholder="搜索名称、网站、用户名或绑定环境"
+                  />
+                </div>
+
+                <div className="vault-credential-list" aria-label="全局密码列表">
+                  {filteredVaultCredentials.map((credential) => (
+                    <button
+                      className={`vault-list-row ${credential.id === selectedVaultCredentialId ? 'selected' : ''}`}
+                      key={credential.id}
+                      onClick={() => {
+                        setSelectedVaultCredentialId(credential.id);
+                        setVaultEditorMode('view');
+                      }}
+                      type="button"
+                    >
+                      <span className="credential-main">
+                        <strong>{credential.title}</strong>
+                        <span>{credential.websiteUrl || '未设置网站地址'}</span>
+                        <small>{credential.username || '未设置用户名'}</small>
+                      </span>
+                      <span className={`binding-pill ${credential.profileId ? 'bound' : 'unbound'}`}>
+                        {credential.profileId ? credential.profileName ?? '环境已不存在' : '未绑定环境'}
+                      </span>
+                    </button>
                   ))}
-                </select>
-                <span>
-                  共 {filteredVaultCredentials.length} 项
-                  {vaultBindingFilter === 'profile' && vaultProfileFilter
-                    ? ` · ${profiles.find((profile) => profile.id === vaultProfileFilter)?.name ?? '指定环境'}`
-                    : ''}
-                </span>
+                  {filteredVaultCredentials.length === 0 ? <div className="empty-state">暂无密码项</div> : null}
+                </div>
               </div>
-
-              <div className="table-header vault-table-header">
-                <span>登录项</span>
-                <span>绑定</span>
-                <span>密码</span>
-                <span>操作</span>
-              </div>
-
-              <div className="credential-list vault-credential-list" aria-label="全局密码列表">
-                {filteredVaultCredentials.map((credential) => (
-                  <article className="credential-row vault-credential-row" key={credential.id}>
-                    <div className="credential-main">
-                      <strong>{credential.title}</strong>
-                      <span>{credential.websiteUrl || '未设置网站地址'}</span>
-                      <small>{credential.username || '未设置用户名'}</small>
-                    </div>
-                    <span className={`binding-pill ${credential.profileId ? 'bound' : 'unbound'}`}>
-                      {credential.profileId ? credential.profileName ?? '环境已不存在' : '未绑定环境'}
-                    </span>
-                    <div className="credential-mask" aria-label="密码已隐藏">
-                      ••••••••
-                    </div>
-                    <div className="credential-actions">
-                      <button
-                        type="button"
-                        className="icon-button"
-                        onClick={() => handleCopyUsername(credential)}
-                        title="复制账号"
-                        aria-label={`复制账号 ${credential.title}`}
-                      >
-                        <Clipboard size={15} />
-                      </button>
-                      <button
-                        type="button"
-                        className="icon-button"
-                        onClick={() => handleCopyPassword(credential)}
-                        title="复制密码"
-                        aria-label={`复制密码 ${credential.title}`}
-                      >
-                        <KeyRound size={15} />
-                      </button>
-                      <button
-                        type="button"
-                        className="icon-button"
-                        onClick={() => handleEditVaultCredential(credential)}
-                        title="编辑密码项"
-                        aria-label={`编辑密码项 ${credential.title}`}
-                      >
-                        <Edit3 size={15} />
-                      </button>
-                      <button
-                        type="button"
-                        className="icon-button"
-                        onClick={() => handleDeleteCredential(credential)}
-                        title="删除密码项"
-                        aria-label={`删除密码项 ${credential.title}`}
-                      >
-                        <Trash2 size={15} />
-                      </button>
-                    </div>
-                  </article>
-                ))}
-                {filteredVaultCredentials.length === 0 ? <div className="empty-state">暂无密码项</div> : null}
-              </div>
-            </>
+            </div>
           )}
         </section>
       )}
@@ -1154,7 +1177,7 @@ export function App(): JSX.Element {
                   前往授权
                 </button>
               </div>
-            ) : (
+            ) : vaultEditorMode === 'new' || vaultEditorMode === 'edit' ? (
               <form className="credential-panel vault-editor" onSubmit={(event) => event.preventDefault()}>
                 <section className="form-section">
                   <div className="form-title">
@@ -1223,6 +1246,84 @@ export function App(): JSX.Element {
                   </div>
                 </section>
               </form>
+            ) : selectedVaultCredential ? (
+              <section className="vault-detail-panel">
+                <div className="vault-detail-card">
+                  <div className="vault-detail-title">
+                    <div>
+                      <p className="section-kicker">登录项详情</p>
+                      <h3>{selectedVaultCredential.title}</h3>
+                    </div>
+                    <span className={`binding-pill ${selectedVaultCredential.profileId ? 'bound' : 'unbound'}`}>
+                      {selectedVaultCredential.profileId ? selectedVaultCredential.profileName ?? '环境已不存在' : '未绑定环境'}
+                    </span>
+                  </div>
+
+                  <div className="vault-detail-grid">
+                    <span>网站地址</span>
+                    <strong>{selectedVaultCredential.websiteUrl || '未设置网站地址'}</strong>
+                    <span>用户名</span>
+                    <strong>{selectedVaultCredential.username || '未设置用户名'}</strong>
+                    <span>密码</span>
+                    <strong aria-label="密码已隐藏">••••••••</strong>
+                    <span>最近复制</span>
+                    <strong>{selectedVaultCredential.lastCopiedAt ? formatDate(selectedVaultCredential.lastCopiedAt) : '尚未复制'}</strong>
+                  </div>
+
+                  <div className="ops-row">
+                    <button
+                      type="button"
+                      className="secondary-button"
+                      onClick={() => handleCopyUsername(selectedVaultCredential)}
+                      disabled={busy}
+                      aria-label={`复制账号 ${selectedVaultCredential.title}`}
+                    >
+                      <Clipboard size={16} />
+                      复制账号
+                    </button>
+                    <button
+                      type="button"
+                      className="secondary-button"
+                      onClick={() => handleCopyPassword(selectedVaultCredential)}
+                      disabled={busy}
+                      aria-label={`复制密码 ${selectedVaultCredential.title}`}
+                    >
+                      <KeyRound size={16} />
+                      复制密码
+                    </button>
+                  </div>
+                  <div className="ops-row">
+                    <button
+                      type="button"
+                      className="primary-button"
+                      onClick={() => handleEditVaultCredential(selectedVaultCredential)}
+                      disabled={busy}
+                      aria-label={`编辑密码项 ${selectedVaultCredential.title}`}
+                    >
+                      <Edit3 size={16} />
+                      编辑
+                    </button>
+                    <button
+                      type="button"
+                      className="secondary-button"
+                      onClick={() => handleDeleteCredential(selectedVaultCredential)}
+                      disabled={busy}
+                      aria-label={`删除密码项 ${selectedVaultCredential.title}`}
+                    >
+                      <Trash2 size={16} />
+                      删除
+                    </button>
+                  </div>
+                </div>
+              </section>
+            ) : (
+              <section className="vault-detail-panel">
+                <div className="empty-state">请选择密码项或新增密码</div>
+                <button className="primary-button wide" type="button" onClick={handleNewVaultCredential} disabled={busy}>
+                  <LockKeyhole size={16} />
+                  新增密码
+                </button>
+              </section>
             )}
 
             <footer className="notice-bar" aria-live="polite">
@@ -1534,6 +1635,11 @@ export function App(): JSX.Element {
                     </button>
                   </div>
                 </section>
+
+                <button className="secondary-button wide" type="button" onClick={handleOpenSelectedProfileVault} disabled={busy}>
+                  <LockKeyhole size={16} />
+                  打开密码库
+                </button>
 
                 <div className="search-row credential-search">
                   <Search size={16} />
