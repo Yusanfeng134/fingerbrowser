@@ -4,6 +4,7 @@ import type {
   AppVersionInfo,
   AuditEvent,
   FeedbackPackageInput,
+  KernelRuntimeStatus,
   LicenseState,
   OnboardingItem,
   OnboardingStatus,
@@ -57,6 +58,7 @@ interface FeedbackPackageOptions {
   profiles: ProfileDetails[];
   audits: AuditEvent[];
   metrics: TrialMetrics;
+  kernel?: KernelRuntimeStatus;
 }
 
 export interface TrialService {
@@ -158,14 +160,29 @@ export function createTrialService(options: CreateTrialServiceOptions): TrialSer
         status: profile.status,
         tagCount: profile.tags.length,
         hasProxy: Boolean(profile.proxy),
-        chromiumVersion: profile.chromiumVersion
+        chromiumVersion: profile.chromiumVersion,
+        runtimeChannel: profile.runtimeChannel
       }));
+      const kernelSummary = feedbackOptions.kernel
+        ? {
+            runtimeChannel: 'custom-kernel',
+            kernelVersion: feedbackOptions.kernel.manifest.version,
+            baseChromiumRevision: feedbackOptions.kernel.manifest.baseChromiumRevision,
+            patchsetVersion: feedbackOptions.kernel.manifest.patchsetVersion,
+            installed: feedbackOptions.kernel.installed,
+            source: feedbackOptions.kernel.source,
+            policySchemaVersion: feedbackOptions.kernel.manifest.policySchemaVersion
+          }
+        : {
+            runtimeChannel: 'official'
+          };
       const payload = redactObject({
         generatedAt: timestamp(),
         version: options.version,
         feedback: feedbackOptions.input,
         license: feedbackOptions.license,
         metrics: feedbackOptions.metrics,
+        kernel: kernelSummary,
         diagnostics: feedbackOptions.input.includeDiagnostics
           ? {
               profileCount: feedbackOptions.profiles.length,

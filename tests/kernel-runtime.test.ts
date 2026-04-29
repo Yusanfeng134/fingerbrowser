@@ -4,6 +4,7 @@ import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
 import { buildChromiumLaunchPlan } from '../src/main/domain/chromium';
+import { createAppSettingsService } from '../src/main/domain/app-settings-service';
 import {
   KERNEL_POLICY_SCHEMA_VERSION,
   buildKernelPolicyDocument,
@@ -12,6 +13,7 @@ import {
   validateKernelRuntimeManifest,
   verifyKernelArtifact
 } from '../src/main/domain/kernel-runtime';
+import { openApplicationDatabase } from '../src/main/infrastructure/database';
 import type { BrowserProfile, KernelRuntimeManifest } from '../src/shared/types';
 
 const tempDirs: string[] = [];
@@ -147,5 +149,42 @@ describe('kernel runtime domain', () => {
 
     expect(loadKernelRuntimeManifestFile(manifestPath)).toEqual(manifest);
     expect(() => loadKernelRuntimeManifestFile(path.join(dir, 'missing.json'))).toThrow('自研内核 manifest 不存在');
+  });
+
+  it('persists an imported custom kernel manifest and reloads it after service restart', () => {
+    const dir = createTempDir();
+    const db = openApplicationDatabase(path.join(dir, 'fingerbrowser.sqlite'));
+    const settings = createAppSettingsService({ db });
+    const manifestPath = path.join(dir, 'fingerbrowser-kernel.manifest.json');
+    const manifest: KernelRuntimeManifest = {
+      version: '0.3.0',
+      baseChromiumRevision: 'chromium-fixed-revision',
+      patchsetVersion: '2026.05.06.1',
+      platform: 'darwin',
+      arch: 'arm64',
+      artifactUrl: 'file:///tmp/fingerbrowser-kernel-v0.3.0-mac-arm64.zip',
+      sha256: '3333333333333333333333333333333333333333333333333333333333333333',
+      executableRelativePath: 'FingerBrowser Kernel.app/Contents/MacOS/Chromium',
+      policySchemaVersion: KERNEL_POLICY_SCHEMA_VERSION
+    };
+    writeFileSync(manifestPath, JSON.stringify(manifest));
+
+    const manager = createKernelRuntimeManager({ dataDir: dir, settings });
+    const importedStatus = manager.importManifest(manifestPath);
+    const reloadedManager = createKernelRuntimeManager({ dataDir: dir, settings });
+
+    expect(importedStatus.manifest.version).toBe('0.3.0');
+    expect(importedStatus.source).toBe('imported');
+    expect(importedStatus.manifestPath).toBe(manifestPath);
+    expect(importedStatus.importedAt).toEqual(expect.any(String));
+    expect(reloadedManager.status()).toMatchObject({
+      source: 'imported',
+      manifestPath,
+      manifest: { version: '0.3.0' }
+    });
+
+    const cleared = reloadedManager.clearManifest();
+    expect(cleared.source).toBe('default');
+    expect(createKernelRuntimeManager({ dataDir: dir, settings }).status().source).toBe('default');
   });
 });

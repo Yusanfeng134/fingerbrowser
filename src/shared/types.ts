@@ -7,6 +7,7 @@ export type RuntimeChannel = 'official' | 'custom-kernel';
 export type LicensePlanId = 'trial' | 'pro' | 'team';
 export type LicenseStatus = 'inactive' | 'active' | 'grace' | 'expired';
 export type ReleaseStatus = 'up-to-date' | 'update-available' | 'unavailable' | 'error';
+export type KernelManifestSource = 'default' | 'environment' | 'imported';
 export type FeedbackIssueType = 'bug' | 'setup' | 'feature' | 'other';
 export type FeedbackSeverity = 'low' | 'medium' | 'high';
 export type TrialMetricKey =
@@ -26,6 +27,8 @@ export type AuditAction =
   | 'PROXY_TESTED'
   | 'CHROMIUM_INSTALLED'
   | 'KERNEL_INSTALLED'
+  | 'KERNEL_MANIFEST_IMPORTED'
+  | 'KERNEL_MANIFEST_CLEARED'
   | 'KERNEL_POLICY_APPLIED'
   | 'KERNEL_LAUNCHED'
   | 'LICENSE_ACTIVATED'
@@ -240,11 +243,20 @@ export interface KernelRuntimeStatus {
   manifest: KernelRuntimeManifest;
   installed: boolean;
   executablePath: string;
+  runtimeRoot: string;
+  source: KernelManifestSource;
+  manifestPath: string | null;
+  importedAt: string | null;
+  lastError?: string;
 }
 
 export interface KernelInstallResult extends KernelRuntimeStatus {
   installed: true;
   alreadyInstalled: boolean;
+}
+
+export interface KernelOpenRuntimeFolderResult {
+  folderPath: string;
 }
 
 export interface FeedbackPackageInput {
@@ -342,6 +354,9 @@ export interface AppApi {
     manifest: () => Promise<KernelRuntimeManifest>;
     status: () => Promise<KernelRuntimeStatus>;
     ensureInstalled: () => Promise<KernelInstallResult>;
+    importManifest: (manifestPath?: string) => Promise<KernelRuntimeStatus>;
+    clearManifest: () => Promise<KernelRuntimeStatus>;
+    openRuntimeFolder: () => Promise<KernelOpenRuntimeFolderResult>;
   };
   app: {
     version: () => Promise<AppVersionInfo>;

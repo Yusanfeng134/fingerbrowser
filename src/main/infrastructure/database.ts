@@ -97,6 +97,12 @@ export function openApplicationDatabase(filePath: string): ApplicationDatabase {
       id integer primary key check (id = 1),
       dismissed_at text
     );
+
+    create table if not exists app_settings (
+      key text primary key,
+      value_json text not null,
+      updated_at text not null
+    );
   `);
   const profileColumns = db.pragma('table_info(profiles)') as Array<{ name: string }>;
   if (!profileColumns.some((column) => column.name === 'runtime_channel')) {

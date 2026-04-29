@@ -7,10 +7,12 @@ import type {
   BrowserProfile,
   FingerprintPolicy,
   KernelInstallResult,
+  KernelManifestSource,
   KernelRuntimeManifest,
   KernelRuntimeStatus,
   RuntimeChannel
 } from '../../shared/types';
+import type { AppSettingsService } from './app-settings-service';
 
 export const KERNEL_POLICY_SCHEMA_VERSION = 1;
 export const KERNEL_POLICY_FILE_NAME = 'fingerbrowser_policy.json';
@@ -26,11 +28,13 @@ export interface KernelRuntimeManager {
   manifest(): KernelRuntimeManifest;
   status(): KernelRuntimeStatus;
   ensureInstalled(): Promise<KernelInstallResult>;
+  importManifest(manifestPath: string): KernelRuntimeStatus;
+  clearManifest(): KernelRuntimeStatus;
 }
 
 export const DEFAULT_KERNEL_RUNTIME_MANIFEST: KernelRuntimeManifest = {
   version: '0.1.0',
-  baseChromiumRevision: 'stable',
+  baseChromiumRevision: 'refs/tags/124.0.6367.207',
   patchsetVersion: '2026.04.29.1',
   platform: 'darwin',
   arch: 'arm64',
@@ -104,27 +108,100 @@ export function verifyKernelArtifact(
   return { sha256, verified: true };
 }
 
+export function resolveKernelRuntimeRoot(dataDir: string, manifest: KernelRuntimeManifest): string {
+  return path.join(dataDir, 'kernel-runtime', manifest.version);
+}
+
 export function resolveKernelExecutablePath(dataDir: string, manifest: KernelRuntimeManifest): string {
-  return path.join(dataDir, 'kernel-runtime', manifest.version, manifest.executableRelativePath);
+  return path.join(resolveKernelRuntimeRoot(dataDir, manifest), manifest.executableRelativePath);
 }
 
 export function createKernelRuntimeManager(options: {
   dataDir: string;
   manifest?: KernelRuntimeManifest;
+  environmentManifestPath?: string;
+  settings?: AppSettingsService;
 }): KernelRuntimeManager {
-  const manifest = validateKernelRuntimeManifest(options.manifest ?? DEFAULT_KERNEL_RUNTIME_MANIFEST);
+  interface KernelRuntimeState {
+    manifest: KernelRuntimeManifest;
+    source: KernelManifestSource;
+    manifestPath: string | null;
+    importedAt: string | null;
+    lastError?: string;
+  }
+
+  const defaultManifest = validateKernelRuntimeManifest(options.manifest ?? DEFAULT_KERNEL_RUNTIME_MANIFEST);
+
+  function defaultState(lastError?: string): KernelRuntimeState {
+    return {
+      manifest: defaultManifest,
+      source: 'default',
+      manifestPath: null,
+      importedAt: null,
+      ...(lastError ? { lastError } : {})
+    };
+  }
+
+  function environmentState(): KernelRuntimeState | null {
+    if (!options.environmentManifestPath) {
+      return null;
+    }
+    try {
+      return {
+        manifest: loadKernelRuntimeManifestFile(options.environmentManifestPath),
+        source: 'environment',
+        manifestPath: options.environmentManifestPath,
+        importedAt: null
+      };
+    } catch (error) {
+      return defaultState(error instanceof Error ? error.message : '自研内核环境变量 manifest 加载失败');
+    }
+  }
+
+  function importedState(): KernelRuntimeState | null {
+    const manifestPath = options.settings?.get('kernelManifestPath') ?? null;
+    if (!manifestPath) {
+      return null;
+    }
+    const importedAt = options.settings?.get('kernelManifestImportedAt') ?? null;
+    try {
+      return {
+        manifest: loadKernelRuntimeManifestFile(manifestPath),
+        source: 'imported',
+        manifestPath,
+        importedAt
+      };
+    } catch (error) {
+      return {
+        ...defaultState(error instanceof Error ? error.message : '自研内核 manifest 加载失败'),
+        manifestPath,
+        importedAt
+      };
+    }
+  }
+
+  function loadState(): KernelRuntimeState {
+    return importedState() ?? environmentState() ?? defaultState();
+  }
+
+  let state = loadState();
 
   function status(): KernelRuntimeStatus {
-    const executablePath = resolveKernelExecutablePath(options.dataDir, manifest);
+    const executablePath = resolveKernelExecutablePath(options.dataDir, state.manifest);
     return {
-      manifest,
+      manifest: state.manifest,
       installed: existsSync(executablePath),
-      executablePath
+      executablePath,
+      runtimeRoot: resolveKernelRuntimeRoot(options.dataDir, state.manifest),
+      source: state.source,
+      manifestPath: state.manifestPath,
+      importedAt: state.importedAt,
+      ...(state.lastError ? { lastError: state.lastError } : {})
     };
   }
 
   return {
-    manifest: () => manifest,
+    manifest: () => state.manifest,
     status,
     async ensureInstalled(): Promise<KernelInstallResult> {
       const current = status();
@@ -135,11 +212,11 @@ export function createKernelRuntimeManager(options: {
           alreadyInstalled: true
         };
       }
-      if (manifest.artifactUrl.startsWith('file://')) {
-        const artifactPath = fileURLToPath(manifest.artifactUrl);
-        verifyKernelArtifact(manifest, artifactPath);
+      if (current.manifest.artifactUrl.startsWith('file://')) {
+        const artifactPath = fileURLToPath(current.manifest.artifactUrl);
+        verifyKernelArtifact(current.manifest, artifactPath);
         mkdirSync(path.dirname(current.executablePath), { recursive: true });
-        execFileSync('ditto', ['-x', '-k', artifactPath, path.join(options.dataDir, 'kernel-runtime', manifest.version)]);
+        execFileSync('ditto', ['-x', '-k', artifactPath, current.runtimeRoot]);
         const installed = status();
         if (!installed.installed) {
           throw new Error('自研内核安装包缺少可执行文件');
@@ -150,8 +227,27 @@ export function createKernelRuntimeManager(options: {
           alreadyInstalled: false
         };
       } else {
-        throw new Error(`自研内核未安装：请将 ${manifest.artifactUrl} 解压到 ${path.dirname(current.executablePath)} 后重试`);
+        throw new Error(`自研内核未安装：请将 ${current.manifest.artifactUrl} 解压到 ${path.dirname(current.executablePath)} 后重试`);
       }
+    },
+    importManifest(manifestPath: string): KernelRuntimeStatus {
+      const manifest = loadKernelRuntimeManifestFile(manifestPath);
+      const importedAt = new Date().toISOString();
+      options.settings?.set('kernelManifestPath', manifestPath);
+      options.settings?.set('kernelManifestImportedAt', importedAt);
+      state = {
+        manifest,
+        source: 'imported',
+        manifestPath,
+        importedAt
+      };
+      return status();
+    },
+    clearManifest(): KernelRuntimeStatus {
+      options.settings?.delete('kernelManifestPath');
+      options.settings?.delete('kernelManifestImportedAt');
+      state = defaultState();
+      return status();
     }
   };
 }
@@ -168,7 +264,11 @@ export function createMockKernelRuntimeManager(executablePath: string): KernelRu
   const status = (): KernelRuntimeStatus => ({
     manifest,
     installed: true,
-    executablePath
+    executablePath,
+    runtimeRoot: path.dirname(executablePath),
+    source: 'default',
+    manifestPath: null,
+    importedAt: null
   });
   return {
     manifest: () => manifest,
@@ -179,6 +279,12 @@ export function createMockKernelRuntimeManager(executablePath: string): KernelRu
         installed: true,
         alreadyInstalled: true
       };
+    },
+    importManifest(): KernelRuntimeStatus {
+      return status();
+    },
+    clearManifest(): KernelRuntimeStatus {
+      return status();
     }
   };
 }

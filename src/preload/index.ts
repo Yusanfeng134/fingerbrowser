@@ -36,7 +36,12 @@ const api: AppApi = {
   kernel: {
     manifest: () => ipcRenderer.invoke('kernel.manifest') as ReturnType<AppApi['kernel']['manifest']>,
     status: () => ipcRenderer.invoke('kernel.status') as ReturnType<AppApi['kernel']['status']>,
-    ensureInstalled: () => ipcRenderer.invoke('kernel.ensureInstalled') as ReturnType<AppApi['kernel']['ensureInstalled']>
+    ensureInstalled: () => ipcRenderer.invoke('kernel.ensureInstalled') as ReturnType<AppApi['kernel']['ensureInstalled']>,
+    importManifest: (manifestPath?: string) =>
+      ipcRenderer.invoke('kernel.importManifest', manifestPath) as ReturnType<AppApi['kernel']['importManifest']>,
+    clearManifest: () => ipcRenderer.invoke('kernel.clearManifest') as ReturnType<AppApi['kernel']['clearManifest']>,
+    openRuntimeFolder: () =>
+      ipcRenderer.invoke('kernel.openRuntimeFolder') as ReturnType<AppApi['kernel']['openRuntimeFolder']>
   },
   app: {
     version: () => ipcRenderer.invoke('app.version') as ReturnType<AppApi['app']['version']>

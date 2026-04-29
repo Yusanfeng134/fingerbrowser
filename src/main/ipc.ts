@@ -1,4 +1,5 @@
-import { app, ipcMain, shell } from 'electron';
+import { app, dialog, ipcMain, shell } from 'electron';
+import { mkdirSync } from 'node:fs';
 import path from 'node:path';
 import type {
   ActivateLicenseInput,
@@ -154,6 +155,49 @@ export function registerIpcHandlers(services: ApplicationServices): void {
     return result;
   });
 
+  ipcMain.handle('kernel.importManifest', async (_event, manifestPath?: string) => {
+    let selectedPath = manifestPath;
+    if (!selectedPath) {
+      const result = await dialog.showOpenDialog({
+        title: '导入自研内核 manifest',
+        properties: ['openFile'],
+        filters: [{ name: 'Kernel manifest', extensions: ['json'] }]
+      });
+      if (result.canceled || !result.filePaths[0]) {
+        throw new Error('已取消导入自研内核 manifest');
+      }
+      selectedPath = result.filePaths[0];
+    }
+    const status = services.kernelRuntimeManager.importManifest(selectedPath);
+    services.profileService.recordAudit(null, 'KERNEL_MANIFEST_IMPORTED', {
+      version: status.manifest.version,
+      baseChromiumRevision: status.manifest.baseChromiumRevision,
+      patchsetVersion: status.manifest.patchsetVersion,
+      source: status.source
+    });
+    return status;
+  });
+
+  ipcMain.handle('kernel.clearManifest', () => {
+    const previous = services.kernelRuntimeManager.status();
+    const status = services.kernelRuntimeManager.clearManifest();
+    services.profileService.recordAudit(null, 'KERNEL_MANIFEST_CLEARED', {
+      previousVersion: previous.manifest.version,
+      source: previous.source
+    });
+    return status;
+  });
+
+  ipcMain.handle('kernel.openRuntimeFolder', async () => {
+    const status = services.kernelRuntimeManager.status();
+    mkdirSync(status.runtimeRoot, { recursive: true });
+    const errorMessage = await shell.openPath(status.runtimeRoot);
+    if (errorMessage) {
+      throw new Error(errorMessage);
+    }
+    return { folderPath: status.runtimeRoot };
+  });
+
   ipcMain.handle('app.version', () => services.trialService.version());
 
   ipcMain.handle('release.checkForUpdates', async () => {
@@ -229,7 +273,8 @@ export function registerIpcHandlers(services: ApplicationServices): void {
       license,
       profiles: services.profileService.listProfiles(),
       audits: services.profileService.listAuditEvents(),
-      metrics
+      metrics,
+      kernel: services.kernelRuntimeManager.status()
     });
     services.profileService.recordAudit(null, 'FEEDBACK_PACKAGED', { filePath: result.filePath });
     return result;

@@ -9,6 +9,7 @@ import {
   Download,
   Edit3,
   ExternalLink,
+  FolderOpen,
   FolderPlus,
   Globe2,
   KeyRound,
@@ -20,11 +21,13 @@ import {
   Play,
   Power,
   RefreshCw,
+  RotateCcw,
   Save,
   Search,
   ShieldCheck,
   SlidersHorizontal,
   Trash2,
+  Upload,
   Wifi
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
@@ -35,6 +38,7 @@ import type {
   BrowserProfile,
   CredentialEntry,
   KernelRuntimeManifest,
+  KernelManifestSource,
   KernelRuntimeStatus,
   FeedbackIssueType,
   FeedbackSeverity,
@@ -155,6 +159,12 @@ const runtimeChannelText: Record<RuntimeChannel, string> = {
   'custom-kernel': '自研内核'
 };
 
+const kernelManifestSourceText: Record<KernelManifestSource, string> = {
+  default: '内置默认',
+  environment: '环境变量',
+  imported: '应用内导入'
+};
+
 const actionLabel: Record<string, string> = {
   PROFILE_CREATED: '创建环境',
   PROFILE_UPDATED: '更新环境',
@@ -165,6 +175,8 @@ const actionLabel: Record<string, string> = {
   PROXY_TESTED: '测试代理',
   CHROMIUM_INSTALLED: '安装 Chromium',
   KERNEL_INSTALLED: '安装自研内核',
+  KERNEL_MANIFEST_IMPORTED: '导入内核 manifest',
+  KERNEL_MANIFEST_CLEARED: '重置内核 manifest',
   KERNEL_POLICY_APPLIED: '应用内核策略',
   KERNEL_LAUNCHED: '启动自研内核',
   LICENSE_ACTIVATED: '激活许可证',
@@ -611,6 +623,33 @@ export function App(): JSX.Element {
     });
   };
 
+  const handleImportKernelManifest = (): void => {
+    void run('导入自研内核 manifest', async () => {
+      const status = await window.fingerBrowser.kernel.importManifest();
+      setKernelStatus(status);
+      setKernelManifest(status.manifest);
+      await loadAudits(selectedProfile?.id);
+      return `已导入自研内核 ${status.manifest.version}`;
+    });
+  };
+
+  const handleClearKernelManifest = (): void => {
+    void run('重置自研内核 manifest', async () => {
+      const status = await window.fingerBrowser.kernel.clearManifest();
+      setKernelStatus(status);
+      setKernelManifest(status.manifest);
+      await loadAudits(selectedProfile?.id);
+      return '已重置为内置默认 manifest';
+    });
+  };
+
+  const handleOpenKernelRuntimeFolder = (): void => {
+    void run('打开自研内核目录', async () => {
+      const result = await window.fingerBrowser.kernel.openRuntimeFolder();
+      return `已打开：${result.folderPath}`;
+    });
+  };
+
   const handleActivateLicense = (): void => {
     void run('激活许可证', async () => {
       const state = await window.fingerBrowser.license.activate({ activationCode });
@@ -899,6 +938,15 @@ export function App(): JSX.Element {
         version: appVersion,
         license: license ? { status: license.status, plan: license.plan.id, teamName: license.teamName } : null,
         metrics,
+        kernel: kernelStatus
+          ? {
+              source: kernelStatus.source,
+              version: kernelStatus.manifest.version,
+              baseChromiumRevision: kernelStatus.manifest.baseChromiumRevision,
+              patchsetVersion: kernelStatus.manifest.patchsetVersion,
+              installed: kernelStatus.installed
+            }
+          : null,
         profileCount: profiles.length
       };
       await navigator.clipboard.writeText(JSON.stringify(diagnostics, null, 2));
@@ -1669,11 +1717,36 @@ export function App(): JSX.Element {
                 <span>版本：{kernelManifest?.version ?? '未加载'}</span>
                 <span>Chromium 基线：{kernelManifest?.baseChromiumRevision ?? '未加载'}</span>
                 <span>Patchset：{kernelManifest?.patchsetVersion ?? '未加载'}</span>
+                <span>来源：{kernelStatus ? kernelManifestSourceText[kernelStatus.source] : '未加载'}</span>
+                <span className="kernel-wide" title={kernelStatus?.runtimeRoot ?? undefined}>
+                  安装目录：{kernelStatus?.runtimeRoot ?? '未加载'}
+                </span>
+                <span className="kernel-wide" title={kernelStatus?.manifestPath ?? undefined}>
+                  Manifest：{kernelStatus?.manifestPath ?? '内置默认'}
+                </span>
+                {kernelStatus?.importedAt ? (
+                  <span className="kernel-wide">导入时间：{formatDate(kernelStatus.importedAt)}</span>
+                ) : null}
+                {kernelStatus?.lastError ? <span className="kernel-wide kernel-error">错误：{kernelStatus.lastError}</span> : null}
               </div>
-              <button className="secondary-button wide" type="button" onClick={handleEnsureChromium} disabled={busy}>
-                <PackageCheck size={16} />
-                {draft.runtimeChannel === 'custom-kernel' ? '检查自研内核' : '检查官方 Chromium'}
-              </button>
+              <div className="kernel-actions">
+                <button className="secondary-button" type="button" onClick={handleEnsureChromium} disabled={busy}>
+                  <PackageCheck size={16} />
+                  {draft.runtimeChannel === 'custom-kernel' ? '检查自研内核' : '检查官方 Chromium'}
+                </button>
+                <button className="secondary-button" type="button" onClick={handleImportKernelManifest} disabled={busy}>
+                  <Upload size={16} />
+                  导入 manifest
+                </button>
+                <button className="secondary-button" type="button" onClick={handleOpenKernelRuntimeFolder} disabled={busy}>
+                  <FolderOpen size={16} />
+                  打开目录
+                </button>
+                <button className="secondary-button" type="button" onClick={handleClearKernelManifest} disabled={busy}>
+                  <RotateCcw size={16} />
+                  重置 manifest
+                </button>
+              </div>
             </section>
 
             <section className="form-section">

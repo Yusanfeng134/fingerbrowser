@@ -610,15 +610,33 @@ p {
 
 .policy-grid span,
 .kernel-status-card span {
+  overflow: hidden;
   padding: 9px 10px;
   border-radius: 8px;
   color: #39534f;
   background: rgba(31, 122, 107, 0.08);
   font-size: 12px;
   font-weight: 660;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .kernel-status-card {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 1fr 1fr;
+}
+
+.kernel-status-card .kernel-wide {
+  grid-column: 1 / -1;
+}
+
+.kernel-status-card .kernel-error {
+  color: #7b251c;
+  background: #fff0ed;
+}
+
+.kernel-actions {
   display: grid;
   gap: 8px;
   grid-template-columns: 1fr 1fr;

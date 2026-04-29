@@ -2,6 +2,7 @@ import { mkdirSync } from 'node:fs';
 import { hostname, userInfo } from 'node:os';
 import path from 'node:path';
 import { app, clipboard, safeStorage } from 'electron';
+import { createAppSettingsService, type AppSettingsService } from './domain/app-settings-service';
 import { createCredentialService, type CredentialService } from './domain/credential-service';
 import { createNodeSecretBox, createSafeStorageSecretBox, type SecretBox } from './domain/encryption';
 import { getDeviceFingerprint } from './domain/license';
@@ -12,7 +13,6 @@ import { createProfileService, type ProfileService } from './domain/profile-serv
 import {
   createKernelRuntimeManager,
   createMockKernelRuntimeManager,
-  loadKernelRuntimeManifestFile,
   type KernelRuntimeManager
 } from './domain/kernel-runtime';
 import { openApplicationDatabase } from './infrastructure/database';
@@ -27,6 +27,7 @@ import type { BrowserController } from './domain/chromium';
 export interface ApplicationServices {
   dataDir: string;
   secretBox: SecretBox;
+  appSettingsService: AppSettingsService;
   profileService: ProfileService;
   credentialService: CredentialService;
   licenseService: LicenseService;
@@ -46,6 +47,7 @@ export function createApplicationServices(): ApplicationServices {
       ? createSafeStorageSecretBox(safeStorage)
       : createNodeSecretBox(`fingerbrowser:${dataDir}`);
   const db = openApplicationDatabase(path.join(dataDir, 'fingerbrowser.sqlite'));
+  const appSettingsService = createAppSettingsService({ db });
   const profileService = createProfileService({
     db,
     dataDir,
@@ -79,9 +81,8 @@ export function createApplicationServices(): ApplicationServices {
     ? createMockKernelRuntimeManager(process.execPath)
     : createKernelRuntimeManager({
         dataDir,
-        manifest: process.env.FINGERBROWSER_KERNEL_MANIFEST
-          ? loadKernelRuntimeManifestFile(process.env.FINGERBROWSER_KERNEL_MANIFEST)
-          : undefined
+        settings: appSettingsService,
+        environmentManifestPath: process.env.FINGERBROWSER_KERNEL_MANIFEST
       });
   const browserController = createBrowserController({
     chromiumInstaller,
@@ -94,6 +95,7 @@ export function createApplicationServices(): ApplicationServices {
   return {
     dataDir,
     secretBox,
+    appSettingsService,
     profileService,
     credentialService,
     licenseService,

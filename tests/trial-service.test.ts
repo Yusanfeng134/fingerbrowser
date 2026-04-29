@@ -10,7 +10,7 @@ import { createLicenseService } from '../src/main/domain/license-service';
 import { createProfileService } from '../src/main/domain/profile-service';
 import { createTrialService } from '../src/main/domain/trial-service';
 import { openApplicationDatabase } from '../src/main/infrastructure/database';
-import type { LicenseState } from '../src/shared/types';
+import type { KernelRuntimeStatus, LicenseState } from '../src/shared/types';
 
 const tempDirs: string[] = [];
 
@@ -156,13 +156,37 @@ describe('trial service', () => {
       license,
       profiles: profileService.listProfiles(),
       audits: profileService.listAuditEvents(),
-      metrics: trialService.metrics({ profileCount: 1, credentialCount: 1 })
+      metrics: trialService.metrics({ profileCount: 1, credentialCount: 1 }),
+      kernel: {
+        manifest: {
+          version: '0.3.0',
+          baseChromiumRevision: 'chromium-fixed-revision',
+          patchsetVersion: '2026.05.06.1',
+          platform: 'darwin',
+          arch: 'arm64',
+          artifactUrl: 'file:///tmp/fingerbrowser-kernel.zip',
+          sha256: '3333333333333333333333333333333333333333333333333333333333333333',
+          executableRelativePath: 'FingerBrowser Kernel.app/Contents/MacOS/Chromium',
+          policySchemaVersion: 1
+        },
+        installed: false,
+        executablePath: '/Users/test/Library/Application Support/fingerbrowser/data/kernel-runtime/0.3.0/FingerBrowser Kernel.app/Contents/MacOS/Chromium',
+        source: 'imported',
+        manifestPath: '/Users/test/Desktop/fingerbrowser-kernel/manifest/fingerbrowser-kernel.manifest.json',
+        importedAt: '2026-04-29T08:00:00.000Z',
+        runtimeRoot: '/Users/test/Library/Application Support/fingerbrowser/data/kernel-runtime/0.3.0'
+      } satisfies KernelRuntimeStatus
     });
     const content = readFileSync(result.filePath, 'utf8');
 
     expect(existsSync(result.filePath)).toBe(true);
     expect(content).toContain('"issueType": "bug"');
     expect(content).toContain('"version": "0.1.0"');
+    expect(content).toContain('"runtimeChannel": "custom-kernel"');
+    expect(content).toContain('"kernelVersion": "0.3.0"');
+    expect(content).toContain('"baseChromiumRevision": "chromium-fixed-revision"');
+    expect(content).not.toContain('fingerbrowser-kernel.manifest.json');
+    expect(content).not.toContain('Application Support');
     expect(content).not.toContain('plain-proxy-password');
     expect(content).not.toContain('credential-secret');
     expect(content).not.toContain('v1:sensitive');
