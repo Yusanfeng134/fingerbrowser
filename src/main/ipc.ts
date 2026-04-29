@@ -336,6 +336,15 @@ export function registerIpcHandlers(services: ApplicationServices): void {
     return result;
   });
 
+  ipcMain.handle('credentials.revealPassword', (_event, id: string) => {
+    services.licenseService.assertCanUseCredentials();
+    const result = services.credentialService.revealPassword(id);
+    services.profileService.recordAudit(result.profileId, 'CREDENTIAL_PASSWORD_REVEALED', {
+      credentialId: id
+    });
+    return result;
+  });
+
   ipcMain.handle('license.activate', async (_event, input: ActivateLicenseInput) => {
     const state = await services.licenseService.activate(input);
     services.trialService.incrementMetric('activationCount');

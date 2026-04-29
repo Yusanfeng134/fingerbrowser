@@ -832,7 +832,7 @@ p {
 
 .credential-row {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 72px 156px;
+  grid-template-columns: minmax(0, 1fr) minmax(88px, 132px) 190px;
   gap: 10px;
   align-items: center;
   padding: 12px;
@@ -875,6 +875,24 @@ p {
   background: #edf1ec;
   font-size: 12px;
   letter-spacing: 0;
+}
+
+.credential-mask.revealed,
+.credential-secret.revealed {
+  justify-content: start;
+  overflow: auto;
+  color: #1f4c42;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-weight: 680;
+  white-space: nowrap;
+}
+
+.credential-mask.revealed {
+  padding: 0 8px;
+}
+
+.credential-secret.revealed {
+  text-overflow: clip;
 }
 
 .binding-pill {
@@ -954,7 +972,7 @@ p {
 
 .credential-actions {
   display: grid;
-  grid-template-columns: repeat(4, 32px);
+  grid-template-columns: repeat(5, 32px);
   gap: 6px;
   justify-content: end;
 }

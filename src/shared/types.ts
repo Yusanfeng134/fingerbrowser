@@ -42,6 +42,7 @@ export type AuditAction =
   | 'CREDENTIAL_DELETED'
   | 'CREDENTIAL_USERNAME_COPIED'
   | 'CREDENTIAL_PASSWORD_COPIED'
+  | 'CREDENTIAL_PASSWORD_REVEALED'
   | 'FEEDBACK_PACKAGED'
   | 'UPDATE_CHECKED'
   | 'ERROR_RECORDED';
@@ -176,6 +177,13 @@ export interface CredentialCopyResult {
   id: string;
   profileId: string | null;
   copiedAt: string;
+}
+
+export interface CredentialRevealResult {
+  id: string;
+  profileId: string | null;
+  password: string;
+  revealedAt: string;
 }
 
 export interface AppVersionInfo {
@@ -383,6 +391,7 @@ export interface AppApi {
     delete: (id: string) => Promise<{ id: string }>;
     copyUsername: (id: string) => Promise<CredentialCopyResult>;
     copyPassword: (id: string) => Promise<CredentialCopyResult>;
+    revealPassword: (id: string) => Promise<CredentialRevealResult>;
   };
   license: {
     activate: (input: ActivateLicenseInput) => Promise<RedactedLicenseState>;

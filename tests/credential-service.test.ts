@@ -153,6 +153,39 @@ describe('credential service', () => {
     expect(passwordResult.copiedAt).toBeTruthy();
   });
 
+  it('reveals a password without copying it or updating the copied timestamp', () => {
+    const { db, profileService, credentialService, clipboardWrites } = createHarness();
+    const profile = profileService.createProfile({ name: '环境 A' });
+    const credential = credentialService.createCredential({
+      profileId: profile.id,
+      title: 'Console',
+      websiteUrl: 'https://console.test',
+      username: 'operator',
+      password: 'view-secret'
+    });
+    const before = db.prepare('select encrypted_password, last_copied_at from credentials where id = ?').get(credential.id) as {
+      encrypted_password: string;
+      last_copied_at: string | null;
+    };
+
+    const revealResult = credentialService.revealPassword(credential.id);
+    const after = db.prepare('select encrypted_password, last_copied_at from credentials where id = ?').get(credential.id) as {
+      encrypted_password: string;
+      last_copied_at: string | null;
+    };
+
+    expect(revealResult).toMatchObject({
+      id: credential.id,
+      profileId: profile.id,
+      password: 'view-secret'
+    });
+    expect(revealResult.revealedAt).toBeTruthy();
+    expect(clipboardWrites).toEqual([]);
+    expect(after.encrypted_password).toBe(before.encrypted_password);
+    expect(after.last_copied_at).toBe(before.last_copied_at);
+    expect(JSON.stringify(credentialService.listCredentials({ profileId: profile.id }))).not.toContain('view-secret');
+  });
+
   it('deletes credentials and rejects later copy attempts', () => {
     const { profileService, credentialService } = createHarness();
     const profile = profileService.createProfile({ name: '环境 A' });

@@ -3,6 +3,7 @@ import type {
   CreateCredentialInput,
   CredentialCopyResult,
   CredentialEntry,
+  CredentialRevealResult,
   ListCredentialsInput,
   UpdateCredentialInput
 } from '../../shared/types';
@@ -36,6 +37,7 @@ export interface CredentialService {
   deleteCredential(id: string): CredentialEntry;
   copyUsername(id: string): CredentialCopyResult;
   copyPassword(id: string): CredentialCopyResult;
+  revealPassword(id: string): CredentialRevealResult;
 }
 
 export function createCredentialService(options: CredentialServiceOptions): CredentialService {
@@ -177,6 +179,15 @@ export function createCredentialService(options: CredentialServiceOptions): Cred
     copyPassword(id: string): CredentialCopyResult {
       const existing = getRow(id);
       return copyCredentialValue(existing, secretBox.decrypt(existing.encrypted_password));
+    },
+    revealPassword(id: string): CredentialRevealResult {
+      const existing = getRow(id);
+      return {
+        id: existing.id,
+        profileId: existing.profile_id,
+        password: secretBox.decrypt(existing.encrypted_password),
+        revealedAt: new Date().toISOString()
+      };
     }
   };
 }

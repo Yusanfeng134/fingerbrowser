@@ -74,7 +74,9 @@ const api: AppApi = {
     copyUsername: (id: string) =>
       ipcRenderer.invoke('credentials.copyUsername', id) as ReturnType<AppApi['credentials']['copyUsername']>,
     copyPassword: (id: string) =>
-      ipcRenderer.invoke('credentials.copyPassword', id) as ReturnType<AppApi['credentials']['copyPassword']>
+      ipcRenderer.invoke('credentials.copyPassword', id) as ReturnType<AppApi['credentials']['copyPassword']>,
+    revealPassword: (id: string) =>
+      ipcRenderer.invoke('credentials.revealPassword', id) as ReturnType<AppApi['credentials']['revealPassword']>
   },
   license: {
     activate: (input: ActivateLicenseInput) =>

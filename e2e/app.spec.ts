@@ -110,9 +110,14 @@ test('中文 UI 完成激活 license、新建环境、代理测试、导出审�
     await page.getByLabel('密码长度').fill('24');
     await page.getByRole('button', { name: '使用密码' }).click();
     await expect(page.getByRole('textbox', { name: '全局登录密码' })).not.toHaveValue('');
+    const globalGeneratedPassword = await page.getByRole('textbox', { name: '全局登录密码' }).inputValue();
     await page.getByRole('button', { name: '保存密码项' }).click();
     await expect(page.getByLabel('全局密码列表').getByText('全局邮箱')).toBeVisible();
     await expect(page.locator('.vault-list-row').filter({ hasText: '全局邮箱' }).getByText('未绑定环境')).toBeVisible();
+    await page.getByRole('button', { name: '查看密码 全局邮箱' }).click();
+    await expect(page.getByText(globalGeneratedPassword)).toBeVisible();
+    await page.getByRole('button', { name: '隐藏密码 全局邮箱' }).click();
+    await expect(page.getByText(globalGeneratedPassword)).toHaveCount(0);
 
     await page.getByLabel('搜索全局密码').fill('mail');
     await expect(page.getByLabel('全局密码列表').getByText('全局邮箱')).toBeVisible();
@@ -145,12 +150,17 @@ test('中文 UI 完成激活 license、新建环境、代理测试、导出审�
     await page.getByLabel('包含符号').uncheck();
     await page.getByRole('button', { name: '使用密码' }).click();
     await expect(page.getByRole('textbox', { name: '登录密码' })).not.toHaveValue('');
+    const profileGeneratedPassword = await page.getByRole('textbox', { name: '登录密码' }).inputValue();
     await page.getByRole('button', { name: '保存密码项' }).click();
     await expect(page.getByText('环境后台')).toBeVisible();
     await expect(page.getByText('https://console.example.test/login')).toBeVisible();
 
     await page.getByLabel('搜索密码').fill('console');
     await expect(page.getByText('环境后台')).toBeVisible();
+    await page.getByRole('button', { name: '查看密码 环境后台' }).click();
+    await expect(page.getByText(profileGeneratedPassword)).toBeVisible();
+    await page.getByRole('button', { name: '隐藏密码 环境后台' }).click();
+    await expect(page.getByText(profileGeneratedPassword)).toHaveCount(0);
     await page.getByRole('button', { name: '复制账号 环境后台' }).click();
     await expect(page.getByText('账号已复制到剪贴板')).toBeVisible();
     await page.getByRole('button', { name: '复制密码 环境后台' }).click();
@@ -227,6 +237,7 @@ test('中文 UI 完成激活 license、新建环境、代理测试、导出审�
     await page.getByRole('button', { name: '导出审计' }).click();
     await expect(page.getByText(/审计已导出/)).toBeVisible();
     await expect(page.getByText('CREDENTIAL_CREATED')).toBeVisible();
+    await expect(page.getByText('CREDENTIAL_PASSWORD_REVEALED')).toBeVisible();
     await expect(page.getByText('CREDENTIAL_PASSWORD_COPIED')).toBeVisible();
     await expect(page.getByText('CREDENTIAL_DELETED')).toBeVisible();
     await expect(page.getByText('PROFILE_LAUNCHED')).toBeVisible();

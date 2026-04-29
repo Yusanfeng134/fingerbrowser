@@ -9,6 +9,8 @@ import {
   Download,
   Edit3,
   ExternalLink,
+  Eye,
+  EyeOff,
   FolderOpen,
   FolderPlus,
   Globe2,
@@ -190,6 +192,7 @@ const actionLabel: Record<string, string> = {
   CREDENTIAL_DELETED: '删除密码项',
   CREDENTIAL_USERNAME_COPIED: '复制账号',
   CREDENTIAL_PASSWORD_COPIED: '复制密码',
+  CREDENTIAL_PASSWORD_REVEALED: '查看密码',
   FEEDBACK_PACKAGED: '生成反馈包',
   UPDATE_CHECKED: '检查更新',
   ERROR_RECORDED: '记录错误'
@@ -299,6 +302,7 @@ export function App(): JSX.Element {
   );
   const [passwordGeneratorTarget, setPasswordGeneratorTarget] = useState<PasswordGeneratorTarget>(null);
   const [generatedPassword, setGeneratedPassword] = useState('');
+  const [revealedCredential, setRevealedCredential] = useState<{ id: string; password: string } | null>(null);
   const [appVersion, setAppVersion] = useState<AppVersionInfo | null>(null);
   const [releaseCheck, setReleaseCheck] = useState<ReleaseCheckResult | null>(null);
   const [kernelManifest, setKernelManifest] = useState<KernelRuntimeManifest | null>(null);
@@ -484,6 +488,7 @@ export function App(): JSX.Element {
     }
     setCredentialDraft(emptyCredentialDraft);
     setCredentialQuery('');
+    setRevealedCredential(null);
   }, [credentialsEnabled, loadAudits, loadCredentials, selectedProfile]);
 
   useEffect(() => {
@@ -493,6 +498,10 @@ export function App(): JSX.Element {
       );
     }
   }, [loadVaultCredentials, workspaceView]);
+
+  useEffect(() => {
+    setRevealedCredential(null);
+  }, [activeTab, selectedVaultCredentialId, vaultMenuId, workspaceView]);
 
   const run = useCallback(async (label: string, task: () => Promise<string | void>) => {
     setBusy(true);
@@ -520,6 +529,7 @@ export function App(): JSX.Element {
     setVaultEditorMode('view');
     setPasswordGeneratorTarget(null);
     setGeneratedPassword('');
+    setRevealedCredential(null);
   };
 
   const handleSelectVaultMenu = (menuId: CredentialVaultMenuId): void => {
@@ -529,6 +539,7 @@ export function App(): JSX.Element {
     setVaultDraft(emptyCredentialDraft);
     setPasswordGeneratorTarget(null);
     setGeneratedPassword('');
+    setRevealedCredential(null);
   };
 
   const handleNewProfile = (): void => {
@@ -751,6 +762,7 @@ export function App(): JSX.Element {
   const handleEditCredential = (credential: CredentialEntry): void => {
     setPasswordGeneratorTarget(null);
     setGeneratedPassword('');
+    setRevealedCredential(null);
     setCredentialDraft({
       id: credential.id,
       profileId: credential.profileId,
@@ -765,6 +777,7 @@ export function App(): JSX.Element {
     setCredentialDraft(emptyCredentialDraft);
     setPasswordGeneratorTarget(null);
     setGeneratedPassword('');
+    setRevealedCredential(null);
   };
 
   const handleSaveCredential = (): void => {
@@ -797,12 +810,14 @@ export function App(): JSX.Element {
       setCredentialDraft(emptyCredentialDraft);
       setPasswordGeneratorTarget(null);
       setGeneratedPassword('');
+      setRevealedCredential(null);
     });
   };
 
   const handleEditVaultCredential = (credential: CredentialEntry): void => {
     setPasswordGeneratorTarget(null);
     setGeneratedPassword('');
+    setRevealedCredential(null);
     setSelectedVaultCredentialId(credential.id);
     setVaultEditorMode('edit');
     setVaultDraft({
@@ -818,6 +833,7 @@ export function App(): JSX.Element {
   const handleNewVaultCredential = (): void => {
     setPasswordGeneratorTarget(null);
     setGeneratedPassword('');
+    setRevealedCredential(null);
     setVaultDraft({
       ...emptyCredentialDraft,
       profileId: vaultMenuId.startsWith('profile:') ? vaultMenuId.replace('profile:', '') : null
@@ -839,6 +855,7 @@ export function App(): JSX.Element {
     setVaultEditorMode('view');
     setPasswordGeneratorTarget(null);
     setGeneratedPassword('');
+    setRevealedCredential(null);
   };
 
   const refreshCredentialViews = useCallback(async () => {
@@ -885,6 +902,7 @@ export function App(): JSX.Element {
       setVaultDraft(emptyCredentialDraft);
       setPasswordGeneratorTarget(null);
       setGeneratedPassword('');
+      setRevealedCredential(null);
     });
   };
 
@@ -896,6 +914,7 @@ export function App(): JSX.Element {
       setVaultDraft((current) => (current.id === credential.id ? emptyCredentialDraft : current));
       setSelectedVaultCredentialId((current) => (current === credential.id ? null : current));
       setVaultEditorMode((current) => (selectedVaultCredentialId === credential.id ? 'view' : current));
+      setRevealedCredential((current) => (current?.id === credential.id ? null : current));
     });
   };
 
@@ -912,6 +931,20 @@ export function App(): JSX.Element {
       await window.fingerBrowser.credentials.copyPassword(credential.id);
       await refreshCredentialViews();
       return '密码已复制到剪贴板';
+    });
+  };
+
+  const handleToggleRevealPassword = (credential: CredentialEntry): void => {
+    if (revealedCredential?.id === credential.id) {
+      setRevealedCredential(null);
+      setNotice('密码已隐藏');
+      return;
+    }
+    void run('查看密码', async () => {
+      const result = await window.fingerBrowser.credentials.revealPassword(credential.id);
+      setRevealedCredential({ id: credential.id, password: result.password });
+      await loadAudits(workspaceView === 'vault' ? undefined : selectedProfile?.id);
+      return '密码已显示';
     });
   };
 
@@ -1466,7 +1499,12 @@ export function App(): JSX.Element {
                     <span>用户名</span>
                     <strong>{selectedVaultCredential.username || '未设置用户名'}</strong>
                     <span>密码</span>
-                    <strong aria-label="密码已隐藏">••••••••</strong>
+                    <strong
+                      className={`credential-secret ${revealedCredential?.id === selectedVaultCredential.id ? 'revealed' : ''}`}
+                      aria-label={revealedCredential?.id === selectedVaultCredential.id ? '密码已显示' : '密码已隐藏'}
+                    >
+                      {revealedCredential?.id === selectedVaultCredential.id ? revealedCredential.password : '••••••••'}
+                    </strong>
                     <span>最近复制</span>
                     <strong>{selectedVaultCredential.lastCopiedAt ? formatDate(selectedVaultCredential.lastCopiedAt) : '尚未复制'}</strong>
                   </div>
@@ -1491,6 +1529,16 @@ export function App(): JSX.Element {
                     >
                       <KeyRound size={16} />
                       复制密码
+                    </button>
+                    <button
+                      type="button"
+                      className="secondary-button"
+                      onClick={() => handleToggleRevealPassword(selectedVaultCredential)}
+                      disabled={busy}
+                      aria-label={`${revealedCredential?.id === selectedVaultCredential.id ? '隐藏密码' : '查看密码'} ${selectedVaultCredential.title}`}
+                    >
+                      {revealedCredential?.id === selectedVaultCredential.id ? <EyeOff size={16} /> : <Eye size={16} />}
+                      {revealedCredential?.id === selectedVaultCredential.id ? '隐藏密码' : '查看密码'}
                     </button>
                   </div>
                   <div className="ops-row">
@@ -1947,8 +1995,11 @@ export function App(): JSX.Element {
                         <span>{credential.websiteUrl || '未设置网站地址'}</span>
                         <small>{credential.username || '未设置用户名'}</small>
                       </div>
-                      <div className="credential-mask" aria-label="密码已隐藏">
-                        ••••••••
+                      <div
+                        className={`credential-mask ${revealedCredential?.id === credential.id ? 'revealed' : ''}`}
+                        aria-label={revealedCredential?.id === credential.id ? '密码已显示' : '密码已隐藏'}
+                      >
+                        {revealedCredential?.id === credential.id ? revealedCredential.password : '••••••••'}
                       </div>
                       <div className="credential-actions">
                         <button
@@ -1968,6 +2019,15 @@ export function App(): JSX.Element {
                           aria-label={`复制密码 ${credential.title}`}
                         >
                           <KeyRound size={15} />
+                        </button>
+                        <button
+                          type="button"
+                          className="icon-button"
+                          onClick={() => handleToggleRevealPassword(credential)}
+                          title={revealedCredential?.id === credential.id ? '隐藏密码' : '查看密码'}
+                          aria-label={`${revealedCredential?.id === credential.id ? '隐藏密码' : '查看密码'} ${credential.title}`}
+                        >
+                          {revealedCredential?.id === credential.id ? <EyeOff size={15} /> : <Eye size={15} />}
                         </button>
                         <button
                           type="button"
