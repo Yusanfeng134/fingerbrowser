@@ -11,7 +11,6 @@ import {
   ExternalLink,
   FolderPlus,
   Globe2,
-  History,
   KeyRound,
   ListChecks,
   LockKeyhole,
@@ -23,7 +22,6 @@ import {
   RefreshCw,
   Save,
   Search,
-  Settings,
   ShieldCheck,
   SlidersHorizontal,
   Trash2,
@@ -56,6 +54,14 @@ import {
   sortRecentlyCopiedCredentials
 } from './credential-vault';
 import type { CredentialVaultMenuId } from './credential-vault';
+import {
+  DEFAULT_PASSWORD_GENERATOR_OPTIONS,
+  PASSWORD_GENERATOR_MAX_LENGTH,
+  PASSWORD_GENERATOR_MIN_LENGTH,
+  generatePassword,
+  normalizePasswordGeneratorOptions
+} from './password-generator';
+import type { PasswordGeneratorOptions } from './password-generator';
 
 interface DraftState {
   id: string | null;
@@ -83,7 +89,8 @@ interface CredentialDraftState {
 type ActiveTab = 'config' | 'credentials' | 'audit' | 'license' | 'trial';
 type WorkspaceView = 'profiles' | 'vault';
 type VaultEditorMode = 'view' | 'edit' | 'new';
-type SideNavKey = 'profiles' | 'vault' | 'audit' | 'settings' | 'trial' | 'license';
+type SideNavKey = 'profiles' | 'vault';
+type PasswordGeneratorTarget = 'vault' | 'profile' | null;
 
 interface FeedbackDraftState {
   issueType: FeedbackIssueType;
@@ -259,6 +266,11 @@ export function App(): JSX.Element {
   const [vaultMenuId, setVaultMenuId] = useState<CredentialVaultMenuId>('all');
   const [selectedVaultCredentialId, setSelectedVaultCredentialId] = useState<string | null>(null);
   const [vaultEditorMode, setVaultEditorMode] = useState<VaultEditorMode>('view');
+  const [passwordGeneratorOptions, setPasswordGeneratorOptions] = useState<PasswordGeneratorOptions>(
+    DEFAULT_PASSWORD_GENERATOR_OPTIONS
+  );
+  const [passwordGeneratorTarget, setPasswordGeneratorTarget] = useState<PasswordGeneratorTarget>(null);
+  const [generatedPassword, setGeneratedPassword] = useState('');
   const [appVersion, setAppVersion] = useState<AppVersionInfo | null>(null);
   const [releaseCheck, setReleaseCheck] = useState<ReleaseCheckResult | null>(null);
   const [onboarding, setOnboarding] = useState<OnboardingStatus | null>(null);
@@ -467,6 +479,8 @@ export function App(): JSX.Element {
     setVaultMenuId(menuId);
     setVaultDraft(emptyCredentialDraft);
     setVaultEditorMode('view');
+    setPasswordGeneratorTarget(null);
+    setGeneratedPassword('');
   };
 
   const handleSelectVaultMenu = (menuId: CredentialVaultMenuId): void => {
@@ -474,6 +488,8 @@ export function App(): JSX.Element {
     setVaultQuery('');
     setVaultEditorMode('view');
     setVaultDraft(emptyCredentialDraft);
+    setPasswordGeneratorTarget(null);
+    setGeneratedPassword('');
   };
 
   const handleNewProfile = (): void => {
@@ -481,7 +497,6 @@ export function App(): JSX.Element {
     setActiveNavKey('profiles');
     if (!canCreateProfile) {
       setActiveTab('license');
-      setActiveNavKey('license');
       setNotice(license?.status === 'inactive' ? '请先激活许可证' : '当前套餐环境数已达上限');
       return;
     }
@@ -628,7 +643,41 @@ export function App(): JSX.Element {
     });
   };
 
+  const handleOpenPasswordGenerator = (target: Exclude<PasswordGeneratorTarget, null>): void => {
+    const nextOptions = normalizePasswordGeneratorOptions(passwordGeneratorOptions);
+    setPasswordGeneratorOptions(nextOptions);
+    setGeneratedPassword(generatePassword(nextOptions));
+    setPasswordGeneratorTarget(target);
+  };
+
+  const handlePasswordGeneratorOptionsChange = (patch: Partial<PasswordGeneratorOptions>): void => {
+    const nextOptions = normalizePasswordGeneratorOptions({
+      ...passwordGeneratorOptions,
+      ...patch
+    });
+    setPasswordGeneratorOptions(nextOptions);
+    setGeneratedPassword(generatePassword(nextOptions));
+  };
+
+  const handleRegeneratePassword = (): void => {
+    setGeneratedPassword(generatePassword(passwordGeneratorOptions));
+  };
+
+  const handleUseGeneratedPassword = (): void => {
+    const password = generatedPassword || generatePassword(passwordGeneratorOptions);
+    if (passwordGeneratorTarget === 'vault') {
+      setVaultDraft((current) => ({ ...current, password }));
+    }
+    if (passwordGeneratorTarget === 'profile') {
+      setCredentialDraft((current) => ({ ...current, password }));
+    }
+    setPasswordGeneratorTarget(null);
+    setGeneratedPassword('');
+  };
+
   const handleEditCredential = (credential: CredentialEntry): void => {
+    setPasswordGeneratorTarget(null);
+    setGeneratedPassword('');
     setCredentialDraft({
       id: credential.id,
       profileId: credential.profileId,
@@ -641,6 +690,8 @@ export function App(): JSX.Element {
 
   const handleResetCredential = (): void => {
     setCredentialDraft(emptyCredentialDraft);
+    setPasswordGeneratorTarget(null);
+    setGeneratedPassword('');
   };
 
   const handleSaveCredential = (): void => {
@@ -671,10 +722,14 @@ export function App(): JSX.Element {
       await loadTrialState();
       await loadAudits(selectedProfile.id);
       setCredentialDraft(emptyCredentialDraft);
+      setPasswordGeneratorTarget(null);
+      setGeneratedPassword('');
     });
   };
 
   const handleEditVaultCredential = (credential: CredentialEntry): void => {
+    setPasswordGeneratorTarget(null);
+    setGeneratedPassword('');
     setSelectedVaultCredentialId(credential.id);
     setVaultEditorMode('edit');
     setVaultDraft({
@@ -688,6 +743,8 @@ export function App(): JSX.Element {
   };
 
   const handleNewVaultCredential = (): void => {
+    setPasswordGeneratorTarget(null);
+    setGeneratedPassword('');
     setVaultDraft({
       ...emptyCredentialDraft,
       profileId: vaultMenuId.startsWith('profile:') ? vaultMenuId.replace('profile:', '') : null
@@ -707,6 +764,8 @@ export function App(): JSX.Element {
   const handleResetVaultCredential = (): void => {
     setVaultDraft(emptyCredentialDraft);
     setVaultEditorMode('view');
+    setPasswordGeneratorTarget(null);
+    setGeneratedPassword('');
   };
 
   const refreshCredentialViews = useCallback(async () => {
@@ -751,6 +810,8 @@ export function App(): JSX.Element {
       setSelectedVaultCredentialId(saved.id);
       setVaultEditorMode('view');
       setVaultDraft(emptyCredentialDraft);
+      setPasswordGeneratorTarget(null);
+      setGeneratedPassword('');
     });
   };
 
@@ -832,6 +893,79 @@ export function App(): JSX.Element {
     });
   };
 
+  const renderPasswordGenerator = (target: Exclude<PasswordGeneratorTarget, null>): JSX.Element | null => {
+    if (!passwordVaultEnabled || passwordGeneratorTarget !== target) {
+      return null;
+    }
+
+    return (
+      <div className="password-generator-panel" aria-label="密码生成器">
+        <div className="password-generator-header">
+          <div>
+            <strong>密码生成器</strong>
+            <span>随机强密码，不自动保存</span>
+          </div>
+          <span className="generated-password-mask" aria-label="生成密码已隐藏">
+            {generatedPassword ? '••••••••••••••••••••' : '待生成'}
+          </span>
+        </div>
+
+        <div className="password-generator-controls">
+          <label>
+            长度
+            <input
+              aria-label="密码长度"
+              type="number"
+              min={PASSWORD_GENERATOR_MIN_LENGTH}
+              max={PASSWORD_GENERATOR_MAX_LENGTH}
+              value={passwordGeneratorOptions.length}
+              onChange={(event) => handlePasswordGeneratorOptionsChange({ length: Number(event.target.value) })}
+            />
+          </label>
+          <label className="check-row generator-check">
+            <input
+              aria-label="包含大写字母"
+              type="checkbox"
+              checked={passwordGeneratorOptions.includeUppercase}
+              onChange={(event) => handlePasswordGeneratorOptionsChange({ includeUppercase: event.target.checked })}
+            />
+            大写
+          </label>
+          <label className="check-row generator-check">
+            <input
+              aria-label="包含数字"
+              type="checkbox"
+              checked={passwordGeneratorOptions.includeNumbers}
+              onChange={(event) => handlePasswordGeneratorOptionsChange({ includeNumbers: event.target.checked })}
+            />
+            数字
+          </label>
+          <label className="check-row generator-check">
+            <input
+              aria-label="包含符号"
+              type="checkbox"
+              checked={passwordGeneratorOptions.includeSymbols}
+              onChange={(event) => handlePasswordGeneratorOptionsChange({ includeSymbols: event.target.checked })}
+            />
+            符号
+          </label>
+        </div>
+
+        <div className="password-generator-note">小写字母始终启用，每个启用字符集至少包含 1 个字符。</div>
+        <div className="ops-row">
+          <button className="secondary-button" type="button" onClick={handleRegeneratePassword}>
+            <RefreshCw size={15} />
+            重新生成
+          </button>
+          <button className="primary-button" type="button" onClick={handleUseGeneratedPassword}>
+            <Save size={15} />
+            使用密码
+          </button>
+        </div>
+      </div>
+    );
+  };
+
   return (
     <main className="app-shell">
       <aside className="sidebar">
@@ -866,54 +1000,6 @@ export function App(): JSX.Element {
           >
             <LockKeyhole size={17} />
             密码库
-          </a>
-          <a
-            className={activeNavKey === 'audit' ? 'active' : ''}
-            href="#audit"
-            onClick={(event) => {
-              event.preventDefault();
-              handleOpenProfiles('audit');
-              setActiveTab('audit');
-            }}
-          >
-            <History size={17} />
-            审计
-          </a>
-          <a
-            className={activeNavKey === 'settings' ? 'active' : ''}
-            href="#settings"
-            onClick={(event) => {
-              event.preventDefault();
-              handleOpenProfiles('settings');
-              setActiveTab('config');
-            }}
-          >
-            <Settings size={17} />
-            设置
-          </a>
-          <a
-            className={activeNavKey === 'trial' ? 'active' : ''}
-            href="#trial"
-            onClick={(event) => {
-              event.preventDefault();
-              handleOpenProfiles('trial');
-              setActiveTab('trial');
-            }}
-          >
-            <ListChecks size={17} />
-            试卖
-          </a>
-          <a
-            className={activeNavKey === 'license' ? 'active' : ''}
-            href="#license"
-            onClick={(event) => {
-              event.preventDefault();
-              handleOpenProfiles('license');
-              setActiveTab('license');
-            }}
-          >
-            <KeyRound size={17} />
-            授权
           </a>
         </nav>
         <div className="policy-note">
@@ -958,7 +1044,7 @@ export function App(): JSX.Element {
               type="button"
               className="secondary-button"
               onClick={() => {
-                handleOpenProfiles('license');
+                handleOpenProfiles('profiles');
                 setActiveTab('license');
               }}
             >
@@ -1071,7 +1157,7 @@ export function App(): JSX.Element {
                 type="button"
                 className="secondary-button"
                 onClick={() => {
-                  handleOpenProfiles('license');
+                  handleOpenProfiles('profiles');
                   setActiveTab('license');
                 }}
               >
@@ -1187,7 +1273,7 @@ export function App(): JSX.Element {
                   type="button"
                   className="secondary-button"
                   onClick={() => {
-                    handleOpenProfiles('license');
+                    handleOpenProfiles('profiles');
                     setActiveTab('license');
                   }}
                 >
@@ -1228,16 +1314,31 @@ export function App(): JSX.Element {
                       onChange={(event) => setVaultDraft({ ...vaultDraft, username: event.target.value })}
                     />
                   </label>
-                  <label>
-                    密码
+                  <div className="password-input-group">
+                    <div className="field-toolbar">
+                      <label htmlFor="vault-password-input">密码</label>
+                      {passwordVaultEnabled ? (
+                        <button
+                          className="secondary-button compact-button"
+                          type="button"
+                          onClick={() => handleOpenPasswordGenerator('vault')}
+                          aria-label="打开全局随机密码面板"
+                        >
+                          <RefreshCw size={14} />
+                          生成
+                        </button>
+                      ) : null}
+                    </div>
                     <input
+                      id="vault-password-input"
                       aria-label="全局登录密码"
                       type="password"
                       value={vaultDraft.password}
                       onChange={(event) => setVaultDraft({ ...vaultDraft, password: event.target.value })}
                       placeholder={vaultDraft.id ? '留空则不修改' : ''}
                     />
-                  </label>
+                    {renderPasswordGenerator('vault')}
+                  </div>
                   <label>
                     绑定环境
                     <select
@@ -1379,7 +1480,6 @@ export function App(): JSX.Element {
             className={activeTab === 'config' ? 'active' : ''}
             onClick={() => {
               setActiveTab('config');
-              setActiveNavKey('settings');
             }}
           >
             配置
@@ -1403,7 +1503,6 @@ export function App(): JSX.Element {
             className={activeTab === 'audit' ? 'active' : ''}
             onClick={() => {
               setActiveTab('audit');
-              setActiveNavKey('audit');
             }}
           >
             审计
@@ -1415,7 +1514,6 @@ export function App(): JSX.Element {
             className={activeTab === 'license' ? 'active' : ''}
             onClick={() => {
               setActiveTab('license');
-              setActiveNavKey('license');
             }}
           >
             授权
@@ -1427,7 +1525,6 @@ export function App(): JSX.Element {
             className={activeTab === 'trial' ? 'active' : ''}
             onClick={() => {
               setActiveTab('trial');
-              setActiveNavKey('trial');
             }}
           >
             试卖
@@ -1612,7 +1709,7 @@ export function App(): JSX.Element {
                   type="button"
                   className="secondary-button"
                   onClick={() => {
-                    handleOpenProfiles('license');
+                    handleOpenProfiles('profiles');
                     setActiveTab('license');
                   }}
                 >
@@ -1655,16 +1752,31 @@ export function App(): JSX.Element {
                       onChange={(event) => setCredentialDraft({ ...credentialDraft, username: event.target.value })}
                     />
                   </label>
-                  <label>
-                    密码
+                  <div className="password-input-group">
+                    <div className="field-toolbar">
+                      <label htmlFor="profile-password-input">密码</label>
+                      {passwordVaultEnabled ? (
+                        <button
+                          className="secondary-button compact-button"
+                          type="button"
+                          onClick={() => handleOpenPasswordGenerator('profile')}
+                          aria-label="打开登录随机密码面板"
+                        >
+                          <RefreshCw size={14} />
+                          生成
+                        </button>
+                      ) : null}
+                    </div>
                     <input
+                      id="profile-password-input"
                       aria-label="登录密码"
                       type="password"
                       value={credentialDraft.password}
                       onChange={(event) => setCredentialDraft({ ...credentialDraft, password: event.target.value })}
                       placeholder={credentialDraft.id ? '留空则不修改' : ''}
                     />
-                  </label>
+                    {renderPasswordGenerator('profile')}
+                  </div>
                   <div className="ops-row">
                     <button className="primary-button" type="button" onClick={handleSaveCredential} disabled={busy}>
                       <Save size={16} />

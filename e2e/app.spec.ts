@@ -59,17 +59,19 @@ test('中文 UI 完成激活 license、新建环境、代理测试、导出审�
     await expect(page.getByText(/环境 1\/1/)).toBeVisible();
 
     const sideNav = page.getByRole('navigation', { name: '主导航' });
-    await sideNav.getByRole('link', { name: '审计' }).click();
-    await expect(sideNav.getByRole('link', { name: '审计' })).toHaveClass(/active/);
+    await expect(sideNav.getByRole('link', { name: '环境' })).toBeVisible();
+    await expect(sideNav.getByRole('link', { name: '密码库' })).toBeVisible();
+    await expect(sideNav.getByRole('link', { name: '审计' })).toHaveCount(0);
+    await expect(sideNav.getByRole('link', { name: '设置' })).toHaveCount(0);
+    await expect(sideNav.getByRole('link', { name: '试卖' })).toHaveCount(0);
+    await expect(sideNav.getByRole('link', { name: '授权' })).toHaveCount(0);
+    await page.getByRole('tab', { name: '审计' }).click();
     await expect(page.getByRole('button', { name: '导出审计' })).toBeVisible();
-    await sideNav.getByRole('link', { name: '授权' }).click();
-    await expect(sideNav.getByRole('link', { name: '授权' })).toHaveClass(/active/);
+    await page.getByRole('tab', { name: '授权' }).click();
     await expect(page.getByText('授权中心')).toBeVisible();
-    await sideNav.getByRole('link', { name: '试卖' }).click();
-    await expect(sideNav.getByRole('link', { name: '试卖' })).toHaveClass(/active/);
+    await page.getByRole('tab', { name: '试卖' }).click();
     await expect(page.getByText('版本中心')).toBeVisible();
-    await sideNav.getByRole('link', { name: '设置' }).click();
-    await expect(sideNav.getByRole('link', { name: '设置' })).toHaveClass(/active/);
+    await page.getByRole('tab', { name: '配置' }).click();
     await expect(page.getByRole('button', { name: '保存环境' })).toBeVisible();
     await sideNav.getByRole('link', { name: '环境' }).click();
     await expect(sideNav.getByRole('link', { name: '环境' })).toHaveClass(/active/);
@@ -80,11 +82,14 @@ test('中文 UI 完成激活 license、新建环境、代理测试、导出审�
     await page.getByLabel('全局密码名称').fill('全局邮箱');
     await page.getByLabel('全局网站地址').fill('https://mail.example.test/login');
     await page.getByLabel('全局登录用户名').fill('mail@example.test');
-    await page.getByLabel('全局登录密码').fill('global-credential-secret');
+    await page.getByRole('button', { name: '打开全局随机密码面板' }).click();
+    await expect(page.getByLabel('密码生成器')).toBeVisible();
+    await page.getByLabel('密码长度').fill('24');
+    await page.getByRole('button', { name: '使用密码' }).click();
+    await expect(page.getByRole('textbox', { name: '全局登录密码' })).not.toHaveValue('');
     await page.getByRole('button', { name: '保存密码项' }).click();
     await expect(page.getByLabel('全局密码列表').getByText('全局邮箱')).toBeVisible();
     await expect(page.locator('.vault-list-row').filter({ hasText: '全局邮箱' }).getByText('未绑定环境')).toBeVisible();
-    await expect(page.getByText('global-credential-secret')).toHaveCount(0);
 
     await page.getByLabel('搜索全局密码').fill('mail');
     await expect(page.getByLabel('全局密码列表').getByText('全局邮箱')).toBeVisible();
@@ -112,11 +117,14 @@ test('中文 UI 完成激活 license、新建环境、代理测试、导出审�
     await page.getByLabel('密码名称').fill('环境后台');
     await page.getByLabel('网站地址').fill('https://console.example.test/login');
     await page.getByLabel('登录用户名').fill('operator@example.test');
-    await page.getByLabel('登录密码').fill('environment-credential-secret');
+    await page.getByRole('button', { name: '打开登录随机密码面板' }).click();
+    await expect(page.getByLabel('密码生成器')).toBeVisible();
+    await page.getByLabel('包含符号').uncheck();
+    await page.getByRole('button', { name: '使用密码' }).click();
+    await expect(page.getByRole('textbox', { name: '登录密码' })).not.toHaveValue('');
     await page.getByRole('button', { name: '保存密码项' }).click();
     await expect(page.getByText('环境后台')).toBeVisible();
     await expect(page.getByText('https://console.example.test/login')).toBeVisible();
-    await expect(page.getByText('environment-credential-secret')).toHaveCount(0);
 
     await page.getByLabel('搜索密码').fill('console');
     await expect(page.getByText('环境后台')).toBeVisible();
@@ -126,6 +134,10 @@ test('中文 UI 完成激活 license、新建环境、代理测试、导出审�
     await expect(page.getByText('密码已复制到剪贴板')).toBeVisible();
     await page.getByRole('button', { name: '编辑密码项 环境后台' }).click();
     await page.getByLabel('登录用户名').fill('updated@example.test');
+    await page.getByRole('button', { name: '打开登录随机密码面板' }).click();
+    await page.getByRole('button', { name: '重新生成' }).click();
+    await page.getByRole('button', { name: '使用密码' }).click();
+    await expect(page.getByRole('textbox', { name: '登录密码' })).not.toHaveValue('');
     await page.getByRole('button', { name: '保存密码项' }).click();
     await expect(page.getByText('updated@example.test')).toBeVisible();
 
@@ -175,8 +187,6 @@ test('中文 UI 完成激活 license、新建环境、代理测试、导出审�
     await expect(page.getByText('PROFILE_LAUNCHED')).toBeVisible();
     await expect(page.getByText('PROFILE_STOPPED')).toBeVisible();
     await expect(page.getByText('proxy-password')).toHaveCount(0);
-    await expect(page.getByText('global-credential-secret')).toHaveCount(0);
-    await expect(page.getByText('environment-credential-secret')).toHaveCount(0);
     await expect(page.getByText(activationCode)).toHaveCount(0);
   } finally {
     await app.close();
