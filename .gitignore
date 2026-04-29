@@ -1,0 +1,27 @@
+node_modules/
+dist/
+out/
+coverage/
+test-results/
+playwright-report/
+.vite/
+.cache/
+.superpowers/
+
+# Local app runtime data
+data/
+profiles/
+chromium/
+proxy-extensions/
+*.sqlite
+*.sqlite-shm
+*.sqlite-wal
+*.db
+*.key
+
+# OS/editor noise
+.DS_Store
+.idea/
+.vscode/
+*.log
+*.tsbuildinfo
