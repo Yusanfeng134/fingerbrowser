@@ -5,6 +5,7 @@ import type {
   CreateCredentialInput,
   FeedbackPackageInput,
   CreateProfileInput,
+  ListCredentialsInput,
   ProxyConnectionInput,
   UpdateCredentialInput,
   UpdateProfileInput
@@ -205,9 +206,9 @@ export function registerIpcHandlers(services: ApplicationServices): void {
     return result;
   });
 
-  ipcMain.handle('credentials.list', (_event, profileId: string) => {
+  ipcMain.handle('credentials.list', (_event, input?: ListCredentialsInput) => {
     services.licenseService.assertCanUseCredentials();
-    return services.credentialService.listCredentials(profileId);
+    return services.credentialService.listCredentials(input);
   });
 
   ipcMain.handle('credentials.create', (_event, input: CreateCredentialInput) => {

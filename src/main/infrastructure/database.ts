@@ -66,6 +66,26 @@ export function openApplicationDatabase(filePath: string): ApplicationDatabase {
 
     create index if not exists idx_profile_credentials_profile_id on profile_credentials(profile_id);
 
+    create table if not exists credentials (
+      id text primary key,
+      profile_id text,
+      title text not null,
+      website_url text not null,
+      username text not null,
+      encrypted_password text not null,
+      created_at text not null,
+      updated_at text not null,
+      last_copied_at text
+    );
+
+    create index if not exists idx_credentials_profile_id on credentials(profile_id);
+
+    insert or ignore into credentials (
+      id, profile_id, title, website_url, username, encrypted_password, created_at, updated_at, last_copied_at
+    )
+    select id, profile_id, title, website_url, username, encrypted_password, created_at, updated_at, last_copied_at
+    from profile_credentials;
+
     create table if not exists trial_metrics (
       key text primary key,
       value integer not null,

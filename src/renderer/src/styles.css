@@ -546,6 +546,45 @@ p {
   margin: 0;
 }
 
+.vault-locked {
+  margin-top: 20px;
+}
+
+.vault-filter-row {
+  display: grid;
+  grid-template-columns: minmax(180px, 260px) 1fr;
+  gap: 10px;
+  align-items: center;
+  margin: 0 0 14px;
+}
+
+.vault-filter-row select {
+  width: 100%;
+  height: 38px;
+  border: 1px solid #d5ddd5;
+  border-radius: 8px;
+  padding: 0 10px;
+  color: #29312c;
+  background: rgba(255, 255, 255, 0.76);
+  font-size: 13px;
+  font-weight: 650;
+}
+
+.vault-filter-row span {
+  color: #73776f;
+  font-size: 12px;
+  font-weight: 680;
+}
+
+.vault-table-header,
+.vault-credential-row {
+  grid-template-columns: minmax(180px, 1.4fr) minmax(120px, 0.72fr) 74px 156px;
+}
+
+.vault-credential-list {
+  gap: 8px;
+}
+
 .credential-locked {
   display: grid;
   grid-template-columns: 24px 1fr auto;
@@ -619,6 +658,27 @@ p {
   background: #edf1ec;
   font-size: 12px;
   letter-spacing: 0;
+}
+
+.binding-pill {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 28px;
+  border-radius: 999px;
+  padding: 0 10px;
+  color: #5f665f;
+  background: #edf1ec;
+  font-size: 12px;
+  font-weight: 740;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.binding-pill.bound {
+  color: #176757;
+  background: rgba(31, 122, 107, 0.12);
 }
 
 .credential-actions {

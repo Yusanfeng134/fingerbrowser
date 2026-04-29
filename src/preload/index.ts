@@ -4,6 +4,7 @@ import type {
   AppApi,
   CreateCredentialInput,
   CreateProfileInput,
+  ListCredentialsInput,
   ProxyConnectionInput,
   UpdateCredentialInput,
   UpdateProfileInput
@@ -53,7 +54,8 @@ const api: AppApi = {
     package: (input) => ipcRenderer.invoke('feedback.package', input) as ReturnType<AppApi['feedback']['package']>
   },
   credentials: {
-    list: (profileId: string) => ipcRenderer.invoke('credentials.list', profileId) as ReturnType<AppApi['credentials']['list']>,
+    list: (input?: ListCredentialsInput) =>
+      ipcRenderer.invoke('credentials.list', input) as ReturnType<AppApi['credentials']['list']>,
     create: (input: CreateCredentialInput) =>
       ipcRenderer.invoke('credentials.create', input) as ReturnType<AppApi['credentials']['create']>,
     update: (input: UpdateCredentialInput) =>

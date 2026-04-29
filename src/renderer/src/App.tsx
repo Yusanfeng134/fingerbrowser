@@ -40,6 +40,7 @@ import type {
   FeedbackSeverity,
   CreateProfileInput,
   FingerprintPolicy,
+  ListCredentialsInput,
   OnboardingStatus,
   ProfileDetails,
   ProxyScheme,
@@ -66,6 +67,7 @@ interface DraftState {
 
 interface CredentialDraftState {
   id: string | null;
+  profileId: string | null;
   title: string;
   websiteUrl: string;
   username: string;
@@ -73,6 +75,8 @@ interface CredentialDraftState {
 }
 
 type ActiveTab = 'config' | 'credentials' | 'audit' | 'license' | 'trial';
+type WorkspaceView = 'profiles' | 'vault';
+type CredentialBindingFilter = 'all' | 'unbound' | 'bound' | 'profile';
 
 interface FeedbackDraftState {
   issueType: FeedbackIssueType;
@@ -99,6 +103,7 @@ const emptyDraft: DraftState = {
 
 const emptyCredentialDraft: CredentialDraftState = {
   id: null,
+  profileId: null,
   title: '',
   websiteUrl: '',
   username: '',
@@ -240,6 +245,11 @@ export function App(): JSX.Element {
   const [credentials, setCredentials] = useState<CredentialEntry[]>([]);
   const [credentialDraft, setCredentialDraft] = useState<CredentialDraftState>(emptyCredentialDraft);
   const [credentialQuery, setCredentialQuery] = useState('');
+  const [vaultCredentials, setVaultCredentials] = useState<CredentialEntry[]>([]);
+  const [vaultDraft, setVaultDraft] = useState<CredentialDraftState>(emptyCredentialDraft);
+  const [vaultQuery, setVaultQuery] = useState('');
+  const [vaultBindingFilter, setVaultBindingFilter] = useState<CredentialBindingFilter>('all');
+  const [vaultProfileFilter, setVaultProfileFilter] = useState('');
   const [appVersion, setAppVersion] = useState<AppVersionInfo | null>(null);
   const [releaseCheck, setReleaseCheck] = useState<ReleaseCheckResult | null>(null);
   const [onboarding, setOnboarding] = useState<OnboardingStatus | null>(null);
@@ -250,6 +260,7 @@ export function App(): JSX.Element {
   const [activationCode, setActivationCode] = useState('');
   const [query, setQuery] = useState('');
   const [activeTab, setActiveTab] = useState<ActiveTab>('config');
+  const [workspaceView, setWorkspaceView] = useState<WorkspaceView>('profiles');
   const [notice, setNotice] = useState('准备就绪');
   const [busy, setBusy] = useState(false);
 
@@ -276,9 +287,11 @@ export function App(): JSX.Element {
     return (license.status === 'active' || license.status === 'grace') && usage.profilesUsed < usage.profileLimit;
   }, [license, usage]);
 
+  const passwordVaultEnabled = useMemo(() => license?.status === 'active' || license?.status === 'grace', [license?.status]);
+
   const credentialsEnabled = useMemo(() => {
-    return Boolean(selectedProfile && (license?.status === 'active' || license?.status === 'grace'));
-  }, [license?.status, selectedProfile]);
+    return Boolean(selectedProfile && passwordVaultEnabled);
+  }, [passwordVaultEnabled, selectedProfile]);
 
   const licenseUsagePercent = useMemo(() => {
     if (!usage || usage.profileLimit === 0) {
@@ -296,6 +309,19 @@ export function App(): JSX.Element {
       [credential.title, credential.websiteUrl, credential.username].join(' ').toLowerCase().includes(keyword)
     );
   }, [credentialQuery, credentials]);
+
+  const filteredVaultCredentials = useMemo(() => {
+    const keyword = vaultQuery.trim().toLowerCase();
+    if (!keyword) {
+      return vaultCredentials;
+    }
+    return vaultCredentials.filter((credential) =>
+      [credential.title, credential.websiteUrl, credential.username, credential.profileName ?? '']
+        .join(' ')
+        .toLowerCase()
+        .includes(keyword)
+    );
+  }, [vaultCredentials, vaultQuery]);
 
   const onboardingPercent = useMemo(() => {
     if (!onboarding || onboarding.totalCount === 0) {
@@ -322,9 +348,28 @@ export function App(): JSX.Element {
       setCredentials([]);
       return;
     }
-    const nextCredentials = await window.fingerBrowser.credentials.list(profileId);
+    const nextCredentials = await window.fingerBrowser.credentials.list({ profileId });
     setCredentials(nextCredentials);
   }, []);
+
+  const loadVaultCredentials = useCallback(async () => {
+    if (!passwordVaultEnabled) {
+      setVaultCredentials([]);
+      return;
+    }
+    const input: ListCredentialsInput = {};
+    if (vaultBindingFilter === 'profile') {
+      if (vaultProfileFilter) {
+        input.profileId = vaultProfileFilter;
+      } else {
+        input.binding = 'bound';
+      }
+    } else if (vaultBindingFilter !== 'all') {
+      input.binding = vaultBindingFilter;
+    }
+    const nextCredentials = await window.fingerBrowser.credentials.list(input);
+    setVaultCredentials(nextCredentials);
+  }, [passwordVaultEnabled, vaultBindingFilter, vaultProfileFilter]);
 
   const loadCommercialState = useCallback(async () => {
     const [nextLicense, nextUsage] = await Promise.all([
@@ -368,6 +413,14 @@ export function App(): JSX.Element {
     setCredentialQuery('');
   }, [credentialsEnabled, loadAudits, loadCredentials, selectedProfile]);
 
+  useEffect(() => {
+    if (workspaceView === 'vault') {
+      void loadVaultCredentials().catch((error) =>
+        setNotice(error instanceof Error ? error.message : '加载全局密码库失败')
+      );
+    }
+  }, [loadVaultCredentials, workspaceView]);
+
   const run = useCallback(async (label: string, task: () => Promise<string | void>) => {
     setBusy(true);
     setNotice(`${label}中...`);
@@ -381,7 +434,18 @@ export function App(): JSX.Element {
     }
   }, []);
 
+  const handleOpenProfiles = (): void => {
+    setWorkspaceView('profiles');
+  };
+
+  const handleOpenVault = (): void => {
+    setWorkspaceView('vault');
+    setVaultDraft(emptyCredentialDraft);
+    void loadVaultCredentials().catch((error) => setNotice(error instanceof Error ? error.message : '加载全局密码库失败'));
+  };
+
   const handleNewProfile = (): void => {
+    setWorkspaceView('profiles');
     if (!canCreateProfile) {
       setActiveTab('license');
       setNotice(license?.status === 'inactive' ? '请先激活许可证' : '当前套餐环境数已达上限');
@@ -533,6 +597,7 @@ export function App(): JSX.Element {
   const handleEditCredential = (credential: CredentialEntry): void => {
     setCredentialDraft({
       id: credential.id,
+      profileId: credential.profileId,
       title: credential.title,
       websiteUrl: credential.websiteUrl,
       username: credential.username,
@@ -553,6 +618,7 @@ export function App(): JSX.Element {
       if (credentialDraft.id) {
         await window.fingerBrowser.credentials.update({
           id: credentialDraft.id,
+          profileId: selectedProfile.id,
           title: credentialDraft.title,
           websiteUrl: credentialDraft.websiteUrl,
           username: credentialDraft.username,
@@ -574,26 +640,81 @@ export function App(): JSX.Element {
     });
   };
 
+  const handleEditVaultCredential = (credential: CredentialEntry): void => {
+    setVaultDraft({
+      id: credential.id,
+      profileId: credential.profileId,
+      title: credential.title,
+      websiteUrl: credential.websiteUrl,
+      username: credential.username,
+      password: ''
+    });
+  };
+
+  const handleNewVaultCredential = (): void => {
+    setVaultDraft(emptyCredentialDraft);
+    setNotice('正在新增全局密码项');
+  };
+
+  const handleResetVaultCredential = (): void => {
+    setVaultDraft(emptyCredentialDraft);
+  };
+
+  const refreshCredentialViews = useCallback(async () => {
+    if (selectedProfile && credentialsEnabled) {
+      await loadCredentials(selectedProfile.id, true);
+    } else {
+      setCredentials([]);
+    }
+    if (workspaceView === 'vault') {
+      await loadVaultCredentials();
+    }
+    await loadTrialState();
+    await loadAudits(workspaceView === 'vault' ? undefined : selectedProfile?.id);
+  }, [credentialsEnabled, loadAudits, loadCredentials, loadTrialState, loadVaultCredentials, selectedProfile, workspaceView]);
+
+  const handleSaveVaultCredential = (): void => {
+    if (!passwordVaultEnabled) {
+      setNotice('请先激活许可证');
+      return;
+    }
+    void run('保存密码项', async () => {
+      if (vaultDraft.id) {
+        await window.fingerBrowser.credentials.update({
+          id: vaultDraft.id,
+          profileId: vaultDraft.profileId,
+          title: vaultDraft.title,
+          websiteUrl: vaultDraft.websiteUrl,
+          username: vaultDraft.username,
+          password: vaultDraft.password || undefined
+        });
+      } else {
+        await window.fingerBrowser.credentials.create({
+          profileId: vaultDraft.profileId,
+          title: vaultDraft.title,
+          websiteUrl: vaultDraft.websiteUrl,
+          username: vaultDraft.username,
+          password: vaultDraft.password
+        });
+      }
+      await refreshCredentialViews();
+      setVaultDraft(emptyCredentialDraft);
+    });
+  };
+
   const handleDeleteCredential = (credential: CredentialEntry): void => {
     void run('删除密码项', async () => {
       await window.fingerBrowser.credentials.delete(credential.id);
-      if (selectedProfile) {
-        await loadCredentials(selectedProfile.id, true);
-        await loadTrialState();
-        await loadAudits(selectedProfile.id);
-      }
+      await refreshCredentialViews();
       setCredentialDraft((current) => (current.id === credential.id ? emptyCredentialDraft : current));
+      setVaultDraft((current) => (current.id === credential.id ? emptyCredentialDraft : current));
     });
   };
 
   const handleCopyUsername = (credential: CredentialEntry): void => {
     void run('复制账号', async () => {
       await window.fingerBrowser.credentials.copyUsername(credential.id);
-      if (selectedProfile) {
-        await loadCredentials(selectedProfile.id, true);
-        await loadTrialState();
-        await loadAudits(selectedProfile.id);
-      }
+      await refreshCredentialViews();
       return '账号已复制到剪贴板';
     });
   };
@@ -601,11 +722,7 @@ export function App(): JSX.Element {
   const handleCopyPassword = (credential: CredentialEntry): void => {
     void run('复制密码', async () => {
       await window.fingerBrowser.credentials.copyPassword(credential.id);
-      if (selectedProfile) {
-        await loadCredentials(selectedProfile.id, true);
-        await loadTrialState();
-        await loadAudits(selectedProfile.id);
-      }
+      await refreshCredentialViews();
       return '密码已复制到剪贴板';
     });
   };
@@ -674,15 +791,47 @@ export function App(): JSX.Element {
           </div>
         </div>
         <nav className="side-nav" aria-label="主导航">
-          <a className="active" href="#profiles">
+          <a
+            className={workspaceView === 'profiles' ? 'active' : ''}
+            href="#profiles"
+            onClick={(event) => {
+              event.preventDefault();
+              handleOpenProfiles();
+            }}
+          >
             <Globe2 size={17} />
             环境
           </a>
-          <a href="#audit">
+          <a
+            className={workspaceView === 'vault' ? 'active' : ''}
+            href="#password-vault"
+            onClick={(event) => {
+              event.preventDefault();
+              handleOpenVault();
+            }}
+          >
+            <LockKeyhole size={17} />
+            密码库
+          </a>
+          <a
+            href="#audit"
+            onClick={(event) => {
+              event.preventDefault();
+              handleOpenProfiles();
+              setActiveTab('audit');
+            }}
+          >
             <History size={17} />
             审计
           </a>
-          <a href="#settings">
+          <a
+            href="#settings"
+            onClick={(event) => {
+              event.preventDefault();
+              handleOpenProfiles();
+              setActiveTab('config');
+            }}
+          >
             <Settings size={17} />
             设置
           </a>
@@ -690,6 +839,7 @@ export function App(): JSX.Element {
             href="#trial"
             onClick={(event) => {
               event.preventDefault();
+              handleOpenProfiles();
               setActiveTab('trial');
             }}
           >
@@ -700,6 +850,7 @@ export function App(): JSX.Element {
             href="#license"
             onClick={(event) => {
               event.preventDefault();
+              handleOpenProfiles();
               setActiveTab('license');
             }}
           >
@@ -713,6 +864,7 @@ export function App(): JSX.Element {
         </div>
       </aside>
 
+      {workspaceView === 'profiles' ? (
       <section className="profile-list" id="profiles">
         <header className="topbar">
           <div>
@@ -829,8 +981,257 @@ export function App(): JSX.Element {
           ) : null}
         </div>
       </section>
+      ) : (
+        <section className="profile-list vault-workspace" id="password-vault">
+          <header className="topbar">
+            <div>
+              <p className="section-kicker">全局资产</p>
+              <h2>密码库</h2>
+            </div>
+            <button className="primary-button" type="button" onClick={handleNewVaultCredential}>
+              <LockKeyhole size={17} />
+              新增密码
+            </button>
+          </header>
+
+          {license?.status !== 'active' && license?.status !== 'grace' ? (
+            <div className="credential-locked vault-locked">
+              <LockKeyhole size={18} />
+              <div>
+                <strong>密码库需要有效许可证</strong>
+                <p>激活或恢复许可证后即可独立管理全局密码，并按需绑定到浏览器环境。</p>
+              </div>
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={() => {
+                  handleOpenProfiles();
+                  setActiveTab('license');
+                }}
+              >
+                <KeyRound size={16} />
+                前往授权
+              </button>
+            </div>
+          ) : (
+            <>
+              <div className="search-row">
+                <Search size={16} />
+                <input
+                  aria-label="搜索全局密码"
+                  value={vaultQuery}
+                  onChange={(event) => setVaultQuery(event.target.value)}
+                  placeholder="搜索名称、网站、用户名或绑定环境"
+                />
+              </div>
+
+              <div className="vault-filter-row">
+                <select
+                  aria-label="密码绑定筛选"
+                  value={vaultBindingFilter === 'profile' ? `profile:${vaultProfileFilter}` : vaultBindingFilter}
+                  onChange={(event) => {
+                    const value = event.target.value;
+                    if (value.startsWith('profile:')) {
+                      setVaultBindingFilter('profile');
+                      setVaultProfileFilter(value.replace('profile:', ''));
+                    } else {
+                      setVaultBindingFilter(value as CredentialBindingFilter);
+                      setVaultProfileFilter('');
+                    }
+                  }}
+                >
+                  <option value="all">全部</option>
+                  <option value="unbound">未绑定</option>
+                  <option value="bound">已绑定</option>
+                  {profiles.map((profile) => (
+                    <option value={`profile:${profile.id}`} key={profile.id}>
+                      指定环境：{profile.name}
+                    </option>
+                  ))}
+                </select>
+                <span>
+                  共 {filteredVaultCredentials.length} 项
+                  {vaultBindingFilter === 'profile' && vaultProfileFilter
+                    ? ` · ${profiles.find((profile) => profile.id === vaultProfileFilter)?.name ?? '指定环境'}`
+                    : ''}
+                </span>
+              </div>
+
+              <div className="table-header vault-table-header">
+                <span>登录项</span>
+                <span>绑定</span>
+                <span>密码</span>
+                <span>操作</span>
+              </div>
+
+              <div className="credential-list vault-credential-list" aria-label="全局密码列表">
+                {filteredVaultCredentials.map((credential) => (
+                  <article className="credential-row vault-credential-row" key={credential.id}>
+                    <div className="credential-main">
+                      <strong>{credential.title}</strong>
+                      <span>{credential.websiteUrl || '未设置网站地址'}</span>
+                      <small>{credential.username || '未设置用户名'}</small>
+                    </div>
+                    <span className={`binding-pill ${credential.profileId ? 'bound' : 'unbound'}`}>
+                      {credential.profileId ? credential.profileName ?? '环境已不存在' : '未绑定环境'}
+                    </span>
+                    <div className="credential-mask" aria-label="密码已隐藏">
+                      ••••••••
+                    </div>
+                    <div className="credential-actions">
+                      <button
+                        type="button"
+                        className="icon-button"
+                        onClick={() => handleCopyUsername(credential)}
+                        title="复制账号"
+                        aria-label={`复制账号 ${credential.title}`}
+                      >
+                        <Clipboard size={15} />
+                      </button>
+                      <button
+                        type="button"
+                        className="icon-button"
+                        onClick={() => handleCopyPassword(credential)}
+                        title="复制密码"
+                        aria-label={`复制密码 ${credential.title}`}
+                      >
+                        <KeyRound size={15} />
+                      </button>
+                      <button
+                        type="button"
+                        className="icon-button"
+                        onClick={() => handleEditVaultCredential(credential)}
+                        title="编辑密码项"
+                        aria-label={`编辑密码项 ${credential.title}`}
+                      >
+                        <Edit3 size={15} />
+                      </button>
+                      <button
+                        type="button"
+                        className="icon-button"
+                        onClick={() => handleDeleteCredential(credential)}
+                        title="删除密码项"
+                        aria-label={`删除密码项 ${credential.title}`}
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
+                  </article>
+                ))}
+                {filteredVaultCredentials.length === 0 ? <div className="empty-state">暂无密码项</div> : null}
+              </div>
+            </>
+          )}
+        </section>
+      )}
 
       <aside className="details-drawer">
+        {workspaceView === 'vault' ? (
+          <>
+            <div className="drawer-header">
+              <div>
+                <p className="section-kicker">密码库</p>
+                <h2>{vaultDraft.id ? '编辑密码项' : '新增密码项'}</h2>
+              </div>
+            </div>
+
+            {license?.status !== 'active' && license?.status !== 'grace' ? (
+              <div className="credential-locked">
+                <LockKeyhole size={18} />
+                <div>
+                  <strong>密码库需要有效许可证</strong>
+                  <p>许可证有效或处于宽限期时，才允许保存、删除和复制密码。</p>
+                </div>
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={() => {
+                    handleOpenProfiles();
+                    setActiveTab('license');
+                  }}
+                >
+                  <KeyRound size={16} />
+                  前往授权
+                </button>
+              </div>
+            ) : (
+              <form className="credential-panel vault-editor" onSubmit={(event) => event.preventDefault()}>
+                <section className="form-section">
+                  <div className="form-title">
+                    <LockKeyhole size={17} />
+                    {vaultDraft.id ? '编辑全局登录项' : '新增全局登录项'}
+                  </div>
+                  <label>
+                    名称
+                    <input
+                      aria-label="全局密码名称"
+                      value={vaultDraft.title}
+                      onChange={(event) => setVaultDraft({ ...vaultDraft, title: event.target.value })}
+                      placeholder="后台、邮箱、CRM"
+                    />
+                  </label>
+                  <label>
+                    网站地址
+                    <input
+                      aria-label="全局网站地址"
+                      value={vaultDraft.websiteUrl}
+                      onChange={(event) => setVaultDraft({ ...vaultDraft, websiteUrl: event.target.value })}
+                      placeholder="https://example.com/login"
+                    />
+                  </label>
+                  <label>
+                    用户名
+                    <input
+                      aria-label="全局登录用户名"
+                      value={vaultDraft.username}
+                      onChange={(event) => setVaultDraft({ ...vaultDraft, username: event.target.value })}
+                    />
+                  </label>
+                  <label>
+                    密码
+                    <input
+                      aria-label="全局登录密码"
+                      type="password"
+                      value={vaultDraft.password}
+                      onChange={(event) => setVaultDraft({ ...vaultDraft, password: event.target.value })}
+                      placeholder={vaultDraft.id ? '留空则不修改' : ''}
+                    />
+                  </label>
+                  <label>
+                    绑定环境
+                    <select
+                      aria-label="绑定环境"
+                      value={vaultDraft.profileId ?? ''}
+                      onChange={(event) => setVaultDraft({ ...vaultDraft, profileId: event.target.value || null })}
+                    >
+                      <option value="">不绑定</option>
+                      {profiles.map((profile) => (
+                        <option value={profile.id} key={profile.id}>
+                          {profile.name}
+                        </option>
+                      ))}
+                    </select>
+                  </label>
+                  <div className="ops-row">
+                    <button className="primary-button" type="button" onClick={handleSaveVaultCredential} disabled={busy}>
+                      <Save size={16} />
+                      保存密码项
+                    </button>
+                    <button className="secondary-button" type="button" onClick={handleResetVaultCredential} disabled={busy}>
+                      清空
+                    </button>
+                  </div>
+                </section>
+              </form>
+            )}
+
+            <footer className="notice-bar" aria-live="polite">
+              {busy ? <RefreshCw className="spin" size={15} /> : <CheckCircle2 size={15} />}
+              {notice}
+            </footer>
+          </>
+        ) : (
+          <>
         <div className="drawer-header">
           <div>
             <p className="section-kicker">详情抽屉</p>
@@ -1459,6 +1860,8 @@ export function App(): JSX.Element {
           {busy ? <RefreshCw className="spin" size={15} /> : <CheckCircle2 size={15} />}
           {notice}
         </footer>
+          </>
+        )}
       </aside>
     </main>
   );

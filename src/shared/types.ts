@@ -132,7 +132,8 @@ export interface AuditEvent {
 
 export interface CredentialEntry {
   id: string;
-  profileId: string;
+  profileId: string | null;
+  profileName: string | null;
   title: string;
   websiteUrl: string;
   username: string;
@@ -141,8 +142,13 @@ export interface CredentialEntry {
   lastCopiedAt: string | null;
 }
 
+export interface ListCredentialsInput {
+  profileId?: string;
+  binding?: 'all' | 'bound' | 'unbound';
+}
+
 export interface CreateCredentialInput {
-  profileId: string;
+  profileId?: string | null;
   title: string;
   websiteUrl: string;
   username: string;
@@ -151,6 +157,7 @@ export interface CreateCredentialInput {
 
 export interface UpdateCredentialInput {
   id: string;
+  profileId?: string | null;
   title: string;
   websiteUrl: string;
   username: string;
@@ -159,7 +166,7 @@ export interface UpdateCredentialInput {
 
 export interface CredentialCopyResult {
   id: string;
-  profileId: string;
+  profileId: string | null;
   copiedAt: string;
 }
 
@@ -319,7 +326,7 @@ export interface AppApi {
     package: (input: FeedbackPackageInput) => Promise<ExportResult>;
   };
   credentials: {
-    list: (profileId: string) => Promise<CredentialEntry[]>;
+    list: (input?: ListCredentialsInput) => Promise<CredentialEntry[]>;
     create: (input: CreateCredentialInput) => Promise<CredentialEntry>;
     update: (input: UpdateCredentialInput) => Promise<CredentialEntry>;
     delete: (id: string) => Promise<{ id: string }>;
