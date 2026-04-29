@@ -3,6 +3,7 @@ export type ProxyScheme = 'http' | 'https' | 'socks5';
 export type ProxyTestStatus = 'untested' | 'testing' | 'passed' | 'failed';
 export type PermissionDefault = 'ask' | 'deny';
 export type WebRtcIpPolicy = 'default' | 'disable_non_proxied_udp';
+export type RuntimeChannel = 'official' | 'custom-kernel';
 export type LicensePlanId = 'trial' | 'pro' | 'team';
 export type LicenseStatus = 'inactive' | 'active' | 'grace' | 'expired';
 export type ReleaseStatus = 'up-to-date' | 'update-available' | 'unavailable' | 'error';
@@ -24,6 +25,9 @@ export type AuditAction =
   | 'PROXY_UPDATED'
   | 'PROXY_TESTED'
   | 'CHROMIUM_INSTALLED'
+  | 'KERNEL_INSTALLED'
+  | 'KERNEL_POLICY_APPLIED'
+  | 'KERNEL_LAUNCHED'
   | 'LICENSE_ACTIVATED'
   | 'LICENSE_REFRESHED'
   | 'LICENSE_DEACTIVATED'
@@ -111,6 +115,7 @@ export interface BrowserProfile {
   status: ProfileStatus;
   userDataDir: string;
   chromiumVersion: string;
+  runtimeChannel: RuntimeChannel;
   fingerprintPolicy: FingerprintPolicy;
   proxyId: string | null;
   createdAt: string;
@@ -219,6 +224,29 @@ export interface TrialMetrics {
   updatedAt: string;
 }
 
+export interface KernelRuntimeManifest {
+  version: string;
+  baseChromiumRevision: string;
+  patchsetVersion: string;
+  platform: 'darwin';
+  arch: 'arm64';
+  artifactUrl: string;
+  sha256: string;
+  executableRelativePath: string;
+  policySchemaVersion: number;
+}
+
+export interface KernelRuntimeStatus {
+  manifest: KernelRuntimeManifest;
+  installed: boolean;
+  executablePath: string;
+}
+
+export interface KernelInstallResult extends KernelRuntimeStatus {
+  installed: true;
+  alreadyInstalled: boolean;
+}
+
 export interface FeedbackPackageInput {
   issueType: FeedbackIssueType;
   severity: FeedbackSeverity;
@@ -241,6 +269,7 @@ export interface CreateProfileInput {
   name: string;
   tags?: string[];
   fingerprintPolicy?: Partial<FingerprintPolicy>;
+  runtimeChannel?: RuntimeChannel;
   proxy?: CreateProxyInput;
 }
 
@@ -249,6 +278,7 @@ export interface UpdateProfileInput {
   name: string;
   tags: string[];
   fingerprintPolicy: FingerprintPolicy;
+  runtimeChannel: RuntimeChannel;
   proxy?: CreateProxyInput | null;
 }
 
@@ -274,6 +304,7 @@ export interface ChromiumInstallResult {
 export interface LaunchResult {
   profileId: string;
   pid: number;
+  runtimeChannel: RuntimeChannel;
   status: 'running';
 }
 
@@ -306,6 +337,11 @@ export interface AppApi {
   };
   chromium: {
     ensureInstalled: () => Promise<ChromiumInstallResult>;
+  };
+  kernel: {
+    manifest: () => Promise<KernelRuntimeManifest>;
+    status: () => Promise<KernelRuntimeStatus>;
+    ensureInstalled: () => Promise<KernelInstallResult>;
   };
   app: {
     version: () => Promise<AppVersionInfo>;

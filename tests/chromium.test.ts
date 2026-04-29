@@ -11,6 +11,7 @@ describe('Chromium launch planning', () => {
       status: 'closed',
       userDataDir: '/tmp/fingerbrowser/profile-1',
       chromiumVersion: 'stable',
+      runtimeChannel: 'official',
       fingerprintPolicy: {
         locale: 'zh-CN',
         timezone: 'Asia/Shanghai',

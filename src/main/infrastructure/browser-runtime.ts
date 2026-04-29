@@ -4,15 +4,18 @@ import path from 'node:path';
 import type { BrowserProfile, ProxyConfig } from '../../shared/types';
 import {
   buildChromiumLaunchPlan,
+  type BrowserLaunchResult,
   type BrowserController,
   MockBrowserController,
   writeProxyAuthExtension
 } from '../domain/chromium';
 import type { SecretBox } from '../domain/encryption';
+import { writeKernelPolicyFile, type KernelRuntimeManager } from '../domain/kernel-runtime';
 import type { ChromiumInstaller } from './chromium-installer';
 
 export function createBrowserController(options: {
   chromiumInstaller: ChromiumInstaller;
+  kernelRuntimeManager: KernelRuntimeManager;
   dataDir: string;
   secretBox: SecretBox;
   isE2E: boolean;
@@ -20,7 +23,12 @@ export function createBrowserController(options: {
   if (options.isE2E) {
     return new MockBrowserController();
   }
-  return new ExternalChromiumController(options.chromiumInstaller, options.dataDir, options.secretBox);
+  return new ExternalChromiumController(
+    options.chromiumInstaller,
+    options.kernelRuntimeManager,
+    options.dataDir,
+    options.secretBox
+  );
 }
 
 class ExternalChromiumController implements BrowserController {
@@ -28,13 +36,17 @@ class ExternalChromiumController implements BrowserController {
 
   constructor(
     private readonly chromiumInstaller: ChromiumInstaller,
+    private readonly kernelRuntimeManager: KernelRuntimeManager,
     private readonly dataDir: string,
     private readonly secretBox: SecretBox
   ) {}
 
-  async launch(profile: BrowserProfile, proxy: ProxyConfig | null): Promise<{ pid: number }> {
-    const installation = await this.chromiumInstaller.ensureInstalled();
+  async launch(profile: BrowserProfile, proxy: ProxyConfig | null): Promise<BrowserLaunchResult> {
+    const officialInstallation = profile.runtimeChannel === 'official' ? await this.chromiumInstaller.ensureInstalled() : null;
+    const kernelInstallation =
+      profile.runtimeChannel === 'custom-kernel' ? await this.kernelRuntimeManager.ensureInstalled() : null;
     let proxyAuthExtensionDir: string | undefined;
+    let kernelPolicyPath: string | undefined;
 
     if (proxy?.username && proxy.encryptedPassword) {
       proxyAuthExtensionDir = path.join(this.dataDir, 'proxy-extensions', profile.id);
@@ -46,11 +58,15 @@ class ExternalChromiumController implements BrowserController {
     }
 
     mkdirSync(profile.userDataDir, { recursive: true });
+    if (profile.runtimeChannel === 'custom-kernel') {
+      kernelPolicyPath = writeKernelPolicyFile(profile);
+    }
     const plan = buildChromiumLaunchPlan({
-      executablePath: installation.executablePath,
+      executablePath: kernelInstallation?.executablePath ?? officialInstallation?.executablePath ?? '',
       profile,
       proxy,
-      proxyAuthExtensionDir
+      proxyAuthExtensionDir,
+      kernelPolicyPath
     });
     const child = spawn(plan.executablePath, plan.args, {
       env: plan.env,
@@ -60,7 +76,12 @@ class ExternalChromiumController implements BrowserController {
     child.unref();
     this.running.set(profile.id, child);
     child.once('exit', () => this.running.delete(profile.id));
-    return { pid: child.pid ?? 0 };
+    return {
+      pid: child.pid ?? 0,
+      runtimeChannel: profile.runtimeChannel,
+      kernelPolicyPath,
+      kernelVersion: kernelInstallation?.manifest.version
+    };
   }
 
   async stop(profileId: string): Promise<void> {

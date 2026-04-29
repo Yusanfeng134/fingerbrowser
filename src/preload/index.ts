@@ -33,6 +33,11 @@ const api: AppApi = {
   chromium: {
     ensureInstalled: () => ipcRenderer.invoke('chromium.ensureInstalled') as ReturnType<AppApi['chromium']['ensureInstalled']>
   },
+  kernel: {
+    manifest: () => ipcRenderer.invoke('kernel.manifest') as ReturnType<AppApi['kernel']['manifest']>,
+    status: () => ipcRenderer.invoke('kernel.status') as ReturnType<AppApi['kernel']['status']>,
+    ensureInstalled: () => ipcRenderer.invoke('kernel.ensureInstalled') as ReturnType<AppApi['kernel']['ensureInstalled']>
+  },
   app: {
     version: () => ipcRenderer.invoke('app.version') as ReturnType<AppApi['app']['version']>
   },

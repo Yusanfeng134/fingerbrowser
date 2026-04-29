@@ -46,11 +46,25 @@ export function registerIpcHandlers(services: ApplicationServices): void {
     const profile = services.profileService.getProfile(profileId);
     const result = await services.browserController.launch(profile, profile.proxy);
     services.profileService.setProfileStatus(profileId, 'running');
-    services.profileService.recordAudit(profileId, 'PROFILE_LAUNCHED', { pid: result.pid });
+    if (result.runtimeChannel === 'custom-kernel') {
+      services.profileService.recordAudit(profileId, 'KERNEL_POLICY_APPLIED', {
+        runtimeChannel: result.runtimeChannel,
+        kernelVersion: result.kernelVersion
+      });
+      services.profileService.recordAudit(profileId, 'KERNEL_LAUNCHED', {
+        runtimeChannel: result.runtimeChannel,
+        kernelVersion: result.kernelVersion
+      });
+    }
+    services.profileService.recordAudit(profileId, 'PROFILE_LAUNCHED', {
+      pid: result.pid,
+      runtimeChannel: result.runtimeChannel
+    });
     services.trialService.incrementMetric('browserLaunchCount');
     return {
       profileId,
       pid: result.pid,
+      runtimeChannel: result.runtimeChannel,
       status: 'running' as const
     };
   });
@@ -120,6 +134,21 @@ export function registerIpcHandlers(services: ApplicationServices): void {
     const result = await services.chromiumInstaller.ensureInstalled();
     services.profileService.recordAudit(null, 'CHROMIUM_INSTALLED', {
       version: result.version,
+      alreadyInstalled: result.alreadyInstalled
+    });
+    return result;
+  });
+
+  ipcMain.handle('kernel.manifest', () => services.kernelRuntimeManager.manifest());
+
+  ipcMain.handle('kernel.status', () => services.kernelRuntimeManager.status());
+
+  ipcMain.handle('kernel.ensureInstalled', async () => {
+    const result = await services.kernelRuntimeManager.ensureInstalled();
+    services.profileService.recordAudit(null, 'KERNEL_INSTALLED', {
+      version: result.manifest.version,
+      baseChromiumRevision: result.manifest.baseChromiumRevision,
+      patchsetVersion: result.manifest.patchsetVersion,
       alreadyInstalled: result.alreadyInstalled
     });
     return result;

@@ -13,6 +13,7 @@ export function openApplicationDatabase(filePath: string): ApplicationDatabase {
       status text not null,
       user_data_dir text not null unique,
       chromium_version text not null,
+      runtime_channel text not null default 'official',
       fingerprint_policy_json text not null,
       proxy_id text,
       created_at text not null,
@@ -97,5 +98,9 @@ export function openApplicationDatabase(filePath: string): ApplicationDatabase {
       dismissed_at text
     );
   `);
+  const profileColumns = db.pragma('table_info(profiles)') as Array<{ name: string }>;
+  if (!profileColumns.some((column) => column.name === 'runtime_channel')) {
+    db.exec("alter table profiles add column runtime_channel text not null default 'official';");
+  }
   return db;
 }

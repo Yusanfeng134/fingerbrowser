@@ -1,14 +1,16 @@
 import type { ChildProcess } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
-import type { BrowserProfile, ProxyConfig } from '../../shared/types';
+import type { BrowserProfile, ProxyConfig, RuntimeChannel } from '../../shared/types';
 import { formatProxyServer } from './proxy';
+import { writeKernelPolicyFile } from './kernel-runtime';
 
 export interface ChromiumLaunchPlanInput {
   executablePath: string;
   profile: BrowserProfile;
   proxy: ProxyConfig | null;
   proxyAuthExtensionDir?: string;
+  kernelPolicyPath?: string;
 }
 
 export interface ChromiumLaunchPlan {
@@ -18,9 +20,16 @@ export interface ChromiumLaunchPlan {
 }
 
 export interface BrowserController {
-  launch(profile: BrowserProfile, proxy: ProxyConfig | null): Promise<{ pid: number }>;
+  launch(profile: BrowserProfile, proxy: ProxyConfig | null): Promise<BrowserLaunchResult>;
   stop(profileId: string): Promise<void>;
   has(profileId: string): boolean;
+}
+
+export interface BrowserLaunchResult {
+  pid: number;
+  runtimeChannel: RuntimeChannel;
+  kernelPolicyPath?: string;
+  kernelVersion?: string;
 }
 
 export function buildChromiumLaunchPlan(input: ChromiumLaunchPlanInput): ChromiumLaunchPlan {
@@ -34,6 +43,13 @@ export function buildChromiumLaunchPlan(input: ChromiumLaunchPlanInput): Chromiu
     '--disable-features=Translate,OptimizationHints',
     `--force-webrtc-ip-handling-policy=${fingerprintPolicy.webrtcIpPolicy}`
   ];
+
+  if (input.profile.runtimeChannel === 'custom-kernel') {
+    if (!input.kernelPolicyPath) {
+      throw new Error('自研内核缺少策略文件');
+    }
+    args.push(`--fingerbrowser-policy=${input.kernelPolicyPath}`);
+  }
 
   if (fingerprintPolicy.permissionDefaults === 'deny') {
     args.push('--deny-permission-prompts');
@@ -101,16 +117,21 @@ export class ManagedBrowserController implements BrowserController {
     private readonly spawnProcess: (command: string, args: string[], options: { env: NodeJS.ProcessEnv }) => ChildProcess
   ) {}
 
-  async launch(profile: BrowserProfile, proxy: ProxyConfig | null): Promise<{ pid: number }> {
+  async launch(profile: BrowserProfile, proxy: ProxyConfig | null): Promise<BrowserLaunchResult> {
     const plan = buildChromiumLaunchPlan({
       executablePath: this.executablePath,
       profile,
-      proxy
+      proxy,
+      kernelPolicyPath: profile.runtimeChannel === 'custom-kernel' ? writeKernelPolicyFile(profile) : undefined
     });
     const child = this.spawnProcess(plan.executablePath, plan.args, { env: plan.env });
     this.running.set(profile.id, child);
     child.once('exit', () => this.running.delete(profile.id));
-    return { pid: child.pid ?? 0 };
+    return {
+      pid: child.pid ?? 0,
+      runtimeChannel: profile.runtimeChannel,
+      kernelPolicyPath: profile.runtimeChannel === 'custom-kernel' ? path.join(profile.userDataDir, 'fingerbrowser_policy.json') : undefined
+    };
   }
 
   async stop(profileId: string): Promise<void> {
@@ -129,9 +150,15 @@ export class ManagedBrowserController implements BrowserController {
 export class MockBrowserController implements BrowserController {
   private readonly running = new Set<string>();
 
-  async launch(profile: BrowserProfile): Promise<{ pid: number }> {
+  async launch(profile: BrowserProfile): Promise<BrowserLaunchResult> {
     this.running.add(profile.id);
-    return { pid: 4242 };
+    const kernelPolicyPath = profile.runtimeChannel === 'custom-kernel' ? writeKernelPolicyFile(profile) : undefined;
+    return {
+      pid: 4242,
+      runtimeChannel: profile.runtimeChannel,
+      kernelPolicyPath,
+      kernelVersion: profile.runtimeChannel === 'custom-kernel' ? 'e2e-kernel' : undefined
+    };
   }
 
   async stop(profileId: string): Promise<void> {

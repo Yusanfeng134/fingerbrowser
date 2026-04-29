@@ -9,6 +9,11 @@ import { createLicenseService, type LicenseService } from './domain/license-serv
 import { RELEASES_PAGE_URL } from './domain/release';
 import { createTrialService, type TrialService } from './domain/trial-service';
 import { createProfileService, type ProfileService } from './domain/profile-service';
+import {
+  createKernelRuntimeManager,
+  createMockKernelRuntimeManager,
+  type KernelRuntimeManager
+} from './domain/kernel-runtime';
 import { openApplicationDatabase } from './infrastructure/database';
 import {
   createChromiumInstaller,
@@ -26,6 +31,7 @@ export interface ApplicationServices {
   licenseService: LicenseService;
   trialService: TrialService;
   chromiumInstaller: ChromiumInstaller;
+  kernelRuntimeManager: KernelRuntimeManager;
   browserController: BrowserController;
 }
 
@@ -68,8 +74,12 @@ export function createApplicationServices(): ApplicationServices {
   const chromiumInstaller = isE2E
     ? createMockChromiumInstaller()
     : createChromiumInstaller(path.join(dataDir, 'chromium'));
+  const kernelRuntimeManager = isE2E
+    ? createMockKernelRuntimeManager(process.execPath)
+    : createKernelRuntimeManager({ dataDir });
   const browserController = createBrowserController({
     chromiumInstaller,
+    kernelRuntimeManager,
     dataDir,
     secretBox,
     isE2E
@@ -83,6 +93,7 @@ export function createApplicationServices(): ApplicationServices {
     licenseService,
     trialService,
     chromiumInstaller,
+    kernelRuntimeManager,
     browserController
   };
 }

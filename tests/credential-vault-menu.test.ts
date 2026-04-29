@@ -28,6 +28,7 @@ function profile(id: string, name: string): ProfileDetails {
     status: 'closed',
     userDataDir: `/tmp/${id}`,
     chromiumVersion: 'stable',
+    runtimeChannel: 'official',
     fingerprintPolicy: {
       locale: 'zh-CN',
       timezone: 'Asia/Shanghai',

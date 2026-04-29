@@ -34,6 +34,8 @@ import type {
   AppVersionInfo,
   BrowserProfile,
   CredentialEntry,
+  KernelRuntimeManifest,
+  KernelRuntimeStatus,
   FeedbackIssueType,
   FeedbackSeverity,
   CreateProfileInput,
@@ -43,6 +45,7 @@ import type {
   ProxyScheme,
   RedactedLicenseState,
   ReleaseCheckResult,
+  RuntimeChannel,
   TrialMetrics,
   UpdateProfileInput,
   UsageSummary
@@ -74,6 +77,7 @@ interface DraftState {
   proxyUsername: string;
   proxyPassword: string;
   proxyBypassList: string;
+  runtimeChannel: RuntimeChannel;
   fingerprintPolicy: FingerprintPolicy;
 }
 
@@ -112,6 +116,7 @@ const emptyDraft: DraftState = {
   proxyUsername: '',
   proxyPassword: '',
   proxyBypassList: 'localhost,127.0.0.1',
+  runtimeChannel: 'official',
   fingerprintPolicy: DEFAULT_FINGERPRINT_POLICY
 };
 
@@ -145,6 +150,11 @@ const statusTone: Record<BrowserProfile['status'], string> = {
   error: 'bad'
 };
 
+const runtimeChannelText: Record<RuntimeChannel, string> = {
+  official: '官方稳定版',
+  'custom-kernel': '自研内核'
+};
+
 const actionLabel: Record<string, string> = {
   PROFILE_CREATED: '创建环境',
   PROFILE_UPDATED: '更新环境',
@@ -154,6 +164,9 @@ const actionLabel: Record<string, string> = {
   PROXY_UPDATED: '更新代理',
   PROXY_TESTED: '测试代理',
   CHROMIUM_INSTALLED: '安装 Chromium',
+  KERNEL_INSTALLED: '安装自研内核',
+  KERNEL_POLICY_APPLIED: '应用内核策略',
+  KERNEL_LAUNCHED: '启动自研内核',
   LICENSE_ACTIVATED: '激活许可证',
   LICENSE_REFRESHED: '刷新许可证',
   LICENSE_DEACTIVATED: '停用许可证',
@@ -189,6 +202,7 @@ function profileToDraft(profile: ProfileDetails): DraftState {
     proxyUsername: profile.proxy?.username ?? '',
     proxyPassword: '',
     proxyBypassList: profile.proxy?.bypassList.join(',') ?? 'localhost,127.0.0.1',
+    runtimeChannel: profile.runtimeChannel,
     fingerprintPolicy: profile.fingerprintPolicy
   };
 }
@@ -198,6 +212,7 @@ function draftToCreateInput(draft: DraftState): CreateProfileInput {
     name: draft.name,
     tags: splitCsv(draft.tags),
     fingerprintPolicy: draft.fingerprintPolicy,
+    runtimeChannel: draft.runtimeChannel,
     proxy:
       draft.proxyEnabled && draft.proxyHost
         ? {
@@ -221,6 +236,7 @@ function draftToUpdateInput(draft: DraftState): UpdateProfileInput {
     name: draft.name,
     tags: splitCsv(draft.tags),
     fingerprintPolicy: draft.fingerprintPolicy,
+    runtimeChannel: draft.runtimeChannel,
     proxy:
       draft.proxyEnabled && draft.proxyHost
         ? {
@@ -273,6 +289,8 @@ export function App(): JSX.Element {
   const [generatedPassword, setGeneratedPassword] = useState('');
   const [appVersion, setAppVersion] = useState<AppVersionInfo | null>(null);
   const [releaseCheck, setReleaseCheck] = useState<ReleaseCheckResult | null>(null);
+  const [kernelManifest, setKernelManifest] = useState<KernelRuntimeManifest | null>(null);
+  const [kernelStatus, setKernelStatus] = useState<KernelRuntimeStatus | null>(null);
   const [onboarding, setOnboarding] = useState<OnboardingStatus | null>(null);
   const [metrics, setMetrics] = useState<TrialMetrics | null>(null);
   const [feedbackDraft, setFeedbackDraft] = useState<FeedbackDraftState>(emptyFeedbackDraft);
@@ -425,11 +443,20 @@ export function App(): JSX.Element {
     setMetrics(nextMetrics);
   }, []);
 
+  const loadKernelState = useCallback(async () => {
+    const [nextManifest, nextStatus] = await Promise.all([
+      window.fingerBrowser.kernel.manifest(),
+      window.fingerBrowser.kernel.status()
+    ]);
+    setKernelManifest(nextManifest);
+    setKernelStatus(nextStatus);
+  }, []);
+
   useEffect(() => {
-    void Promise.all([loadProfiles(), loadCommercialState(), loadTrialState()]).catch((error) =>
+    void Promise.all([loadProfiles(), loadCommercialState(), loadTrialState(), loadKernelState()]).catch((error) =>
       setNotice(error instanceof Error ? error.message : '加载环境失败')
     );
-  }, [loadCommercialState, loadProfiles, loadTrialState]);
+  }, [loadCommercialState, loadKernelState, loadProfiles, loadTrialState]);
 
   useEffect(() => {
     if (selectedProfile) {
@@ -570,10 +597,17 @@ export function App(): JSX.Element {
   };
 
   const handleEnsureChromium = (): void => {
-    void run('检查 Chromium', async () => {
+    const runtimeChannel = draft.runtimeChannel;
+    void run(runtimeChannel === 'custom-kernel' ? '检查自研内核' : '检查 Chromium', async () => {
+      if (runtimeChannel === 'custom-kernel') {
+        const result = await window.fingerBrowser.kernel.ensureInstalled();
+        await loadKernelState();
+        await loadAudits(selectedProfile?.id);
+        return `自研内核 ${result.manifest.version} ${result.alreadyInstalled ? '已就绪' : '已安装'}`;
+      }
       const result = await window.fingerBrowser.chromium.ensureInstalled();
-      setNotice(`Chromium ${result.version} ${result.alreadyInstalled ? '已就绪' : '已安装'}`);
       await loadAudits(selectedProfile?.id);
+      return `官方 Chromium ${result.version} ${result.alreadyInstalled ? '已就绪' : '已安装'}`;
     });
   };
 
@@ -1098,7 +1132,7 @@ export function App(): JSX.Element {
           <span>环境</span>
           <span>状态</span>
           <span>代理</span>
-          <span>Chromium</span>
+          <span>内核</span>
         </div>
 
         <div className="profile-rows" role="list" aria-label="环境列表">
@@ -1122,7 +1156,7 @@ export function App(): JSX.Element {
                 {statusText[profile.status]}
               </span>
               <span>{profile.proxy ? `${profile.proxy.scheme}://${profile.proxy.host}:${profile.proxy.port}` : '未配置'}</span>
-              <span>{profile.chromiumVersion}</span>
+              <span>{runtimeChannelText[profile.runtimeChannel]}</span>
             </button>
           ))}
           {filteredProfiles.length === 0 ? (
@@ -1610,6 +1644,35 @@ export function App(): JSX.Element {
               <button className="secondary-button wide" type="button" onClick={handleProxyTest} disabled={busy}>
                 <CheckCircle2 size={16} />
                 测试代理
+              </button>
+            </section>
+
+            <section className="form-section">
+              <div className="form-title">
+                <PackageCheck size={17} />
+                内核通道
+              </div>
+              <label>
+                运行通道
+                <select
+                  aria-label="内核通道"
+                  value={draft.runtimeChannel}
+                  onChange={(event) => setDraft({ ...draft, runtimeChannel: event.target.value as RuntimeChannel })}
+                >
+                  <option value="official">官方稳定版</option>
+                  <option value="custom-kernel">自研内核</option>
+                </select>
+              </label>
+              <div className="kernel-status-card">
+                <span>当前选择：{runtimeChannelText[draft.runtimeChannel]}</span>
+                <span>自研内核：{kernelStatus?.installed ? '已安装' : '未安装'}</span>
+                <span>版本：{kernelManifest?.version ?? '未加载'}</span>
+                <span>Chromium 基线：{kernelManifest?.baseChromiumRevision ?? '未加载'}</span>
+                <span>Patchset：{kernelManifest?.patchsetVersion ?? '未加载'}</span>
+              </div>
+              <button className="secondary-button wide" type="button" onClick={handleEnsureChromium} disabled={busy}>
+                <PackageCheck size={16} />
+                {draft.runtimeChannel === 'custom-kernel' ? '检查自研内核' : '检查官方 Chromium'}
               </button>
             </section>
 

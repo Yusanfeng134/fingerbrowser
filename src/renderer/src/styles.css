@@ -608,13 +608,20 @@ p {
   grid-template-columns: 1fr;
 }
 
-.policy-grid span {
+.policy-grid span,
+.kernel-status-card span {
   padding: 9px 10px;
   border-radius: 8px;
   color: #39534f;
   background: rgba(31, 122, 107, 0.08);
   font-size: 12px;
   font-weight: 660;
+}
+
+.kernel-status-card {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 1fr 1fr;
 }
 
 .wide {

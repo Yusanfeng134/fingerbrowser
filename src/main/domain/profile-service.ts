@@ -12,6 +12,7 @@ import type {
   ProfileDetails,
   ProxyConfig,
   ProxyTestResult,
+  RuntimeChannel,
   UpdateProfileInput
 } from '../../shared/types';
 import type { ApplicationDatabase } from '../infrastructure/database';
@@ -31,6 +32,7 @@ interface ProfileRow {
   status: BrowserProfile['status'];
   user_data_dir: string;
   chromium_version: string;
+  runtime_channel: RuntimeChannel;
   fingerprint_policy_json: string;
   proxy_id: string | null;
   created_at: string;
@@ -84,6 +86,10 @@ export function createProfileService(options: ProfileServiceOptions): ProfileSer
     };
   }
 
+  function normalizeRuntimeChannel(input?: RuntimeChannel): RuntimeChannel {
+    return input === 'custom-kernel' ? 'custom-kernel' : 'official';
+  }
+
   function normalizeTags(tags?: string[]): string[] {
     return [...new Set((tags ?? []).map((tag) => tag.trim()).filter(Boolean))];
   }
@@ -118,6 +124,7 @@ export function createProfileService(options: ProfileServiceOptions): ProfileSer
       status: row.status,
       userDataDir: row.user_data_dir,
       chromiumVersion: row.chromium_version,
+      runtimeChannel: normalizeRuntimeChannel(row.runtime_channel),
       fingerprintPolicy: JSON.parse(row.fingerprint_policy_json) as FingerprintPolicy,
       proxyId: row.proxy_id,
       createdAt: row.created_at,
@@ -242,8 +249,8 @@ export function createProfileService(options: ProfileServiceOptions): ProfileSer
 
       db.prepare(
         `insert into profiles (
-          id, name, tags_json, status, user_data_dir, chromium_version, fingerprint_policy_json, proxy_id, created_at, updated_at
-        ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          id, name, tags_json, status, user_data_dir, chromium_version, runtime_channel, fingerprint_policy_json, proxy_id, created_at, updated_at
+        ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       ).run(
         id,
         input.name.trim(),
@@ -251,6 +258,7 @@ export function createProfileService(options: ProfileServiceOptions): ProfileSer
         'closed',
         userDataDir,
         CHROMIUM_VERSION,
+        normalizeRuntimeChannel(input.runtimeChannel),
         JSON.stringify(normalizeFingerprintPolicy(input.fingerprintPolicy)),
         proxy?.id ?? null,
         now,
@@ -274,12 +282,13 @@ export function createProfileService(options: ProfileServiceOptions): ProfileSer
 
       db.prepare(
         `update profiles
-         set name = ?, tags_json = ?, fingerprint_policy_json = ?, proxy_id = ?, updated_at = ?
+         set name = ?, tags_json = ?, fingerprint_policy_json = ?, runtime_channel = ?, proxy_id = ?, updated_at = ?
          where id = ?`
       ).run(
         input.name.trim(),
         JSON.stringify(normalizeTags(input.tags)),
         JSON.stringify(normalizeFingerprintPolicy(input.fingerprintPolicy)),
+        normalizeRuntimeChannel(input.runtimeChannel),
         proxyId,
         now,
         input.id
@@ -288,6 +297,7 @@ export function createProfileService(options: ProfileServiceOptions): ProfileSer
       recordAudit(input.id, 'PROFILE_UPDATED', {
         name: input.name.trim(),
         tags: normalizeTags(input.tags),
+        runtimeChannel: normalizeRuntimeChannel(input.runtimeChannel),
         hasProxy: Boolean(proxyId)
       });
       if (proxyId) {
