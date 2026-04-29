@@ -83,7 +83,8 @@ export function createManualActivationCode(input: CreateManualActivationCodeInpu
 }
 
 export function parseActivationCode(code: string, signingSecret: string): LicenseActivationPayload {
-  const [prefix, encodedPayload, signature] = code.split('.');
+  const normalizedCode = normalizeActivationCode(code);
+  const [prefix, encodedPayload, signature] = normalizedCode.split('.');
   if (prefix !== LICENSE_CODE_PREFIX || !encodedPayload || !signature) {
     throw new Error('激活码格式无效');
   }
@@ -96,6 +97,13 @@ export function parseActivationCode(code: string, signingSecret: string): Licens
     throw new Error('激活码套餐无效');
   }
   return payload;
+}
+
+function normalizeActivationCode(code: string): string {
+  const compact = code.replace(/\s+/g, '');
+  const activationCodePattern = new RegExp(`${LICENSE_CODE_PREFIX}\\.[A-Za-z0-9_-]+\\.[A-Za-z0-9_-]+`);
+  const match = activationCodePattern.exec(compact);
+  return match?.[0] ?? compact;
 }
 
 export function evaluateLicenseState(input: EvaluateLicenseInput): LicenseState {

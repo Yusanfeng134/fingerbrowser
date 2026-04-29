@@ -30,6 +30,22 @@ describe('license domain', () => {
     expect(parsed.expiresAt).toBe('2026-05-06T08:00:00.000Z');
   });
 
+  it('accepts activation codes pasted with surrounding Markdown text', () => {
+    const code = createManualActivationCode({
+      signingSecret,
+      planId: 'trial',
+      teamName: '本地调试',
+      issuedAt: now,
+      expiresAt: new Date('2026-05-06T08:00:00.000Z')
+    });
+    const pasted = `本地调试许可证：\n\n\`\`\`text\n${code}\n\`\`\``;
+
+    const parsed = parseActivationCode(pasted, signingSecret);
+
+    expect(parsed.teamName).toBe('本地调试');
+    expect(parsed.plan.profileLimit).toBe(5);
+  });
+
   it('rejects tampered activation codes', () => {
     const code = createManualActivationCode({
       signingSecret,
