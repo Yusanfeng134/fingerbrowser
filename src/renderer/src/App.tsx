@@ -83,6 +83,7 @@ interface CredentialDraftState {
 type ActiveTab = 'config' | 'credentials' | 'audit' | 'license' | 'trial';
 type WorkspaceView = 'profiles' | 'vault';
 type VaultEditorMode = 'view' | 'edit' | 'new';
+type SideNavKey = 'profiles' | 'vault' | 'audit' | 'settings' | 'trial' | 'license';
 
 interface FeedbackDraftState {
   issueType: FeedbackIssueType;
@@ -269,6 +270,7 @@ export function App(): JSX.Element {
   const [query, setQuery] = useState('');
   const [activeTab, setActiveTab] = useState<ActiveTab>('config');
   const [workspaceView, setWorkspaceView] = useState<WorkspaceView>('profiles');
+  const [activeNavKey, setActiveNavKey] = useState<SideNavKey>('profiles');
   const [notice, setNotice] = useState('准备就绪');
   const [busy, setBusy] = useState(false);
 
@@ -454,12 +456,14 @@ export function App(): JSX.Element {
     }
   }, []);
 
-  const handleOpenProfiles = (): void => {
+  const handleOpenProfiles = (navKey: SideNavKey = 'profiles'): void => {
     setWorkspaceView('profiles');
+    setActiveNavKey(navKey);
   };
 
   const handleOpenVault = (menuId: CredentialVaultMenuId = 'all'): void => {
     setWorkspaceView('vault');
+    setActiveNavKey('vault');
     setVaultMenuId(menuId);
     setVaultDraft(emptyCredentialDraft);
     setVaultEditorMode('view');
@@ -474,8 +478,10 @@ export function App(): JSX.Element {
 
   const handleNewProfile = (): void => {
     setWorkspaceView('profiles');
+    setActiveNavKey('profiles');
     if (!canCreateProfile) {
       setActiveTab('license');
+      setActiveNavKey('license');
       setNotice(license?.status === 'inactive' ? '请先激活许可证' : '当前套餐环境数已达上限');
       return;
     }
@@ -840,18 +846,18 @@ export function App(): JSX.Element {
         </div>
         <nav className="side-nav" aria-label="主导航">
           <a
-            className={workspaceView === 'profiles' ? 'active' : ''}
+            className={activeNavKey === 'profiles' ? 'active' : ''}
             href="#profiles"
             onClick={(event) => {
               event.preventDefault();
-              handleOpenProfiles();
+              handleOpenProfiles('profiles');
             }}
           >
             <Globe2 size={17} />
             环境
           </a>
           <a
-            className={workspaceView === 'vault' ? 'active' : ''}
+            className={activeNavKey === 'vault' ? 'active' : ''}
             href="#password-vault"
             onClick={(event) => {
               event.preventDefault();
@@ -862,10 +868,11 @@ export function App(): JSX.Element {
             密码库
           </a>
           <a
+            className={activeNavKey === 'audit' ? 'active' : ''}
             href="#audit"
             onClick={(event) => {
               event.preventDefault();
-              handleOpenProfiles();
+              handleOpenProfiles('audit');
               setActiveTab('audit');
             }}
           >
@@ -873,10 +880,11 @@ export function App(): JSX.Element {
             审计
           </a>
           <a
+            className={activeNavKey === 'settings' ? 'active' : ''}
             href="#settings"
             onClick={(event) => {
               event.preventDefault();
-              handleOpenProfiles();
+              handleOpenProfiles('settings');
               setActiveTab('config');
             }}
           >
@@ -884,10 +892,11 @@ export function App(): JSX.Element {
             设置
           </a>
           <a
+            className={activeNavKey === 'trial' ? 'active' : ''}
             href="#trial"
             onClick={(event) => {
               event.preventDefault();
-              handleOpenProfiles();
+              handleOpenProfiles('trial');
               setActiveTab('trial');
             }}
           >
@@ -895,10 +904,11 @@ export function App(): JSX.Element {
             试卖
           </a>
           <a
+            className={activeNavKey === 'license' ? 'active' : ''}
             href="#license"
             onClick={(event) => {
               event.preventDefault();
-              handleOpenProfiles();
+              handleOpenProfiles('license');
               setActiveTab('license');
             }}
           >
@@ -944,7 +954,14 @@ export function App(): JSX.Element {
             <span style={{ width: `${licenseUsagePercent}%` }} />
           </div>
           {license?.status === 'inactive' || license?.status === 'expired' ? (
-            <button type="button" className="secondary-button" onClick={() => setActiveTab('license')}>
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={() => {
+                handleOpenProfiles('license');
+                setActiveTab('license');
+              }}
+            >
               <KeyRound size={16} />
               激活许可证
             </button>
@@ -1006,6 +1023,7 @@ export function App(): JSX.Element {
               onClick={() => {
                 setSelectedId(profile.id);
                 setActiveTab('config');
+                setActiveNavKey('profiles');
               }}
               type="button"
             >
@@ -1053,7 +1071,7 @@ export function App(): JSX.Element {
                 type="button"
                 className="secondary-button"
                 onClick={() => {
-                  handleOpenProfiles();
+                  handleOpenProfiles('license');
                   setActiveTab('license');
                 }}
               >
@@ -1169,7 +1187,7 @@ export function App(): JSX.Element {
                   type="button"
                   className="secondary-button"
                   onClick={() => {
-                    handleOpenProfiles();
+                    handleOpenProfiles('license');
                     setActiveTab('license');
                   }}
                 >
@@ -1359,7 +1377,10 @@ export function App(): JSX.Element {
             role="tab"
             aria-selected={activeTab === 'config'}
             className={activeTab === 'config' ? 'active' : ''}
-            onClick={() => setActiveTab('config')}
+            onClick={() => {
+              setActiveTab('config');
+              setActiveNavKey('settings');
+            }}
           >
             配置
           </button>
@@ -1368,7 +1389,10 @@ export function App(): JSX.Element {
             role="tab"
             aria-selected={activeTab === 'credentials'}
             className={activeTab === 'credentials' ? 'active' : ''}
-            onClick={() => setActiveTab('credentials')}
+            onClick={() => {
+              setActiveTab('credentials');
+              setActiveNavKey('profiles');
+            }}
           >
             密码
           </button>
@@ -1377,7 +1401,10 @@ export function App(): JSX.Element {
             role="tab"
             aria-selected={activeTab === 'audit'}
             className={activeTab === 'audit' ? 'active' : ''}
-            onClick={() => setActiveTab('audit')}
+            onClick={() => {
+              setActiveTab('audit');
+              setActiveNavKey('audit');
+            }}
           >
             审计
           </button>
@@ -1386,7 +1413,10 @@ export function App(): JSX.Element {
             role="tab"
             aria-selected={activeTab === 'license'}
             className={activeTab === 'license' ? 'active' : ''}
-            onClick={() => setActiveTab('license')}
+            onClick={() => {
+              setActiveTab('license');
+              setActiveNavKey('license');
+            }}
           >
             授权
           </button>
@@ -1395,7 +1425,10 @@ export function App(): JSX.Element {
             role="tab"
             aria-selected={activeTab === 'trial'}
             className={activeTab === 'trial' ? 'active' : ''}
-            onClick={() => setActiveTab('trial')}
+            onClick={() => {
+              setActiveTab('trial');
+              setActiveNavKey('trial');
+            }}
           >
             试卖
           </button>
@@ -1575,7 +1608,14 @@ export function App(): JSX.Element {
                   <strong>密码库需要有效许可证</strong>
                   <p>激活或恢复许可证后即可保存、搜索和复制当前环境的登录项。</p>
                 </div>
-                <button type="button" className="secondary-button" onClick={() => setActiveTab('license')}>
+                <button
+                  type="button"
+                  className="secondary-button"
+                  onClick={() => {
+                    handleOpenProfiles('license');
+                    setActiveTab('license');
+                  }}
+                >
                   <KeyRound size={16} />
                   前往授权
                 </button>

@@ -58,6 +58,22 @@ test('中文 UI 完成激活 license、新建环境、代理测试、导出审�
     await expect(page.getByRole('heading', { name: 'E2E 运营环境' })).toBeVisible();
     await expect(page.getByText(/环境 1\/1/)).toBeVisible();
 
+    const sideNav = page.getByRole('navigation', { name: '主导航' });
+    await sideNav.getByRole('link', { name: '审计' }).click();
+    await expect(sideNav.getByRole('link', { name: '审计' })).toHaveClass(/active/);
+    await expect(page.getByRole('button', { name: '导出审计' })).toBeVisible();
+    await sideNav.getByRole('link', { name: '授权' }).click();
+    await expect(sideNav.getByRole('link', { name: '授权' })).toHaveClass(/active/);
+    await expect(page.getByText('授权中心')).toBeVisible();
+    await sideNav.getByRole('link', { name: '试卖' }).click();
+    await expect(sideNav.getByRole('link', { name: '试卖' })).toHaveClass(/active/);
+    await expect(page.getByText('版本中心')).toBeVisible();
+    await sideNav.getByRole('link', { name: '设置' }).click();
+    await expect(sideNav.getByRole('link', { name: '设置' })).toHaveClass(/active/);
+    await expect(page.getByRole('button', { name: '保存环境' })).toBeVisible();
+    await sideNav.getByRole('link', { name: '环境' }).click();
+    await expect(sideNav.getByRole('link', { name: '环境' })).toHaveClass(/active/);
+
     await page.getByRole('link', { name: '密码库' }).click();
     await expect(page.getByLabel('密码库菜单')).toBeVisible();
     await page.locator('#password-vault').getByRole('button', { name: '新增密码' }).click();
