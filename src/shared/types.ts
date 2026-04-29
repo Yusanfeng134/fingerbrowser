@@ -5,6 +5,16 @@ export type PermissionDefault = 'ask' | 'deny';
 export type WebRtcIpPolicy = 'default' | 'disable_non_proxied_udp';
 export type LicensePlanId = 'trial' | 'pro' | 'team';
 export type LicenseStatus = 'inactive' | 'active' | 'grace' | 'expired';
+export type ReleaseStatus = 'up-to-date' | 'update-available' | 'unavailable' | 'error';
+export type FeedbackIssueType = 'bug' | 'setup' | 'feature' | 'other';
+export type FeedbackSeverity = 'low' | 'medium' | 'high';
+export type TrialMetricKey =
+  | 'activationCount'
+  | 'profileCreateCount'
+  | 'browserLaunchCount'
+  | 'proxyTestCount'
+  | 'feedbackPackageCount'
+  | 'updateCheckCount';
 export type AuditAction =
   | 'PROFILE_CREATED'
   | 'PROFILE_UPDATED'
@@ -25,6 +35,8 @@ export type AuditAction =
   | 'CREDENTIAL_DELETED'
   | 'CREDENTIAL_USERNAME_COPIED'
   | 'CREDENTIAL_PASSWORD_COPIED'
+  | 'FEEDBACK_PACKAGED'
+  | 'UPDATE_CHECKED'
   | 'ERROR_RECORDED';
 
 export interface LicensePlan {
@@ -151,6 +163,64 @@ export interface CredentialCopyResult {
   copiedAt: string;
 }
 
+export interface AppVersionInfo {
+  version: string;
+  channel: 'trial';
+  releaseUrl: string;
+}
+
+export interface ReleaseCheckResult {
+  status: ReleaseStatus;
+  currentVersion: string;
+  latestVersion?: string;
+  releaseUrl?: string;
+  assetName?: string;
+  downloadUrl?: string;
+  message: string;
+  checkedAt: string;
+}
+
+export interface OnboardingItem {
+  id:
+    | 'activate-license'
+    | 'create-profile'
+    | 'configure-proxy'
+    | 'save-password'
+    | 'launch-browser'
+    | 'package-feedback';
+  label: string;
+  completed: boolean;
+}
+
+export interface OnboardingStatus {
+  dismissed: boolean;
+  dismissedAt: string | null;
+  items: OnboardingItem[];
+  completedCount: number;
+  totalCount: number;
+}
+
+export interface TrialMetrics {
+  activationCount: number;
+  profileCreateCount: number;
+  browserLaunchCount: number;
+  proxyTestCount: number;
+  feedbackPackageCount: number;
+  updateCheckCount: number;
+  profileCount: number;
+  credentialCount: number;
+  updatedAt: string;
+}
+
+export interface FeedbackPackageInput {
+  issueType: FeedbackIssueType;
+  severity: FeedbackSeverity;
+  teamName: string;
+  contact: string;
+  description: string;
+  includeDiagnostics: boolean;
+}
+
 export interface CreateProxyInput {
   scheme: ProxyScheme;
   host: string;
@@ -229,6 +299,24 @@ export interface AppApi {
   };
   chromium: {
     ensureInstalled: () => Promise<ChromiumInstallResult>;
+  };
+  app: {
+    version: () => Promise<AppVersionInfo>;
+  };
+  release: {
+    checkForUpdates: () => Promise<ReleaseCheckResult>;
+    openLatestRelease: () => Promise<{ releaseUrl: string }>;
+  };
+  onboarding: {
+    status: () => Promise<OnboardingStatus>;
+    dismiss: () => Promise<OnboardingStatus>;
+    reset: () => Promise<OnboardingStatus>;
+  };
+  trial: {
+    metrics: () => Promise<TrialMetrics>;
+  };
+  feedback: {
+    package: (input: FeedbackPackageInput) => Promise<ExportResult>;
   };
   credentials: {
     list: (profileId: string) => Promise<CredentialEntry[]>;

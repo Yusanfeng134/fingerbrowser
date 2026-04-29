@@ -28,6 +28,7 @@ interface CredentialRow {
 
 export interface CredentialService {
   listCredentials(profileId: string): CredentialEntry[];
+  countCredentials(): number;
   createCredential(input: CreateCredentialInput): CredentialEntry;
   updateCredential(input: UpdateCredentialInput): CredentialEntry;
   deleteCredential(id: string): CredentialEntry;
@@ -93,6 +94,10 @@ export function createCredentialService(options: CredentialServiceOptions): Cred
         .prepare('select * from profile_credentials where profile_id = ? order by updated_at desc')
         .all(profileId) as CredentialRow[];
       return rows.map(mapCredential);
+    },
+    countCredentials(): number {
+      const row = db.prepare('select count(*) as count from profile_credentials').get() as { count: number };
+      return row.count;
     },
     createCredential(input: CreateCredentialInput): CredentialEntry {
       assertProfileExists(input.profileId);

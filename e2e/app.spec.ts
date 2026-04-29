@@ -34,6 +34,7 @@ test('中文 UI 完成激活 license、新建环境、代理测试、导出审�
   try {
     const page = await app.firstWindow();
     await expect(page.getByRole('heading', { name: '指纹浏览器' })).toBeVisible();
+    await expect(page.getByText('试卖上手清单')).toBeVisible();
 
     await page.getByRole('tab', { name: '密码' }).click();
     await expect(page.getByText('密码库需要有效许可证')).toBeVisible();
@@ -79,6 +80,20 @@ test('中文 UI 完成激活 license、新建环境、代理测试、导出审�
     await expect(page.getByText('updated@example.test')).toBeVisible();
     await page.getByRole('button', { name: '删除密码项 运营后台' }).click();
     await expect(page.getByText('暂无密码项')).toBeVisible();
+
+    await page.getByRole('tab', { name: '试卖' }).click();
+    await expect(page.getByText(/完成度/)).toBeVisible();
+    await expect(page.getByText(/当前版本：/)).toBeVisible();
+    await page.getByRole('button', { name: '检查更新' }).click();
+    await expect(page.locator('.notice-bar').getByText('检查更新失败：E2E 更新检查模拟失败')).toBeVisible();
+    await page.getByLabel('客户团队').fill('E2E 试卖团队');
+    await page.getByLabel('联系方式').fill('operator@example.test');
+    await page.getByLabel('问题描述').fill('E2E 反馈：试卖流程可完成');
+    await page.getByRole('button', { name: '生成反馈包' }).click();
+    await expect(page.getByText(/反馈包已生成/)).toBeVisible();
+    await page.getByRole('tab', { name: '审计' }).click();
+    await expect(page.getByText('UPDATE_CHECKED')).toBeVisible();
+    await expect(page.getByText('FEEDBACK_PACKAGED')).toBeVisible();
 
     await page.getByRole('tab', { name: '配置' }).click();
     await page.getByRole('button', { name: '测试代理' }).click();

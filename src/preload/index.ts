@@ -32,6 +32,26 @@ const api: AppApi = {
   chromium: {
     ensureInstalled: () => ipcRenderer.invoke('chromium.ensureInstalled') as ReturnType<AppApi['chromium']['ensureInstalled']>
   },
+  app: {
+    version: () => ipcRenderer.invoke('app.version') as ReturnType<AppApi['app']['version']>
+  },
+  release: {
+    checkForUpdates: () =>
+      ipcRenderer.invoke('release.checkForUpdates') as ReturnType<AppApi['release']['checkForUpdates']>,
+    openLatestRelease: () =>
+      ipcRenderer.invoke('release.openLatestRelease') as ReturnType<AppApi['release']['openLatestRelease']>
+  },
+  onboarding: {
+    status: () => ipcRenderer.invoke('onboarding.status') as ReturnType<AppApi['onboarding']['status']>,
+    dismiss: () => ipcRenderer.invoke('onboarding.dismiss') as ReturnType<AppApi['onboarding']['dismiss']>,
+    reset: () => ipcRenderer.invoke('onboarding.reset') as ReturnType<AppApi['onboarding']['reset']>
+  },
+  trial: {
+    metrics: () => ipcRenderer.invoke('trial.metrics') as ReturnType<AppApi['trial']['metrics']>
+  },
+  feedback: {
+    package: (input) => ipcRenderer.invoke('feedback.package', input) as ReturnType<AppApi['feedback']['package']>
+  },
   credentials: {
     list: (profileId: string) => ipcRenderer.invoke('credentials.list', profileId) as ReturnType<AppApi['credentials']['list']>,
     create: (input: CreateCredentialInput) =>

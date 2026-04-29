@@ -6,6 +6,8 @@ import { createCredentialService, type CredentialService } from './domain/creden
 import { createNodeSecretBox, createSafeStorageSecretBox, type SecretBox } from './domain/encryption';
 import { getDeviceFingerprint } from './domain/license';
 import { createLicenseService, type LicenseService } from './domain/license-service';
+import { RELEASES_PAGE_URL } from './domain/release';
+import { createTrialService, type TrialService } from './domain/trial-service';
 import { createProfileService, type ProfileService } from './domain/profile-service';
 import { openApplicationDatabase } from './infrastructure/database';
 import {
@@ -22,6 +24,7 @@ export interface ApplicationServices {
   profileService: ProfileService;
   credentialService: CredentialService;
   licenseService: LicenseService;
+  trialService: TrialService;
   chromiumInstaller: ChromiumInstaller;
   browserController: BrowserController;
 }
@@ -53,6 +56,15 @@ export function createApplicationServices(): ApplicationServices {
     signingSecret: process.env.FINGERBROWSER_LICENSE_SIGNING_SECRET ?? 'fingerbrowser-commercial-trial-dev-secret',
     deviceId: getDeviceFingerprint(deviceSeed)
   });
+  const trialService = createTrialService({
+    db,
+    exportDir: path.join(dataDir, 'exports'),
+    version: {
+      version: app.getVersion(),
+      channel: 'trial',
+      releaseUrl: RELEASES_PAGE_URL
+    }
+  });
   const chromiumInstaller = isE2E
     ? createMockChromiumInstaller()
     : createChromiumInstaller(path.join(dataDir, 'chromium'));
@@ -69,6 +81,7 @@ export function createApplicationServices(): ApplicationServices {
     profileService,
     credentialService,
     licenseService,
+    trialService,
     chromiumInstaller,
     browserController
   };

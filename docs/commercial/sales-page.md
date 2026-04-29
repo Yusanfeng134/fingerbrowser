@@ -35,4 +35,15 @@ FINGERBROWSER_LICENSE_SIGNING_SECRET=<shared-secret> \
 - 客户可安装 macOS 试卖包。
 - 客户可输入激活码并看到团队、套餐、设备码、到期时间和用量。
 - 超过环境数上限时无法继续创建环境。
-- 客户可导出审计、导出配置、批量检测代理和打包支持日志。
+- 客户可按应用内试卖清单完成激活、建环境、代理检测、保存密码、启动 Chromium 和导出反馈包。
+- 客户可在版本中心手动检查 GitHub Release 更新，并打开 Release 页面下载新版。
+- 客户可导出审计、导出配置、批量检测代理、打包支持日志和生成本地反馈包。
+
+## 试卖发布
+
+```bash
+npm run release:trial
+npm run release:trial:publish
+```
+
+发布脚本会生成 `fingerbrowser-v<version>-mac-arm64-trial.zip`、`checksums.txt` 和 `release-notes.md`。客户端只访问公开 GitHub Release，不内置 GitHub token，不自动上传客户数据。

@@ -4,15 +4,19 @@ import {
   CheckCircle2,
   Circle,
   Clipboard,
+  ClipboardCheck,
   Clock3,
   Download,
   Edit3,
+  ExternalLink,
   FolderPlus,
   Globe2,
   History,
   KeyRound,
+  ListChecks,
   LockKeyhole,
   Mail,
+  MessageSquare,
   PackageCheck,
   Play,
   Power,
@@ -29,13 +33,19 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { DEFAULT_FINGERPRINT_POLICY } from '../../shared/defaults';
 import type {
   AuditEvent,
+  AppVersionInfo,
   BrowserProfile,
   CredentialEntry,
+  FeedbackIssueType,
+  FeedbackSeverity,
   CreateProfileInput,
   FingerprintPolicy,
+  OnboardingStatus,
   ProfileDetails,
   ProxyScheme,
   RedactedLicenseState,
+  ReleaseCheckResult,
+  TrialMetrics,
   UpdateProfileInput,
   UsageSummary
 } from '../../shared/types';
@@ -62,7 +72,16 @@ interface CredentialDraftState {
   password: string;
 }
 
-type ActiveTab = 'config' | 'credentials' | 'audit' | 'license';
+type ActiveTab = 'config' | 'credentials' | 'audit' | 'license' | 'trial';
+
+interface FeedbackDraftState {
+  issueType: FeedbackIssueType;
+  severity: FeedbackSeverity;
+  teamName: string;
+  contact: string;
+  description: string;
+  includeDiagnostics: boolean;
+}
 
 const emptyDraft: DraftState = {
   id: null,
@@ -84,6 +103,15 @@ const emptyCredentialDraft: CredentialDraftState = {
   websiteUrl: '',
   username: '',
   password: ''
+};
+
+const emptyFeedbackDraft: FeedbackDraftState = {
+  issueType: 'bug',
+  severity: 'medium',
+  teamName: '',
+  contact: '',
+  description: '',
+  includeDiagnostics: true
 };
 
 const statusText: Record<BrowserProfile['status'], string> = {
@@ -118,6 +146,8 @@ const actionLabel: Record<string, string> = {
   CREDENTIAL_DELETED: '删除密码项',
   CREDENTIAL_USERNAME_COPIED: '复制账号',
   CREDENTIAL_PASSWORD_COPIED: '复制密码',
+  FEEDBACK_PACKAGED: '生成反馈包',
+  UPDATE_CHECKED: '检查更新',
   ERROR_RECORDED: '记录错误'
 };
 
@@ -210,6 +240,11 @@ export function App(): JSX.Element {
   const [credentials, setCredentials] = useState<CredentialEntry[]>([]);
   const [credentialDraft, setCredentialDraft] = useState<CredentialDraftState>(emptyCredentialDraft);
   const [credentialQuery, setCredentialQuery] = useState('');
+  const [appVersion, setAppVersion] = useState<AppVersionInfo | null>(null);
+  const [releaseCheck, setReleaseCheck] = useState<ReleaseCheckResult | null>(null);
+  const [onboarding, setOnboarding] = useState<OnboardingStatus | null>(null);
+  const [metrics, setMetrics] = useState<TrialMetrics | null>(null);
+  const [feedbackDraft, setFeedbackDraft] = useState<FeedbackDraftState>(emptyFeedbackDraft);
   const [license, setLicense] = useState<RedactedLicenseState | null>(null);
   const [usage, setUsage] = useState<UsageSummary | null>(null);
   const [activationCode, setActivationCode] = useState('');
@@ -262,6 +297,13 @@ export function App(): JSX.Element {
     );
   }, [credentialQuery, credentials]);
 
+  const onboardingPercent = useMemo(() => {
+    if (!onboarding || onboarding.totalCount === 0) {
+      return 0;
+    }
+    return Math.round((onboarding.completedCount / onboarding.totalCount) * 100);
+  }, [onboarding]);
+
   const loadProfiles = useCallback(async () => {
     const nextProfiles = await window.fingerBrowser.profiles.list();
     setProfiles(nextProfiles);
@@ -293,11 +335,22 @@ export function App(): JSX.Element {
     setUsage(nextUsage);
   }, []);
 
+  const loadTrialState = useCallback(async () => {
+    const [nextVersion, nextOnboarding, nextMetrics] = await Promise.all([
+      window.fingerBrowser.app.version(),
+      window.fingerBrowser.onboarding.status(),
+      window.fingerBrowser.trial.metrics()
+    ]);
+    setAppVersion(nextVersion);
+    setOnboarding(nextOnboarding);
+    setMetrics(nextMetrics);
+  }, []);
+
   useEffect(() => {
-    void Promise.all([loadProfiles(), loadCommercialState()]).catch((error) =>
+    void Promise.all([loadProfiles(), loadCommercialState(), loadTrialState()]).catch((error) =>
       setNotice(error instanceof Error ? error.message : '加载环境失败')
     );
-  }, [loadCommercialState, loadProfiles]);
+  }, [loadCommercialState, loadProfiles, loadTrialState]);
 
   useEffect(() => {
     if (selectedProfile) {
@@ -350,6 +403,7 @@ export function App(): JSX.Element {
         : await window.fingerBrowser.profiles.create(draftToCreateInput(draft));
       await loadProfiles();
       await loadCommercialState();
+      await loadTrialState();
       setSelectedId(saved.id);
       await loadAudits(saved.id);
     });
@@ -369,6 +423,7 @@ export function App(): JSX.Element {
       });
       await loadProfiles();
       await loadCommercialState();
+      await loadTrialState();
       if (draft.id) {
         await loadAudits(draft.id);
       }
@@ -384,6 +439,7 @@ export function App(): JSX.Element {
       await window.fingerBrowser.profiles.launch(selectedProfile.id);
       await loadProfiles();
       await loadCommercialState();
+      await loadTrialState();
       await loadAudits(selectedProfile.id);
     });
   };
@@ -413,6 +469,7 @@ export function App(): JSX.Element {
       const state = await window.fingerBrowser.license.activate({ activationCode });
       setLicense(state);
       await loadCommercialState();
+      await loadTrialState();
       await loadAudits();
       setActivationCode('');
       return `${state.teamName} ${state.plan.name} 已激活`;
@@ -424,6 +481,7 @@ export function App(): JSX.Element {
       const state = await window.fingerBrowser.license.refresh();
       setLicense(state);
       await loadCommercialState();
+      await loadTrialState();
       await loadAudits();
       return `许可证状态：${licenseStatusText[state.status]}`;
     });
@@ -434,6 +492,7 @@ export function App(): JSX.Element {
       const state = await window.fingerBrowser.license.deactivate();
       setLicense(state);
       await loadCommercialState();
+      await loadTrialState();
       await loadAudits();
     });
   };
@@ -509,6 +568,7 @@ export function App(): JSX.Element {
         });
       }
       await loadCredentials(selectedProfile.id, true);
+      await loadTrialState();
       await loadAudits(selectedProfile.id);
       setCredentialDraft(emptyCredentialDraft);
     });
@@ -519,6 +579,7 @@ export function App(): JSX.Element {
       await window.fingerBrowser.credentials.delete(credential.id);
       if (selectedProfile) {
         await loadCredentials(selectedProfile.id, true);
+        await loadTrialState();
         await loadAudits(selectedProfile.id);
       }
       setCredentialDraft((current) => (current.id === credential.id ? emptyCredentialDraft : current));
@@ -530,6 +591,7 @@ export function App(): JSX.Element {
       await window.fingerBrowser.credentials.copyUsername(credential.id);
       if (selectedProfile) {
         await loadCredentials(selectedProfile.id, true);
+        await loadTrialState();
         await loadAudits(selectedProfile.id);
       }
       return '账号已复制到剪贴板';
@@ -541,9 +603,61 @@ export function App(): JSX.Element {
       await window.fingerBrowser.credentials.copyPassword(credential.id);
       if (selectedProfile) {
         await loadCredentials(selectedProfile.id, true);
+        await loadTrialState();
         await loadAudits(selectedProfile.id);
       }
       return '密码已复制到剪贴板';
+    });
+  };
+
+  const handleCheckUpdates = (): void => {
+    void run('检查更新', async () => {
+      const result = await window.fingerBrowser.release.checkForUpdates();
+      setReleaseCheck(result);
+      await loadTrialState();
+      await loadAudits();
+      return result.message;
+    });
+  };
+
+  const handleOpenRelease = (): void => {
+    void run('打开 Release 页面', async () => {
+      const result = await window.fingerBrowser.release.openLatestRelease();
+      return `已打开：${result.releaseUrl}`;
+    });
+  };
+
+  const handleCopyDiagnostics = (): void => {
+    void run('复制诊断信息', async () => {
+      const diagnostics = {
+        version: appVersion,
+        license: license ? { status: license.status, plan: license.plan.id, teamName: license.teamName } : null,
+        metrics,
+        profileCount: profiles.length
+      };
+      await navigator.clipboard.writeText(JSON.stringify(diagnostics, null, 2));
+      return '诊断信息已复制到剪贴板';
+    });
+  };
+
+  const handleDismissOnboarding = (): void => {
+    void run('收起试卖清单', async () => {
+      setOnboarding(await window.fingerBrowser.onboarding.dismiss());
+    });
+  };
+
+  const handleResetOnboarding = (): void => {
+    void run('重置试卖清单', async () => {
+      setOnboarding(await window.fingerBrowser.onboarding.reset());
+    });
+  };
+
+  const handlePackageFeedback = (): void => {
+    void run('生成反馈包', async () => {
+      const result = await window.fingerBrowser.feedback.package(feedbackDraft);
+      await loadTrialState();
+      await loadAudits();
+      return `反馈包已生成：${result.filePath}`;
     });
   };
 
@@ -571,6 +685,16 @@ export function App(): JSX.Element {
           <a href="#settings">
             <Settings size={17} />
             设置
+          </a>
+          <a
+            href="#trial"
+            onClick={(event) => {
+              event.preventDefault();
+              setActiveTab('trial');
+            }}
+          >
+            <ListChecks size={17} />
+            试卖
           </a>
           <a
             href="#license"
@@ -626,6 +750,36 @@ export function App(): JSX.Element {
             </button>
           ) : null}
         </section>
+
+        {onboarding && !onboarding.dismissed ? (
+          <section className="trial-checklist-card">
+            <div className="trial-checklist-header">
+              <div>
+                <div className="license-banner-title">
+                  <ListChecks size={16} />
+                  试卖上手清单
+                </div>
+                <p>
+                  已完成 {onboarding.completedCount}/{onboarding.totalCount}，按顺序走完即可形成一次完整试卖验收。
+                </p>
+              </div>
+              <button className="icon-button" type="button" onClick={handleDismissOnboarding} title="收起试卖清单">
+                <Power size={15} />
+              </button>
+            </div>
+            <div className="usage-meter" aria-label="试卖清单进度">
+              <span style={{ width: `${onboardingPercent}%` }} />
+            </div>
+            <div className="trial-checklist-items">
+              {onboarding.items.map((item) => (
+                <span className={item.completed ? 'done' : ''} key={item.id}>
+                  <CheckCircle2 size={14} />
+                  {item.label}
+                </span>
+              ))}
+            </div>
+          </section>
+        ) : null}
 
         <div className="search-row">
           <Search size={16} />
@@ -733,6 +887,15 @@ export function App(): JSX.Element {
             onClick={() => setActiveTab('license')}
           >
             授权
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'trial'}
+            className={activeTab === 'trial' ? 'active' : ''}
+            onClick={() => setActiveTab('trial')}
+          >
+            试卖
           </button>
         </div>
 
@@ -1061,7 +1224,7 @@ export function App(): JSX.Element {
             ))}
             {audits.length === 0 ? <div className="empty-state">暂无审计日志</div> : null}
           </section>
-        ) : (
+        ) : activeTab === 'license' ? (
           <section className="audit-list license-panel">
             <div className="form-section">
               <div className="form-title">
@@ -1132,6 +1295,162 @@ export function App(): JSX.Element {
                 <Mail size={16} />
                 联系销售获取试卖激活码
               </a>
+            </div>
+          </section>
+        ) : (
+          <section className="audit-list trial-panel" id="trial">
+            <div className="form-section">
+              <div className="form-title">
+                <ListChecks size={17} />
+                试卖清单
+              </div>
+              <div className="usage-block">
+                <span>
+                  完成度 {onboarding?.completedCount ?? 0}/{onboarding?.totalCount ?? 0}
+                </span>
+                <div className="usage-meter">
+                  <span style={{ width: `${onboardingPercent}%` }} />
+                </div>
+              </div>
+              <div className="trial-checklist-items vertical">
+                {onboarding?.items.map((item) => (
+                  <span className={item.completed ? 'done' : ''} key={item.id}>
+                    <CheckCircle2 size={14} />
+                    {item.label}
+                  </span>
+                ))}
+              </div>
+              <div className="ops-row">
+                <button className="secondary-button" type="button" onClick={handleDismissOnboarding} disabled={busy}>
+                  收起清单
+                </button>
+                <button className="secondary-button" type="button" onClick={handleResetOnboarding} disabled={busy}>
+                  重置清单
+                </button>
+              </div>
+            </div>
+
+            <div className="form-section">
+              <div className="form-title">
+                <PackageCheck size={17} />
+                版本中心
+              </div>
+              <div className="version-grid">
+                <span>当前版本：{appVersion?.version ?? '加载中'}</span>
+                <span>构建渠道：{appVersion?.channel ?? 'trial'}</span>
+                <span>最近检查：{releaseCheck ? formatDate(releaseCheck.checkedAt) : '未检查'}</span>
+                <span>更新状态：{releaseCheck?.message ?? '手动检查 GitHub Release'}</span>
+              </div>
+              <div className="ops-row">
+                <button className="primary-button" type="button" onClick={handleCheckUpdates} disabled={busy}>
+                  <RefreshCw size={16} />
+                  检查更新
+                </button>
+                <button className="secondary-button" type="button" onClick={handleOpenRelease} disabled={busy}>
+                  <ExternalLink size={16} />
+                  打开 Release
+                </button>
+              </div>
+              <button className="secondary-button wide" type="button" onClick={handleCopyDiagnostics} disabled={busy}>
+                <ClipboardCheck size={16} />
+                复制诊断信息
+              </button>
+            </div>
+
+            <div className="form-section feedback-form">
+              <div className="form-title">
+                <MessageSquare size={17} />
+                反馈中心
+              </div>
+              <div className="inline-grid">
+                <label>
+                  问题类型
+                  <select
+                    aria-label="问题类型"
+                    value={feedbackDraft.issueType}
+                    onChange={(event) =>
+                      setFeedbackDraft({ ...feedbackDraft, issueType: event.target.value as FeedbackIssueType })
+                    }
+                  >
+                    <option value="bug">故障</option>
+                    <option value="setup">部署/配置</option>
+                    <option value="feature">功能建议</option>
+                    <option value="other">其他</option>
+                  </select>
+                </label>
+                <label>
+                  严重程度
+                  <select
+                    aria-label="严重程度"
+                    value={feedbackDraft.severity}
+                    onChange={(event) =>
+                      setFeedbackDraft({ ...feedbackDraft, severity: event.target.value as FeedbackSeverity })
+                    }
+                  >
+                    <option value="low">低</option>
+                    <option value="medium">中</option>
+                    <option value="high">高</option>
+                  </select>
+                </label>
+              </div>
+              <div className="inline-grid">
+                <label>
+                  客户团队
+                  <input
+                    aria-label="客户团队"
+                    value={feedbackDraft.teamName}
+                    onChange={(event) => setFeedbackDraft({ ...feedbackDraft, teamName: event.target.value })}
+                    placeholder={license?.teamName || '试卖团队'}
+                  />
+                </label>
+                <label>
+                  联系方式
+                  <input
+                    aria-label="联系方式"
+                    value={feedbackDraft.contact}
+                    onChange={(event) => setFeedbackDraft({ ...feedbackDraft, contact: event.target.value })}
+                    placeholder="邮箱或微信"
+                  />
+                </label>
+              </div>
+              <label>
+                问题描述
+                <textarea
+                  aria-label="问题描述"
+                  value={feedbackDraft.description}
+                  onChange={(event) => setFeedbackDraft({ ...feedbackDraft, description: event.target.value })}
+                  placeholder="描述复现步骤、期望结果和实际现象"
+                />
+              </label>
+              <label className="check-row">
+                <input
+                  aria-label="包含诊断摘要"
+                  type="checkbox"
+                  checked={feedbackDraft.includeDiagnostics}
+                  onChange={(event) => setFeedbackDraft({ ...feedbackDraft, includeDiagnostics: event.target.checked })}
+                />
+                包含脱敏诊断摘要
+              </label>
+              <button className="primary-button wide" type="button" onClick={handlePackageFeedback} disabled={busy}>
+                <Download size={16} />
+                生成反馈包
+              </button>
+            </div>
+
+            <div className="form-section">
+              <div className="form-title">
+                <Activity size={17} />
+                本地试卖指标
+              </div>
+              <div className="metrics-grid">
+                <span>激活 {metrics?.activationCount ?? 0}</span>
+                <span>环境 {metrics?.profileCount ?? 0}</span>
+                <span>启动 {metrics?.browserLaunchCount ?? 0}</span>
+                <span>代理检测 {metrics?.proxyTestCount ?? 0}</span>
+                <span>密码项 {metrics?.credentialCount ?? 0}</span>
+                <span>反馈包 {metrics?.feedbackPackageCount ?? 0}</span>
+                <span>更新检查 {metrics?.updateCheckCount ?? 0}</span>
+              </div>
             </div>
           </section>
         )}

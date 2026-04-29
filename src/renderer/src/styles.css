@@ -22,7 +22,8 @@ body {
 
 button,
 input,
-select {
+select,
+textarea {
   font: inherit;
 }
 
@@ -233,6 +234,56 @@ p {
   line-height: 1.45;
 }
 
+.trial-checklist-card {
+  display: grid;
+  gap: 10px;
+  margin: 0 0 14px;
+  padding: 12px;
+  border: 1px solid #d9e0d8;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.trial-checklist-header {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.trial-checklist-card p {
+  margin-top: 4px;
+  color: #73776f;
+  font-size: 12px;
+}
+
+.trial-checklist-items {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px;
+}
+
+.trial-checklist-items.vertical {
+  display: grid;
+}
+
+.trial-checklist-items span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 27px;
+  border-radius: 8px;
+  padding: 0 9px;
+  color: #6d726b;
+  background: #edf1ec;
+  font-size: 12px;
+  font-weight: 680;
+}
+
+.trial-checklist-items span.done {
+  color: #176757;
+  background: rgba(31, 122, 107, 0.11);
+}
+
 .usage-meter {
   overflow: hidden;
   height: 8px;
@@ -252,6 +303,9 @@ p {
 .detail-form select,
 .credential-panel input,
 .credential-panel select,
+.trial-panel input,
+.trial-panel select,
+.trial-panel textarea,
 .license-panel input,
 .license-panel select {
   width: 100%;
@@ -392,7 +446,8 @@ p {
 
 .detail-form,
 .audit-list,
-.credential-panel {
+.credential-panel,
+.trial-panel {
   display: grid;
   gap: 14px;
   overflow: auto;
@@ -419,7 +474,8 @@ p {
 }
 
 .detail-form label,
-.credential-panel label {
+.credential-panel label,
+.trial-panel label {
   display: grid;
   gap: 6px;
   color: #6d726b;
@@ -431,12 +487,22 @@ p {
 .detail-form select,
 .credential-panel input,
 .credential-panel select,
+.trial-panel input,
+.trial-panel select,
 .license-panel input,
 .license-panel select {
   height: 36px;
   padding: 0 10px;
   font-size: 13px;
   font-weight: 560;
+}
+
+.trial-panel textarea {
+  min-height: 86px;
+  padding: 10px;
+  resize: vertical;
+  font-size: 13px;
+  line-height: 1.45;
 }
 
 .inline-grid {
@@ -589,6 +655,42 @@ p {
 
 .license-panel {
   align-content: start;
+}
+
+.trial-panel {
+  align-content: start;
+}
+
+.version-grid,
+.metrics-grid {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 1fr 1fr;
+}
+
+.version-grid span,
+.metrics-grid span {
+  overflow: hidden;
+  min-height: 32px;
+  border-radius: 8px;
+  padding: 8px 10px;
+  color: #39534f;
+  background: #f4f7f2;
+  font-size: 12px;
+  font-weight: 660;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.feedback-form .check-row {
+  display: flex;
+  align-items: center;
+  grid-template-columns: none;
+}
+
+.feedback-form .check-row input {
+  width: 16px;
+  height: 16px;
 }
 
 .license-status-card {

@@ -16,7 +16,9 @@
     "test": "npm run rebuild:node && vitest run",
     "e2e": "npm run build && npm run rebuild:electron && playwright test",
     "package:mac": "npm run build && npm run rebuild:electron && ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/ electron-builder --mac --dir",
-    "license:issue": "node scripts/issue-license.mjs"
+    "license:issue": "node scripts/issue-license.mjs",
+    "release:trial": "node scripts/prepare-trial-release.mjs",
+    "release:trial:publish": "node scripts/prepare-trial-release.mjs --publish"
   },
   "dependencies": {
     "@puppeteer/browsers": "^2.13.0",

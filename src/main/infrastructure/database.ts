@@ -65,6 +65,17 @@ export function openApplicationDatabase(filePath: string): ApplicationDatabase {
     );
 
     create index if not exists idx_profile_credentials_profile_id on profile_credentials(profile_id);
+
+    create table if not exists trial_metrics (
+      key text primary key,
+      value integer not null,
+      updated_at text not null
+    );
+
+    create table if not exists onboarding_state (
+      id integer primary key check (id = 1),
+      dismissed_at text
+    );
   `);
   return db;
 }

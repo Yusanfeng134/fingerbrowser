@@ -13,6 +13,7 @@ npm test
 npm run build
 npm run e2e
 npm run package:mac
+npm run release:trial
 npm run license:issue -- --plan trial --team "试卖团队" --days 7
 ```
 
@@ -33,8 +34,9 @@ ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/ npm install
 
 - 在线/签名激活码：授权中心支持激活、刷新、解绑和设备码展示。
 - 套餐限制：试用版 1 席/5 环境，专业版 1 席/50 环境，团队版 3 席/200 环境；销售签发时可覆盖。
-- 运营闭环：审计导出、配置导出、批量代理检测和支持日志打包。
+- 运营闭环：试卖清单、版本检查、反馈包、审计导出、配置导出、批量代理检测和支持日志打包。
 - macOS 试卖包：`npm run package:mac` 生成未签名的本地试卖目录包。
+- GitHub Release 试卖交付：`npm run release:trial` 生成固定命名 zip、`checksums.txt` 和 `release-notes.md`；`npm run release:trial:publish` 调用 `gh release create --prerelease` 上传。
 
 试卖默认使用开发签名密钥。正式销售前必须设置：
 
