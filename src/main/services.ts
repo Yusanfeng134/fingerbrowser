@@ -1,7 +1,10 @@
 import { mkdirSync } from 'node:fs';
+import { hostname, userInfo } from 'node:os';
 import path from 'node:path';
 import { app, safeStorage } from 'electron';
 import { createNodeSecretBox, createSafeStorageSecretBox, type SecretBox } from './domain/encryption';
+import { getDeviceFingerprint } from './domain/license';
+import { createLicenseService, type LicenseService } from './domain/license-service';
 import { createProfileService, type ProfileService } from './domain/profile-service';
 import { openApplicationDatabase } from './infrastructure/database';
 import {
@@ -16,6 +19,7 @@ export interface ApplicationServices {
   dataDir: string;
   secretBox: SecretBox;
   profileService: ProfileService;
+  licenseService: LicenseService;
   chromiumInstaller: ChromiumInstaller;
   browserController: BrowserController;
 }
@@ -35,6 +39,13 @@ export function createApplicationServices(): ApplicationServices {
     dataDir,
     secretBox
   });
+  const deviceSeed = `${process.platform}:${hostname()}:${userInfo().username}:${app.getPath('userData')}`;
+  const licenseService = createLicenseService({
+    db,
+    secretBox,
+    signingSecret: process.env.FINGERBROWSER_LICENSE_SIGNING_SECRET ?? 'fingerbrowser-commercial-trial-dev-secret',
+    deviceId: getDeviceFingerprint(deviceSeed)
+  });
   const chromiumInstaller = isE2E
     ? createMockChromiumInstaller()
     : createChromiumInstaller(path.join(dataDir, 'chromium'));
@@ -49,6 +60,7 @@ export function createApplicationServices(): ApplicationServices {
     dataDir,
     secretBox,
     profileService,
+    licenseService,
     chromiumInstaller,
     browserController
   };

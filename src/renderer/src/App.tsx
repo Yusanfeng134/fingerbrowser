@@ -1,11 +1,16 @@
 import {
   Activity,
+  BadgeCheck,
   CheckCircle2,
   Circle,
   Clock3,
+  Download,
   FolderPlus,
   Globe2,
   History,
+  KeyRound,
+  Mail,
+  PackageCheck,
   Play,
   Power,
   RefreshCw,
@@ -25,7 +30,9 @@ import type {
   FingerprintPolicy,
   ProfileDetails,
   ProxyScheme,
-  UpdateProfileInput
+  RedactedLicenseState,
+  UpdateProfileInput,
+  UsageSummary
 } from '../../shared/types';
 
 interface DraftState {
@@ -42,7 +49,7 @@ interface DraftState {
   fingerprintPolicy: FingerprintPolicy;
 }
 
-type ActiveTab = 'config' | 'audit';
+type ActiveTab = 'config' | 'audit' | 'license';
 
 const emptyDraft: DraftState = {
   id: null,
@@ -79,7 +86,20 @@ const actionLabel: Record<string, string> = {
   PROXY_UPDATED: '更新代理',
   PROXY_TESTED: '测试代理',
   CHROMIUM_INSTALLED: '安装 Chromium',
+  LICENSE_ACTIVATED: '激活许可证',
+  LICENSE_REFRESHED: '刷新许可证',
+  LICENSE_DEACTIVATED: '停用许可证',
+  AUDIT_EXPORTED: '导出审计',
+  PROFILES_EXPORTED: '导出配置',
+  SUPPORT_LOGS_PACKAGED: '打包支持日志',
   ERROR_RECORDED: '记录错误'
+};
+
+const licenseStatusText: Record<RedactedLicenseState['status'], string> = {
+  inactive: '未激活',
+  active: '有效',
+  grace: '宽限期',
+  expired: '已过期'
 };
 
 function profileToDraft(profile: ProfileDetails): DraftState {
@@ -161,6 +181,9 @@ export function App(): JSX.Element {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [draft, setDraft] = useState<DraftState>(emptyDraft);
   const [audits, setAudits] = useState<AuditEvent[]>([]);
+  const [license, setLicense] = useState<RedactedLicenseState | null>(null);
+  const [usage, setUsage] = useState<UsageSummary | null>(null);
+  const [activationCode, setActivationCode] = useState('');
   const [query, setQuery] = useState('');
   const [activeTab, setActiveTab] = useState<ActiveTab>('config');
   const [notice, setNotice] = useState('准备就绪');
@@ -182,6 +205,20 @@ export function App(): JSX.Element {
     });
   }, [profiles, query]);
 
+  const canCreateProfile = useMemo(() => {
+    if (!license || !usage) {
+      return false;
+    }
+    return (license.status === 'active' || license.status === 'grace') && usage.profilesUsed < usage.profileLimit;
+  }, [license, usage]);
+
+  const licenseUsagePercent = useMemo(() => {
+    if (!usage || usage.profileLimit === 0) {
+      return 0;
+    }
+    return Math.min(100, Math.round((usage.profilesUsed / usage.profileLimit) * 100));
+  }, [usage]);
+
   const loadProfiles = useCallback(async () => {
     const nextProfiles = await window.fingerBrowser.profiles.list();
     setProfiles(nextProfiles);
@@ -195,9 +232,20 @@ export function App(): JSX.Element {
     setAudits(nextAudits);
   }, []);
 
+  const loadCommercialState = useCallback(async () => {
+    const [nextLicense, nextUsage] = await Promise.all([
+      window.fingerBrowser.license.status(),
+      window.fingerBrowser.license.usage()
+    ]);
+    setLicense(nextLicense);
+    setUsage(nextUsage);
+  }, []);
+
   useEffect(() => {
-    void loadProfiles().catch((error) => setNotice(error instanceof Error ? error.message : '加载环境失败'));
-  }, [loadProfiles]);
+    void Promise.all([loadProfiles(), loadCommercialState()]).catch((error) =>
+      setNotice(error instanceof Error ? error.message : '加载环境失败')
+    );
+  }, [loadCommercialState, loadProfiles]);
 
   useEffect(() => {
     if (selectedProfile) {
@@ -223,6 +271,11 @@ export function App(): JSX.Element {
   }, []);
 
   const handleNewProfile = (): void => {
+    if (!canCreateProfile) {
+      setActiveTab('license');
+      setNotice(license?.status === 'inactive' ? '请先激活许可证' : '当前套餐环境数已达上限');
+      return;
+    }
     setSelectedId(null);
     setDraft({
       ...emptyDraft,
@@ -238,6 +291,7 @@ export function App(): JSX.Element {
         ? await window.fingerBrowser.profiles.update(draftToUpdateInput(draft))
         : await window.fingerBrowser.profiles.create(draftToCreateInput(draft));
       await loadProfiles();
+      await loadCommercialState();
       setSelectedId(saved.id);
       await loadAudits(saved.id);
     });
@@ -256,6 +310,7 @@ export function App(): JSX.Element {
         timeoutMs: 3000
       });
       await loadProfiles();
+      await loadCommercialState();
       if (draft.id) {
         await loadAudits(draft.id);
       }
@@ -270,6 +325,7 @@ export function App(): JSX.Element {
     void run('启动 Chromium', async () => {
       await window.fingerBrowser.profiles.launch(selectedProfile.id);
       await loadProfiles();
+      await loadCommercialState();
       await loadAudits(selectedProfile.id);
     });
   };
@@ -281,6 +337,7 @@ export function App(): JSX.Element {
     void run('关闭环境', async () => {
       await window.fingerBrowser.profiles.stop(selectedProfile.id);
       await loadProfiles();
+      await loadCommercialState();
       await loadAudits(selectedProfile.id);
     });
   };
@@ -290,6 +347,69 @@ export function App(): JSX.Element {
       const result = await window.fingerBrowser.chromium.ensureInstalled();
       setNotice(`Chromium ${result.version} ${result.alreadyInstalled ? '已就绪' : '已安装'}`);
       await loadAudits(selectedProfile?.id);
+    });
+  };
+
+  const handleActivateLicense = (): void => {
+    void run('激活许可证', async () => {
+      const state = await window.fingerBrowser.license.activate({ activationCode });
+      setLicense(state);
+      await loadCommercialState();
+      await loadAudits();
+      setActivationCode('');
+      return `${state.teamName} ${state.plan.name} 已激活`;
+    });
+  };
+
+  const handleRefreshLicense = (): void => {
+    void run('刷新许可证', async () => {
+      const state = await window.fingerBrowser.license.refresh();
+      setLicense(state);
+      await loadCommercialState();
+      await loadAudits();
+      return `许可证状态：${licenseStatusText[state.status]}`;
+    });
+  };
+
+  const handleDeactivateLicense = (): void => {
+    void run('停用许可证', async () => {
+      const state = await window.fingerBrowser.license.deactivate();
+      setLicense(state);
+      await loadCommercialState();
+      await loadAudits();
+    });
+  };
+
+  const handleAuditExport = (): void => {
+    void run('导出审计', async () => {
+      const result = await window.fingerBrowser.audit.export(selectedProfile?.id);
+      await loadAudits(selectedProfile?.id);
+      return `审计已导出：${result.filePath}`;
+    });
+  };
+
+  const handleProfilesExport = (): void => {
+    void run('导出配置', async () => {
+      const result = await window.fingerBrowser.profiles.export();
+      await loadAudits();
+      return `配置已导出：${result.filePath}`;
+    });
+  };
+
+  const handleBatchProxyTest = (): void => {
+    void run('批量检测代理', async () => {
+      const results = await window.fingerBrowser.proxy.testAll();
+      await loadProfiles();
+      await loadAudits(selectedProfile?.id);
+      return `已检测 ${results.length} 个代理`;
+    });
+  };
+
+  const handlePackageLogs = (): void => {
+    void run('打包支持日志', async () => {
+      const result = await window.fingerBrowser.support.packageLogs();
+      await loadAudits();
+      return `支持日志已打包：${result.filePath}`;
     });
   };
 
@@ -318,6 +438,16 @@ export function App(): JSX.Element {
             <Settings size={17} />
             设置
           </a>
+          <a
+            href="#license"
+            onClick={(event) => {
+              event.preventDefault();
+              setActiveTab('license');
+            }}
+          >
+            <KeyRound size={17} />
+            授权
+          </a>
         </nav>
         <div className="policy-note">
           <ShieldCheck size={17} />
@@ -336,6 +466,32 @@ export function App(): JSX.Element {
             新建环境
           </button>
         </header>
+
+        <section className={`license-banner ${license?.status ?? 'inactive'}`} id="license">
+          <div>
+            <div className="license-banner-title">
+              <BadgeCheck size={16} />
+              {license ? licenseStatusText[license.status] : '未激活'}
+              {license?.teamName ? ` · ${license.teamName}` : ''}
+            </div>
+            <p>
+              {license?.status === 'inactive'
+                ? '输入人工销售发放的激活码后即可创建浏览器环境。'
+                : `${license?.plan.name ?? '试卖套餐'} · 环境 ${usage?.profilesUsed ?? 0}/${usage?.profileLimit ?? 0} · 席位 ${
+                    usage?.seatsUsed ?? 0
+                  }/${usage?.seatLimit ?? 0} · 剩余 ${license?.daysRemaining ?? 0} 天`}
+            </p>
+          </div>
+          <div className="usage-meter" aria-label="环境用量">
+            <span style={{ width: `${licenseUsagePercent}%` }} />
+          </div>
+          {license?.status === 'inactive' || license?.status === 'expired' ? (
+            <button type="button" className="secondary-button" onClick={() => setActiveTab('license')}>
+              <KeyRound size={16} />
+              激活许可证
+            </button>
+          ) : null}
+        </section>
 
         <div className="search-row">
           <Search size={16} />
@@ -425,6 +581,15 @@ export function App(): JSX.Element {
             onClick={() => setActiveTab('audit')}
           >
             审计
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'license'}
+            className={activeTab === 'license' ? 'active' : ''}
+            onClick={() => setActiveTab('license')}
+          >
+            授权
           </button>
         </div>
 
@@ -593,8 +758,18 @@ export function App(): JSX.Element {
               保存环境
             </button>
           </form>
-        ) : (
+        ) : activeTab === 'audit' ? (
           <section className="audit-list" id="audit">
+            <div className="ops-row">
+              <button className="secondary-button" type="button" onClick={handleAuditExport} disabled={busy}>
+                <Download size={16} />
+                导出审计
+              </button>
+              <button className="secondary-button" type="button" onClick={handleProfilesExport} disabled={busy}>
+                <PackageCheck size={16} />
+                导出配置
+              </button>
+            </div>
             {audits.map((event) => (
               <article className="audit-row" key={event.id}>
                 <Clock3 size={15} />
@@ -606,6 +781,79 @@ export function App(): JSX.Element {
               </article>
             ))}
             {audits.length === 0 ? <div className="empty-state">暂无审计日志</div> : null}
+          </section>
+        ) : (
+          <section className="audit-list license-panel">
+            <div className="form-section">
+              <div className="form-title">
+                <KeyRound size={17} />
+                授权中心
+              </div>
+              <div className={`license-status-card ${license?.status ?? 'inactive'}`}>
+                <strong>{license ? licenseStatusText[license.status] : '未激活'}</strong>
+                <span>{license?.teamName || '尚未绑定团队'}</span>
+                <small>设备码：{license?.deviceId ?? '加载中'}</small>
+              </div>
+              <div className="inline-grid">
+                <label>
+                  套餐
+                  <input value={license?.plan.name ?? '试用版'} readOnly />
+                </label>
+                <label>
+                  到期时间
+                  <input value={license?.expiresAt ? formatDate(license.expiresAt) : '未激活'} readOnly />
+                </label>
+              </div>
+              <div className="usage-block">
+                <span>环境用量 {usage?.profilesUsed ?? 0}/{usage?.profileLimit ?? 0}</span>
+                <div className="usage-meter">
+                  <span style={{ width: `${licenseUsagePercent}%` }} />
+                </div>
+                <span>席位用量 {usage?.seatsUsed ?? 0}/{usage?.seatLimit ?? 0}</span>
+              </div>
+              <label>
+                激活码
+                <input
+                  aria-label="激活码"
+                  value={activationCode}
+                  onChange={(event) => setActivationCode(event.target.value)}
+                  placeholder="粘贴人工销售发放的激活码"
+                />
+              </label>
+              <div className="ops-row">
+                <button className="primary-button" type="button" onClick={handleActivateLicense} disabled={busy || !activationCode}>
+                  <BadgeCheck size={16} />
+                  激活许可证
+                </button>
+                <button className="secondary-button" type="button" onClick={handleRefreshLicense} disabled={busy}>
+                  <RefreshCw size={16} />
+                  刷新状态
+                </button>
+                <button className="secondary-button" type="button" onClick={handleDeactivateLicense} disabled={busy}>
+                  <Power size={16} />
+                  解绑设备
+                </button>
+              </div>
+            </div>
+
+            <div className="form-section">
+              <div className="form-title">
+                <PackageCheck size={17} />
+                运营工具
+              </div>
+              <button className="secondary-button wide" type="button" onClick={handleBatchProxyTest} disabled={busy}>
+                <Wifi size={16} />
+                批量检测代理
+              </button>
+              <button className="secondary-button wide" type="button" onClick={handlePackageLogs} disabled={busy}>
+                <Download size={16} />
+                打包支持日志
+              </button>
+              <a className="sales-link" href="mailto:sales@fingerbrowser.local?subject=指纹浏览器试卖咨询">
+                <Mail size={16} />
+                联系销售获取试卖激活码
+              </a>
+            </div>
           </section>
         )}
 

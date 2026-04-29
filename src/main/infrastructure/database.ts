@@ -40,6 +40,17 @@ export function openApplicationDatabase(filePath: string): ApplicationDatabase {
       metadata_json text not null,
       created_at text not null
     );
+
+    create table if not exists license_cache (
+      id integer primary key check (id = 1),
+      team_name text not null,
+      plan_json text not null,
+      device_id text not null,
+      encrypted_activation_token text not null,
+      activated_at text not null,
+      expires_at text not null,
+      last_checked_at text not null
+    );
   `);
   return db;
 }

@@ -10,6 +10,7 @@ describe('repository security guardrails', () => {
     expect(gitignore).toContain('.superpowers/');
     expect(gitignore).toContain('profiles/');
     expect(gitignore).toContain('chromium/');
+    expect(gitignore).toContain('release/');
     expect(gitignore).toContain('*.key');
     expect(gitignore).toContain('*.sqlite');
   });

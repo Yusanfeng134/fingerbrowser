@@ -199,9 +199,59 @@ p {
   color: #6b706a;
 }
 
+.license-banner {
+  display: grid;
+  grid-template-columns: 1fr 150px auto;
+  align-items: center;
+  gap: 14px;
+  margin: 16px 0 14px;
+  padding: 12px;
+  border: 1px solid #d9e0d8;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.license-banner.grace,
+.license-banner.expired {
+  border-color: #e6b15f;
+  background: #fff8eb;
+}
+
+.license-banner-title {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  color: #183c36;
+  font-size: 13px;
+  font-weight: 780;
+}
+
+.license-banner p {
+  margin-top: 4px;
+  color: #73776f;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.usage-meter {
+  overflow: hidden;
+  height: 8px;
+  border-radius: 999px;
+  background: #dfe7df;
+}
+
+.usage-meter span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: #1f7a6b;
+}
+
 .search-row input,
 .detail-form input,
-.detail-form select {
+.detail-form select,
+.license-panel input,
+.license-panel select {
   width: 100%;
   border: 1px solid #d5ddd5;
   border-radius: 8px;
@@ -374,7 +424,9 @@ p {
 }
 
 .detail-form input,
-.detail-form select {
+.detail-form select,
+.license-panel input,
+.license-panel select {
   height: 36px;
   padding: 0 10px;
   font-size: 13px;
@@ -423,6 +475,74 @@ p {
   border: 1px solid #d9e0d8;
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.66);
+}
+
+.ops-row {
+  display: flex;
+  gap: 8px;
+}
+
+.ops-row > button {
+  flex: 1;
+}
+
+.license-panel {
+  align-content: start;
+}
+
+.license-status-card {
+  display: grid;
+  gap: 4px;
+  padding: 12px;
+  border-radius: 8px;
+  color: #173f37;
+  background: rgba(31, 122, 107, 0.1);
+}
+
+.license-status-card.expired,
+.license-status-card.grace {
+  color: #7b4d12;
+  background: #fff1d8;
+}
+
+.license-status-card.inactive {
+  color: #626962;
+  background: #edf1ec;
+}
+
+.license-status-card strong {
+  font-size: 15px;
+}
+
+.license-status-card span,
+.license-status-card small,
+.usage-block span {
+  color: inherit;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.usage-block {
+  display: grid;
+  gap: 8px;
+  padding: 10px;
+  border-radius: 8px;
+  background: #f4f7f2;
+}
+
+.sales-link {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  min-height: 38px;
+  border: 1px solid #d5ddd5;
+  border-radius: 8px;
+  color: #1f7a6b;
+  background: #ffffff;
+  font-size: 13px;
+  font-weight: 760;
+  text-decoration: none;
 }
 
 .audit-row strong {
