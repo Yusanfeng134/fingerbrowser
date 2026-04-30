@@ -599,11 +599,12 @@ export function App(): JSX.Element {
       return;
     }
     void run('启动 Chromium', async () => {
-      await window.fingerBrowser.profiles.launch(selectedProfile.id);
+      const launchTarget = draft.id === selectedProfile.id ? await window.fingerBrowser.profiles.update(draftToUpdateInput(draft)) : selectedProfile;
+      await window.fingerBrowser.profiles.launch(launchTarget.id);
       await loadProfiles();
       await loadCommercialState();
       await loadTrialState();
-      await loadAudits(selectedProfile.id);
+      await loadAudits(launchTarget.id);
     });
   };
 

@@ -211,6 +211,15 @@ test('中文 UI 完成激活 license、新建环境、代理测试、导出审�
     await page.getByRole('button', { name: '关闭环境' }).click();
     await expect(page.getByText('已关闭')).toBeVisible();
 
+    await page.getByLabel('内核通道').selectOption('custom-kernel');
+    await page.getByRole('button', { name: '启动 Chromium' }).click();
+    await expect(page.getByText('运行中')).toBeVisible();
+    await page.getByRole('button', { name: '关闭环境' }).click();
+    await expect(page.getByText('已关闭')).toBeVisible();
+    await page.getByRole('tab', { name: '审计' }).click();
+    await expect(page.getByText('KERNEL_LAUNCHED')).toBeVisible();
+    await page.getByRole('tab', { name: '配置' }).click();
+
     await page.getByRole('button', { name: '新建环境' }).click();
     await page.getByLabel('环境名称').fill('E2E 自研内核环境');
     await page.getByLabel('内核通道').selectOption('custom-kernel');
@@ -240,8 +249,8 @@ test('中文 UI 完成激活 license、新建环境、代理测试、导出审�
     await expect(page.getByText('CREDENTIAL_PASSWORD_REVEALED')).toBeVisible();
     await expect(page.getByText('CREDENTIAL_PASSWORD_COPIED')).toBeVisible();
     await expect(page.getByText('CREDENTIAL_DELETED')).toBeVisible();
-    await expect(page.getByText('PROFILE_LAUNCHED')).toBeVisible();
-    await expect(page.getByText('PROFILE_STOPPED')).toBeVisible();
+    await expect(page.getByText('PROFILE_LAUNCHED').first()).toBeVisible();
+    await expect(page.getByText('PROFILE_STOPPED').first()).toBeVisible();
     await expect(page.getByText('proxy-password')).toHaveCount(0);
     await expect(page.getByText(activationCode)).toHaveCount(0);
   } finally {
