@@ -49,6 +49,7 @@ import type {
   FingerprintPolicy,
   OnboardingStatus,
   ProfileDetails,
+  ProxyRuntimeStatus,
   ProxyScheme,
   RedactedLicenseState,
   ReleaseCheckResult,
@@ -162,6 +163,12 @@ const runtimeChannelText: Record<RuntimeChannel, string> = {
   'custom-kernel': '自研内核'
 };
 
+const proxyRuntimeStateText: Record<ProxyRuntimeStatus['state'], string> = {
+  stopped: '未启动',
+  running: '运行中',
+  error: '错误'
+};
+
 const kernelManifestSourceText: Record<KernelManifestSource, string> = {
   default: '内置默认',
   environment: '环境变量',
@@ -176,6 +183,9 @@ const actionLabel: Record<string, string> = {
   PROXY_CREATED: '创建代理',
   PROXY_UPDATED: '更新代理',
   PROXY_TESTED: '测试代理',
+  LOCAL_PROXY_STARTED: '启动本地代理',
+  LOCAL_PROXY_STOPPED: '关闭本地代理',
+  LOCAL_PROXY_ERROR: '本地代理错误',
   CHROMIUM_INSTALLED: '安装 Chromium',
   KERNEL_INSTALLED: '安装自研内核',
   KERNEL_MANIFEST_IMPORTED: '导入内核 manifest',
@@ -309,6 +319,7 @@ export function App(): JSX.Element {
   const [releaseCheck, setReleaseCheck] = useState<ReleaseCheckResult | null>(null);
   const [kernelManifest, setKernelManifest] = useState<KernelRuntimeManifest | null>(null);
   const [kernelStatus, setKernelStatus] = useState<KernelRuntimeStatus | null>(null);
+  const [proxyRuntimeStatuses, setProxyRuntimeStatuses] = useState<ProxyRuntimeStatus[]>([]);
   const [onboarding, setOnboarding] = useState<OnboardingStatus | null>(null);
   const [metrics, setMetrics] = useState<TrialMetrics | null>(null);
   const [feedbackDraft, setFeedbackDraft] = useState<FeedbackDraftState>(emptyFeedbackDraft);
@@ -346,6 +357,13 @@ export function App(): JSX.Element {
   }, [license, usage]);
 
   const passwordVaultEnabled = useMemo(() => license?.status === 'active' || license?.status === 'grace', [license?.status]);
+
+  const selectedProxyRuntime = useMemo(() => {
+    if (!selectedProfile) {
+      return null;
+    }
+    return proxyRuntimeStatuses.find((status) => status.profileId === selectedProfile.id) ?? null;
+  }, [proxyRuntimeStatuses, selectedProfile]);
 
   const credentialsEnabled = useMemo(() => {
     return Boolean(selectedProfile && passwordVaultEnabled);
@@ -470,11 +488,22 @@ export function App(): JSX.Element {
     setKernelStatus(nextStatus);
   }, []);
 
+  const loadProxyRuntimeStatus = useCallback(async (profileId?: string) => {
+    const statuses = await window.fingerBrowser.proxy.localStatus(profileId);
+    setProxyRuntimeStatuses((current) => {
+      if (!profileId) {
+        return statuses;
+      }
+      const rest = current.filter((status) => status.profileId !== profileId);
+      return [...rest, ...statuses];
+    });
+  }, []);
+
   useEffect(() => {
-    void Promise.all([loadProfiles(), loadCommercialState(), loadTrialState(), loadKernelState()]).catch((error) =>
-      setNotice(error instanceof Error ? error.message : '加载环境失败')
+    void Promise.all([loadProfiles(), loadCommercialState(), loadTrialState(), loadKernelState(), loadProxyRuntimeStatus()]).catch(
+      (error) => setNotice(error instanceof Error ? error.message : '加载环境失败')
     );
-  }, [loadCommercialState, loadKernelState, loadProfiles, loadTrialState]);
+  }, [loadCommercialState, loadKernelState, loadProfiles, loadProxyRuntimeStatus, loadTrialState]);
 
   useEffect(() => {
     if (selectedProfile) {
@@ -482,6 +511,9 @@ export function App(): JSX.Element {
       void loadAudits(selectedProfile.id);
       void loadCredentials(selectedProfile.id, credentialsEnabled).catch((error) =>
         setNotice(error instanceof Error ? error.message : '加载密码库失败')
+      );
+      void loadProxyRuntimeStatus(selectedProfile.id).catch((error) =>
+        setNotice(error instanceof Error ? error.message : '加载本地代理状态失败')
       );
     } else {
       setDraft(emptyDraft);
@@ -491,7 +523,7 @@ export function App(): JSX.Element {
     setCredentialDraft(emptyCredentialDraft);
     setCredentialQuery('');
     setRevealedCredential(null);
-  }, [credentialsEnabled, loadAudits, loadCredentials, selectedProfile]);
+  }, [credentialsEnabled, loadAudits, loadCredentials, loadProxyRuntimeStatus, selectedProfile]);
 
   useEffect(() => {
     if (workspaceView === 'vault') {
@@ -567,6 +599,7 @@ export function App(): JSX.Element {
         ? await window.fingerBrowser.profiles.update(draftToUpdateInput(draft))
         : await window.fingerBrowser.profiles.create(draftToCreateInput(draft));
       await loadProfiles();
+      await loadProxyRuntimeStatus(saved.id);
       await loadCommercialState();
       await loadTrialState();
       setSelectedId(saved.id);
@@ -590,6 +623,7 @@ export function App(): JSX.Element {
         timeoutMs: 3000
       });
       await loadProfiles();
+      await loadProxyRuntimeStatus(draft.id ?? undefined);
       await loadCommercialState();
       await loadTrialState();
       if (draft.id) {
@@ -631,6 +665,7 @@ export function App(): JSX.Element {
       if (nextDraft.id) {
         const saved = await window.fingerBrowser.profiles.update(draftToUpdateInput(nextDraft));
         await loadProfiles();
+        await loadProxyRuntimeStatus(saved.id);
         await loadAudits(saved.id);
         setSelectedId(saved.id);
       }
@@ -648,6 +683,7 @@ export function App(): JSX.Element {
       const launchTarget = draft.id === selectedProfile.id ? await window.fingerBrowser.profiles.update(draftToUpdateInput(draft)) : selectedProfile;
       await window.fingerBrowser.profiles.launch(launchTarget.id);
       await loadProfiles();
+      await loadProxyRuntimeStatus(launchTarget.id);
       await loadCommercialState();
       await loadTrialState();
       await loadAudits(launchTarget.id);
@@ -661,6 +697,7 @@ export function App(): JSX.Element {
     void run('关闭环境', async () => {
       await window.fingerBrowser.profiles.stop(selectedProfile.id);
       await loadProfiles();
+      await loadProxyRuntimeStatus(selectedProfile.id);
       await loadCommercialState();
       await loadAudits(selectedProfile.id);
     });
@@ -761,6 +798,7 @@ export function App(): JSX.Element {
     void run('批量检测代理', async () => {
       const results = await window.fingerBrowser.proxy.testAll();
       await loadProfiles();
+      await loadProxyRuntimeStatus();
       await loadAudits(selectedProfile?.id);
       return `已检测 ${results.length} 个代理`;
     });
@@ -1799,6 +1837,31 @@ export function App(): JSX.Element {
                 <CheckCircle2 size={16} />
                 测试代理
               </button>
+              <div className={`local-proxy-card ${selectedProxyRuntime?.state ?? 'stopped'}`} aria-label="本地代理状态">
+                <div className="local-proxy-title">
+                  <span>本地代理状态</span>
+                  <strong>{selectedProxyRuntime ? proxyRuntimeStateText[selectedProxyRuntime.state] : '未启动'}</strong>
+                </div>
+                <div className="local-proxy-grid">
+                  <span>
+                    监听：
+                    {selectedProxyRuntime && selectedProxyRuntime.listenPort > 0
+                      ? `${selectedProxyRuntime.listenHost}:${selectedProxyRuntime.listenPort}`
+                      : '未启动'}
+                  </span>
+                  <span>上游：{selectedProxyRuntime?.upstreamScheme?.toUpperCase() ?? draft.proxyScheme.toUpperCase()}</span>
+                  <span>连接：{selectedProxyRuntime?.connectionCount ?? 0}</span>
+                  <span>失败：{selectedProxyRuntime?.failureCount ?? 0}</span>
+                  <span>出口 IP：{selectedProxyRuntime?.lastExitIp ?? '待检测'}</span>
+                  <span>出口时区：{selectedProxyRuntime?.lastExitTimezone ?? '待检测'}</span>
+                  {selectedProxyRuntime?.timezoneMatch !== undefined ? (
+                    <span className={selectedProxyRuntime.timezoneMatch ? 'good' : 'bad'}>
+                      时区：{selectedProxyRuntime.timezoneMatch ? '一致' : '不一致'}
+                    </span>
+                  ) : null}
+                  {selectedProxyRuntime?.lastError ? <span className="bad">错误：{selectedProxyRuntime.lastError}</span> : null}
+                </div>
+              </div>
             </section>
 
             <section className="form-section">

@@ -61,23 +61,42 @@ export function registerIpcHandlers(services: ApplicationServices): void {
         kernelVersion: result.kernelVersion
       });
     }
+    if (result.localProxy) {
+      services.profileService.recordAudit(profileId, 'LOCAL_PROXY_STARTED', {
+        listenHost: result.localProxy.listenHost,
+        listenPort: result.localProxy.listenPort,
+        upstreamScheme: result.localProxy.upstreamScheme
+      });
+    }
     services.profileService.recordAudit(profileId, 'PROFILE_LAUNCHED', {
       pid: result.pid,
       runtimeChannel: result.runtimeChannel,
-      credentialUrlCount: credentialStartUrls.length
+      credentialUrlCount: credentialStartUrls.length,
+      localProxyEnabled: Boolean(result.localProxy),
+      upstreamScheme: result.localProxy?.upstreamScheme
     });
     services.trialService.incrementMetric('browserLaunchCount');
     return {
       profileId,
       pid: result.pid,
       runtimeChannel: result.runtimeChannel,
-      status: 'running' as const
+      status: 'running' as const,
+      ...(result.localProxy ? { localProxy: result.localProxy } : {})
     };
   });
 
   ipcMain.handle('profiles.stop', async (_event, profileId: string) => {
+    const proxyStatus = services.localProxyManager.status(profileId);
     await services.browserController.stop(profileId);
     services.profileService.setProfileStatus(profileId, 'closed');
+    if (proxyStatus?.state === 'running') {
+      services.profileService.recordAudit(profileId, 'LOCAL_PROXY_STOPPED', {
+        listenPort: proxyStatus.listenPort,
+        upstreamScheme: proxyStatus.upstreamScheme,
+        connectionCount: proxyStatus.connectionCount,
+        failureCount: proxyStatus.failureCount
+      });
+    }
     services.profileService.recordAudit(profileId, 'PROFILE_STOPPED');
     return {
       profileId,
@@ -97,6 +116,12 @@ export function registerIpcHandlers(services: ApplicationServices): void {
     if (input.profileId && profile) {
       if (profile.proxyId) {
         services.profileService.setProxyTestStatus(profile.proxyId, result);
+        services.localProxyManager.updateExitMetadata(input.profileId, {
+          ip: result.ip,
+          ipTimezone: result.ipTimezone,
+          timezoneMatch: result.timezoneMatch,
+          ...(result.status === 'failed' ? { error: result.message } : {})
+        });
         services.profileService.recordAudit(input.profileId, 'PROXY_TESTED', {
           status: result.status,
           host: input.host,
@@ -104,6 +129,14 @@ export function registerIpcHandlers(services: ApplicationServices): void {
           ipTimezone: result.ipTimezone,
           timezoneMatch: result.timezoneMatch
         });
+        if (result.status === 'failed') {
+          services.profileService.recordAudit(input.profileId, 'LOCAL_PROXY_ERROR', {
+            upstreamScheme: input.scheme,
+            host: input.host,
+            port: input.port,
+            message: result.message
+          });
+        }
         services.trialService.incrementMetric('proxyTestCount');
       }
     }
@@ -127,6 +160,12 @@ export function registerIpcHandlers(services: ApplicationServices): void {
           timeoutMs: 3000
         });
         services.profileService.setProxyTestStatus(profile.proxy.id, result);
+        services.localProxyManager.updateExitMetadata(profile.id, {
+          ip: result.ip,
+          ipTimezone: result.ipTimezone,
+          timezoneMatch: result.timezoneMatch,
+          ...(result.status === 'failed' ? { error: result.message } : {})
+        });
         services.profileService.recordAudit(profile.id, 'PROXY_TESTED', {
           status: result.status,
           host: profile.proxy.host,
@@ -134,11 +173,26 @@ export function registerIpcHandlers(services: ApplicationServices): void {
           ipTimezone: result.ipTimezone,
           timezoneMatch: result.timezoneMatch
         });
+        if (result.status === 'failed') {
+          services.profileService.recordAudit(profile.id, 'LOCAL_PROXY_ERROR', {
+            upstreamScheme: profile.proxy.scheme,
+            host: profile.proxy.host,
+            port: profile.proxy.port,
+            message: result.message
+          });
+        }
         services.trialService.incrementMetric('proxyTestCount');
         return { profileId: profile.id, result };
       })
     );
     return results;
+  });
+
+  ipcMain.handle('proxy.localStatus', (_event, profileId?: string) => {
+    if (profileId) {
+      return [services.localProxyManager.statusOrStopped(profileId)];
+    }
+    return services.localProxyManager.listStatuses();
   });
 
   ipcMain.handle('audit.list', (_event, profileId?: string) => services.profileService.listAuditEvents(profileId));

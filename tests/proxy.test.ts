@@ -66,8 +66,20 @@ describe('proxy configuration', () => {
     expect(redactProxyConfig(proxy).encryptedPassword).toBe('[encrypted]');
   });
 
-  it('checks basic TCP reachability for a proxy endpoint', async () => {
-    const server = trackServer(net.createServer((socket) => socket.end()));
+  it('checks real outbound reachability through a proxy endpoint', async () => {
+    const server = trackServer(net.createServer((socket) => {
+      socket.once('data', () => {
+        const body = JSON.stringify({
+          status: 'success',
+          query: '198.51.100.9',
+          timezone: 'Asia/Tokyo',
+          country: 'Japan',
+          regionName: 'Tokyo',
+          city: 'Tokyo'
+        });
+        socket.end(`HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: ${Buffer.byteLength(body)}\r\n\r\n${body}`);
+      });
+    }));
     servers.push(server);
     await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
     const address = server.address();
@@ -84,6 +96,7 @@ describe('proxy configuration', () => {
 
     expect(result.status).toBe('passed');
     expect(result.message).toContain('代理连通');
+    expect(result.ipTimezone).toBe('Asia/Tokyo');
   });
 
   it('reports IP timezone consistency when the proxy exposes geo metadata', async () => {

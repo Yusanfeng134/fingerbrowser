@@ -8,6 +8,7 @@ export type LicensePlanId = 'trial' | 'pro' | 'team';
 export type LicenseStatus = 'inactive' | 'active' | 'grace' | 'expired';
 export type ReleaseStatus = 'up-to-date' | 'update-available' | 'unavailable' | 'error';
 export type KernelManifestSource = 'default' | 'environment' | 'imported';
+export type ProxyRuntimeState = 'stopped' | 'running' | 'error';
 export type FeedbackIssueType = 'bug' | 'setup' | 'feature' | 'other';
 export type FeedbackSeverity = 'low' | 'medium' | 'high';
 export type TrialMetricKey =
@@ -25,6 +26,9 @@ export type AuditAction =
   | 'PROXY_CREATED'
   | 'PROXY_UPDATED'
   | 'PROXY_TESTED'
+  | 'LOCAL_PROXY_STARTED'
+  | 'LOCAL_PROXY_STOPPED'
+  | 'LOCAL_PROXY_ERROR'
   | 'CHROMIUM_INSTALLED'
   | 'KERNEL_INSTALLED'
   | 'KERNEL_MANIFEST_IMPORTED'
@@ -111,6 +115,22 @@ export interface ProxyConfig {
   encryptedPassword: string;
   bypassList: string[];
   lastTestStatus: ProxyTestStatus;
+}
+
+export interface ProxyRuntimeStatus {
+  profileId: string;
+  state: ProxyRuntimeState;
+  listenHost: string;
+  listenPort: number;
+  upstreamScheme?: ProxyScheme;
+  upstreamHost?: string;
+  startedAt: string | null;
+  connectionCount: number;
+  failureCount: number;
+  lastError?: string;
+  lastExitIp?: string;
+  lastExitTimezone?: string;
+  timezoneMatch?: boolean;
 }
 
 export interface BrowserProfile {
@@ -338,6 +358,7 @@ export interface LaunchResult {
   pid: number;
   runtimeChannel: RuntimeChannel;
   status: 'running';
+  localProxy?: ProxyRuntimeStatus;
 }
 
 export interface StopResult {
@@ -368,6 +389,7 @@ export interface AppApi {
   proxy: {
     test: (input: ProxyConnectionInput & { profileId?: string }) => Promise<ProxyTestResult>;
     testAll: () => Promise<Array<{ profileId: string; result: ProxyTestResult }>>;
+    localStatus: (profileId?: string) => Promise<ProxyRuntimeStatus[]>;
   };
   audit: {
     list: (profileId?: string) => Promise<AuditEvent[]>;

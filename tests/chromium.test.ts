@@ -42,7 +42,7 @@ describe('Chromium launch planning', () => {
       executablePath: '/Applications/Chromium.app/Contents/MacOS/Chromium',
       profile,
       proxy,
-      proxyAuthExtensionDir: '/tmp/fingerbrowser/proxy-ext/profile-1'
+      proxyServerOverride: 'http://127.0.0.1:18080'
     });
 
     expect(plan.args).toContain('--user-data-dir=/tmp/fingerbrowser/profile-1');
@@ -50,8 +50,10 @@ describe('Chromium launch planning', () => {
     expect(plan.args).toContain('--window-size=1360,900');
     expect(plan.args).toContain('--deny-permission-prompts');
     expect(plan.args).toContain('--force-webrtc-ip-handling-policy=disable_non_proxied_udp');
-    expect(plan.args).toContain('--proxy-server=http://127.0.0.1:8080');
+    expect(plan.args).toContain('--proxy-server=http://127.0.0.1:18080');
     expect(plan.args).toContain('--proxy-bypass-list=localhost');
+    expect(plan.args).not.toContain(expect.stringContaining('8080'));
+    expect(plan.args).not.toContain(expect.stringContaining('--load-extension='));
     expect(plan.env.TZ).toBe('Asia/Shanghai');
     expect(JSON.stringify(plan)).not.toContain('encrypted-password');
   });

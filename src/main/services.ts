@@ -23,6 +23,7 @@ import {
 } from './infrastructure/chromium-installer';
 import { createBrowserController } from './infrastructure/browser-runtime';
 import type { BrowserController } from './domain/chromium';
+import { LocalProxyManager } from './domain/local-proxy';
 
 export interface ApplicationServices {
   dataDir: string;
@@ -34,6 +35,7 @@ export interface ApplicationServices {
   trialService: TrialService;
   chromiumInstaller: ChromiumInstaller;
   kernelRuntimeManager: KernelRuntimeManager;
+  localProxyManager: LocalProxyManager;
   browserController: BrowserController;
 }
 
@@ -84,9 +86,11 @@ export function createApplicationServices(): ApplicationServices {
         settings: appSettingsService,
         environmentManifestPath: process.env.FINGERBROWSER_KERNEL_MANIFEST
       });
+  const localProxyManager = new LocalProxyManager();
   const browserController = createBrowserController({
     chromiumInstaller,
     kernelRuntimeManager,
+    localProxyManager,
     dataDir,
     secretBox,
     isE2E
@@ -102,6 +106,7 @@ export function createApplicationServices(): ApplicationServices {
     trialService,
     chromiumInstaller,
     kernelRuntimeManager,
+    localProxyManager,
     browserController
   };
 }

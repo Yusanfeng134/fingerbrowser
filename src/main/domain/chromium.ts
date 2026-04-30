@@ -1,16 +1,18 @@
 import type { ChildProcess } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
-import type { BrowserProfile, ProxyConfig, RuntimeChannel } from '../../shared/types';
+import type { BrowserProfile, ProxyConfig, ProxyRuntimeStatus, RuntimeChannel } from '../../shared/types';
 import { formatProxyServer } from './proxy';
 import { writeKernelPolicyFile } from './kernel-runtime';
 import { writeEnvironmentCheckPage } from './environment-check-page';
+import type { LocalProxyManager } from './local-proxy';
 
 export interface ChromiumLaunchPlanInput {
   executablePath: string;
   profile: BrowserProfile;
   proxy: ProxyConfig | null;
   proxyAuthExtensionDir?: string;
+  proxyServerOverride?: string;
   kernelPolicyPath?: string;
   startUrl?: string;
   startUrls?: string[];
@@ -37,6 +39,7 @@ export interface BrowserLaunchOptions {
 export interface BrowserLaunchResult {
   pid: number;
   runtimeChannel: RuntimeChannel;
+  localProxy?: ProxyRuntimeStatus;
   kernelPolicyPath?: string;
   kernelVersion?: string;
 }
@@ -65,7 +68,7 @@ export function buildChromiumLaunchPlan(input: ChromiumLaunchPlanInput): Chromiu
   }
 
   if (input.proxy) {
-    args.push(`--proxy-server=${formatProxyServer(input.proxy)}`);
+    args.push(`--proxy-server=${input.proxyServerOverride ?? formatProxyServer(input.proxy)}`);
     if (input.proxy.bypassList.length > 0) {
       args.push(`--proxy-bypass-list=${input.proxy.bypassList.join(';')}`);
     }
@@ -167,10 +170,23 @@ export class ManagedBrowserController implements BrowserController {
 export class MockBrowserController implements BrowserController {
   private readonly running = new Set<string>();
 
-  constructor(private readonly dataDir?: string) {}
+  constructor(
+    private readonly dataDir?: string,
+    private readonly localProxyManager?: LocalProxyManager,
+    private readonly decryptSecret?: (value: string) => string
+  ) {}
 
-  async launch(profile: BrowserProfile): Promise<BrowserLaunchResult> {
+  async launch(profile: BrowserProfile, proxy: ProxyConfig | null): Promise<BrowserLaunchResult> {
     this.running.add(profile.id);
+    const localProxy = proxy
+      ? await this.localProxyManager?.start(profile.id, {
+          scheme: proxy.scheme,
+          host: proxy.host,
+          port: proxy.port,
+          ...(proxy.username ? { username: proxy.username } : {}),
+          ...(proxy.encryptedPassword && this.decryptSecret ? { password: this.decryptSecret(proxy.encryptedPassword) } : {})
+        })
+      : undefined;
     if (this.dataDir) {
       writeEnvironmentCheckPage({
         dataDir: this.dataDir,
@@ -181,6 +197,7 @@ export class MockBrowserController implements BrowserController {
     return {
       pid: 4242,
       runtimeChannel: profile.runtimeChannel,
+      localProxy,
       kernelPolicyPath,
       kernelVersion: profile.runtimeChannel === 'custom-kernel' ? 'e2e-kernel' : undefined
     };
@@ -188,6 +205,7 @@ export class MockBrowserController implements BrowserController {
 
   async stop(profileId: string): Promise<void> {
     this.running.delete(profileId);
+    await this.localProxyManager?.stop(profileId);
   }
 
   has(profileId: string): boolean {

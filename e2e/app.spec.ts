@@ -223,16 +223,19 @@ test('中文 UI 完成激活 license、新建环境、代理测试、导出审�
     await expect(page.getByText(/代理连通/)).toBeVisible();
 
     await page.getByRole('button', { name: '启动 Chromium' }).click();
-    await expect(page.getByText('运行中')).toBeVisible();
+    await expect(page.getByText('运行中').first()).toBeVisible();
+    await expect(page.getByLabel('本地代理状态')).toContainText('运行中');
+    await expect(page.getByLabel('本地代理状态')).toContainText('HTTP');
     const checkPagePath = path.join(dataDir, 'environment-check', 'environment-check.html');
     expect(existsSync(checkPagePath)).toBe(true);
     expect(readFileSync(checkPagePath, 'utf8')).toContain('合规环境自检');
     await page.getByRole('button', { name: '关闭环境' }).click();
     await expect(page.getByText('已关闭').first()).toBeVisible();
+    await expect(page.getByLabel('本地代理状态')).toContainText('未启动');
 
     await page.getByLabel('内核通道').selectOption('custom-kernel');
     await page.getByRole('button', { name: '启动 Chromium' }).click();
-    await expect(page.getByText('运行中')).toBeVisible();
+    await expect(page.getByText('运行中').first()).toBeVisible();
     await page.getByRole('button', { name: '关闭环境' }).click();
     await expect(page.getByText('已关闭').first()).toBeVisible();
     await page.getByRole('tab', { name: '审计' }).click();
@@ -249,7 +252,7 @@ test('中文 UI 完成激活 license、新建环境、代理测试、导出审�
     await page.getByRole('button', { name: '检查自研内核' }).click();
     await expect(page.getByText(/自研内核 e2e-imported-kernel 已就绪/)).toBeVisible();
     await page.getByRole('button', { name: '启动 Chromium' }).click();
-    await expect(page.getByText('运行中')).toBeVisible();
+    await expect(page.getByText('运行中').first()).toBeVisible();
     await page.getByRole('button', { name: '关闭环境' }).click();
     await expect(page.getByText('已关闭').first()).toBeVisible();
 
