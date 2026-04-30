@@ -13,6 +13,7 @@ export interface ChromiumLaunchPlanInput {
   proxy: ProxyConfig | null;
   proxyAuthExtensionDir?: string;
   proxyServerOverride?: string;
+  googleApiEnvironment?: NodeJS.ProcessEnv;
   kernelPolicyPath?: string;
   startUrl?: string;
   startUrls?: string[];
@@ -89,8 +90,23 @@ export function buildChromiumLaunchPlan(input: ChromiumLaunchPlanInput): Chromiu
     startUrls,
     env: {
       ...process.env,
+      ...resolveGoogleApiEnvironment(input.googleApiEnvironment ?? process.env),
       TZ: fingerprintPolicy.timezone
     }
+  };
+}
+
+function resolveGoogleApiEnvironment(environment: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
+  const apiKey = environment.FINGERBROWSER_GOOGLE_API_KEY;
+  const clientId = environment.FINGERBROWSER_GOOGLE_DEFAULT_CLIENT_ID;
+  const clientSecret = environment.FINGERBROWSER_GOOGLE_DEFAULT_CLIENT_SECRET;
+  if (!apiKey || !clientId || !clientSecret) {
+    return {};
+  }
+  return {
+    GOOGLE_API_KEY: apiKey,
+    GOOGLE_DEFAULT_CLIENT_ID: clientId,
+    GOOGLE_DEFAULT_CLIENT_SECRET: clientSecret
   };
 }
 

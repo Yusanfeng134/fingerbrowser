@@ -15,7 +15,6 @@ import {
   FolderPlus,
   Globe2,
   KeyRound,
-  ListChecks,
   LockKeyhole,
   Mail,
   MessageSquare,
@@ -47,7 +46,6 @@ import type {
   FeedbackSeverity,
   CreateProfileInput,
   FingerprintPolicy,
-  OnboardingStatus,
   ProfileDetails,
   ProxyRuntimeStatus,
   ProxyScheme,
@@ -320,7 +318,6 @@ export function App(): JSX.Element {
   const [kernelManifest, setKernelManifest] = useState<KernelRuntimeManifest | null>(null);
   const [kernelStatus, setKernelStatus] = useState<KernelRuntimeStatus | null>(null);
   const [proxyRuntimeStatuses, setProxyRuntimeStatuses] = useState<ProxyRuntimeStatus[]>([]);
-  const [onboarding, setOnboarding] = useState<OnboardingStatus | null>(null);
   const [metrics, setMetrics] = useState<TrialMetrics | null>(null);
   const [feedbackDraft, setFeedbackDraft] = useState<FeedbackDraftState>(emptyFeedbackDraft);
   const [license, setLicense] = useState<RedactedLicenseState | null>(null);
@@ -406,13 +403,6 @@ export function App(): JSX.Element {
     [selectedVaultCredentialId, vaultCredentials]
   );
 
-  const onboardingPercent = useMemo(() => {
-    if (!onboarding || onboarding.totalCount === 0) {
-      return 0;
-    }
-    return Math.round((onboarding.completedCount / onboarding.totalCount) * 100);
-  }, [onboarding]);
-
   const loadProfiles = useCallback(async () => {
     const nextProfiles = await window.fingerBrowser.profiles.list();
     setProfiles(nextProfiles);
@@ -469,13 +459,11 @@ export function App(): JSX.Element {
   }, []);
 
   const loadTrialState = useCallback(async () => {
-    const [nextVersion, nextOnboarding, nextMetrics] = await Promise.all([
+    const [nextVersion, nextMetrics] = await Promise.all([
       window.fingerBrowser.app.version(),
-      window.fingerBrowser.onboarding.status(),
       window.fingerBrowser.trial.metrics()
     ]);
     setAppVersion(nextVersion);
-    setOnboarding(nextOnboarding);
     setMetrics(nextMetrics);
   }, []);
 
@@ -1083,18 +1071,6 @@ export function App(): JSX.Element {
     });
   };
 
-  const handleDismissOnboarding = (): void => {
-    void run('收起试卖清单', async () => {
-      setOnboarding(await window.fingerBrowser.onboarding.dismiss());
-    });
-  };
-
-  const handleResetOnboarding = (): void => {
-    void run('重置试卖清单', async () => {
-      setOnboarding(await window.fingerBrowser.onboarding.reset());
-    });
-  };
-
   const handlePackageFeedback = (): void => {
     void run('生成反馈包', async () => {
       const result = await window.fingerBrowser.feedback.package(feedbackDraft);
@@ -1264,36 +1240,6 @@ export function App(): JSX.Element {
             </button>
           ) : null}
         </section>
-
-        {onboarding && !onboarding.dismissed ? (
-          <section className="trial-checklist-card">
-            <div className="trial-checklist-header">
-              <div>
-                <div className="license-banner-title">
-                  <ListChecks size={16} />
-                  试卖上手清单
-                </div>
-                <p>
-                  已完成 {onboarding.completedCount}/{onboarding.totalCount}，按顺序走完即可形成一次完整试卖验收。
-                </p>
-              </div>
-              <button className="icon-button" type="button" onClick={handleDismissOnboarding} title="收起试卖清单">
-                <Power size={15} />
-              </button>
-            </div>
-            <div className="usage-meter" aria-label="试卖清单进度">
-              <span style={{ width: `${onboardingPercent}%` }} />
-            </div>
-            <div className="trial-checklist-items">
-              {onboarding.items.map((item) => (
-                <span className={item.completed ? 'done' : ''} key={item.id}>
-                  <CheckCircle2 size={14} />
-                  {item.label}
-                </span>
-              ))}
-            </div>
-          </section>
-        ) : null}
 
         <div className="search-row">
           <Search size={16} />
@@ -2298,37 +2244,6 @@ export function App(): JSX.Element {
           </section>
         ) : (
           <section className="audit-list trial-panel" id="trial">
-            <div className="form-section">
-              <div className="form-title">
-                <ListChecks size={17} />
-                试卖清单
-              </div>
-              <div className="usage-block">
-                <span>
-                  完成度 {onboarding?.completedCount ?? 0}/{onboarding?.totalCount ?? 0}
-                </span>
-                <div className="usage-meter">
-                  <span style={{ width: `${onboardingPercent}%` }} />
-                </div>
-              </div>
-              <div className="trial-checklist-items vertical">
-                {onboarding?.items.map((item) => (
-                  <span className={item.completed ? 'done' : ''} key={item.id}>
-                    <CheckCircle2 size={14} />
-                    {item.label}
-                  </span>
-                ))}
-              </div>
-              <div className="ops-row">
-                <button className="secondary-button" type="button" onClick={handleDismissOnboarding} disabled={busy}>
-                  收起清单
-                </button>
-                <button className="secondary-button" type="button" onClick={handleResetOnboarding} disabled={busy}>
-                  重置清单
-                </button>
-              </div>
-            </div>
-
             <div className="form-section">
               <div className="form-title">
                 <PackageCheck size={17} />

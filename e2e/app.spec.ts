@@ -67,7 +67,8 @@ test('中文 UI 完成激活 license、新建环境、代理测试、导出审�
   try {
     const page = await app.firstWindow();
     await expect(page.getByRole('heading', { name: '指纹浏览器' })).toBeVisible();
-    await expect(page.getByText('试卖上手清单')).toBeVisible();
+    await expect(page.getByText('试卖上手清单')).toHaveCount(0);
+    await expect(page.getByText('试卖清单')).toHaveCount(0);
 
     await page.getByRole('tab', { name: '密码' }).click();
     await expect(page.getByText('密码库需要有效许可证')).toBeVisible();
@@ -205,7 +206,7 @@ test('中文 UI 完成激活 license、新建环境、代理测试、导出审�
     await page.getByRole('link', { name: '环境' }).click();
 
     await page.getByRole('tab', { name: '试卖' }).click();
-    await expect(page.getByText(/完成度/)).toBeVisible();
+    await expect(page.getByText(/试卖清单/)).toHaveCount(0);
     await expect(page.getByText(/当前版本：/)).toBeVisible();
     await page.getByRole('button', { name: '检查更新' }).click();
     await expect(page.locator('.notice-bar').getByText('检查更新失败：E2E 更新检查模拟失败')).toBeVisible();

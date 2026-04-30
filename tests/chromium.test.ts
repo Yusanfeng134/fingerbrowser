@@ -94,4 +94,26 @@ describe('Chromium launch planning', () => {
     expect(plan.args.slice(-3)).toEqual(plan.startUrls);
     expect(JSON.stringify(plan)).not.toContain('plain-password');
   });
+
+  it('maps FingerBrowser Google API runtime credentials into Chromium environment without command-line exposure', () => {
+    const profile = createTestProfile('custom-kernel');
+
+    const plan = buildChromiumLaunchPlan({
+      executablePath: '/Applications/FingerBrowser Kernel.app/Contents/MacOS/Chromium',
+      profile,
+      proxy: null,
+      kernelPolicyPath: '/tmp/fingerbrowser/profile-1/fingerbrowser_policy.json',
+      googleApiEnvironment: {
+        FINGERBROWSER_GOOGLE_API_KEY: 'google-api-key',
+        FINGERBROWSER_GOOGLE_DEFAULT_CLIENT_ID: 'google-client-id',
+        FINGERBROWSER_GOOGLE_DEFAULT_CLIENT_SECRET: 'google-client-secret'
+      }
+    });
+
+    expect(plan.env.GOOGLE_API_KEY).toBe('google-api-key');
+    expect(plan.env.GOOGLE_DEFAULT_CLIENT_ID).toBe('google-client-id');
+    expect(plan.env.GOOGLE_DEFAULT_CLIENT_SECRET).toBe('google-client-secret');
+    expect(plan.args.join(' ')).not.toContain('google-api-key');
+    expect(plan.args.join(' ')).not.toContain('google-client-secret');
+  });
 });
