@@ -55,6 +55,7 @@ function createProfile(runtimeChannel: BrowserProfile['runtimeChannel'] = 'custo
 
 describe('kernel runtime domain', () => {
   it('advertises the latest local custom kernel patchset in the default manifest', () => {
+    expect(DEFAULT_KERNEL_RUNTIME_MANIFEST.version).toBe('0.1.1');
     expect(DEFAULT_KERNEL_RUNTIME_MANIFEST.patchsetVersion).toBe('2026.04.30.1');
   });
 
@@ -131,7 +132,7 @@ describe('kernel runtime domain', () => {
 
     expect(manager.status()).toMatchObject({
       installed: false,
-      executablePath: path.join(dir, 'kernel-runtime', '0.1.0', 'FingerBrowser Kernel.app/Contents/MacOS/Chromium')
+      executablePath: path.join(dir, 'kernel-runtime', '0.1.1', 'FingerBrowser Kernel.app/Contents/MacOS/Chromium')
     });
     await expect(manager.ensureInstalled()).rejects.toThrow('自研内核未安装');
   });

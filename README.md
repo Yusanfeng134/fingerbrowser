@@ -19,7 +19,7 @@ npm run license:issue -- --plan trial --team "试卖团队" --days 7
 ```
 
 `npm run dev:kernel` 会自动读取同级目录
-`../fingerbrowser-kernel/dist/fingerbrowser-kernel-v0.1.0-mac-arm64.manifest.json`，
+`../fingerbrowser-kernel/dist/fingerbrowser-kernel-v0.1.1-mac-arm64.manifest.json`，
 以自研内核 manifest 启动客户端。也可以手动指定：
 
 ```bash

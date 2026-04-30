@@ -9,7 +9,7 @@ const defaultManifestPath = path.resolve(
   '..',
   'fingerbrowser-kernel',
   'dist',
-  'fingerbrowser-kernel-v0.1.0-mac-arm64.manifest.json'
+  'fingerbrowser-kernel-v0.1.1-mac-arm64.manifest.json'
 );
 
 function loadManifest(manifestPath) {
