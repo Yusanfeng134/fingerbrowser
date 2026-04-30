@@ -114,4 +114,41 @@ describe('profile service', () => {
     expect(updated.runtimeChannel).toBe('custom-kernel');
     expect(service.getProfile('legacy-profile').runtimeChannel).toBe('custom-kernel');
   });
+
+  it('normalizes supported timezones and rejects invalid timezone values', () => {
+    const dataDir = mkdtempSync(path.join(tmpdir(), 'fingerbrowser-timezone-test-'));
+    tempDirs.push(dataDir);
+    const db = openApplicationDatabase(path.join(dataDir, 'app.sqlite'));
+    const service = createProfileService({
+      db,
+      dataDir,
+      secretBox: createNodeSecretBox('test-master-key')
+    });
+
+    const profile = service.createProfile({
+      name: '纽约时区环境',
+      fingerprintPolicy: {
+        locale: 'en-US',
+        timezone: 'US/Eastern',
+        windowSize: { width: 1360, height: 900 },
+        permissionDefaults: 'deny',
+        webrtcIpPolicy: 'disable_non_proxied_udp'
+      }
+    });
+
+    expect(profile.fingerprintPolicy.timezone).toBe('America/New_York');
+    expect(() =>
+      service.updateProfile({
+        id: profile.id,
+        name: profile.name,
+        tags: profile.tags,
+        fingerprintPolicy: {
+          ...profile.fingerprintPolicy,
+          timezone: 'Mars/Colony'
+        },
+        runtimeChannel: profile.runtimeChannel,
+        proxy: null
+      })
+    ).toThrow('时区无效');
+  });
 });

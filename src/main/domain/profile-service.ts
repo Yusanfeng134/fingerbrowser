@@ -2,6 +2,7 @@ import { mkdirSync } from 'node:fs';
 import path from 'node:path';
 import { randomUUID } from 'node:crypto';
 import { DEFAULT_FINGERPRINT_POLICY, CHROMIUM_VERSION } from '../../shared/defaults';
+import { normalizeTimezone } from '../../shared/timezones';
 import type {
   AuditAction,
   AuditEvent,
@@ -79,6 +80,7 @@ export function createProfileService(options: ProfileServiceOptions): ProfileSer
     return {
       ...DEFAULT_FINGERPRINT_POLICY,
       ...input,
+      timezone: normalizeTimezone(input?.timezone ?? DEFAULT_FINGERPRINT_POLICY.timezone),
       windowSize: {
         ...DEFAULT_FINGERPRINT_POLICY.windowSize,
         ...input?.windowSize

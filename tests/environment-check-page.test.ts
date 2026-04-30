@@ -4,6 +4,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { afterEach, describe, expect, it } from 'vitest';
 import { writeEnvironmentCheckPage } from '../src/main/domain/environment-check-page';
+import { DEFAULT_FINGERPRINT_POLICY } from '../src/shared/defaults';
 
 const tempDirs: string[] = [];
 
@@ -33,7 +34,9 @@ describe('environment check page', () => {
     expect(html).toContain('网络');
     expect(html).toContain('WebRTC');
     expect(html).toContain('navigator.userAgent');
-    expect(html).toContain('api.ipify.org');
+    expect(html).toContain('ipwho.is');
+    expect(html).toContain('IP 时区');
+    expect(html).toContain('时区一致性');
   });
 
   it('does not embed local paths or sensitive values in the generated page', () => {
@@ -44,5 +47,22 @@ describe('environment check page', () => {
 
     expect(html).not.toContain(dataDir);
     expect(html).not.toMatch(/password|token|secret|encrypted|profile-secret-token-cache/i);
+  });
+
+  it('embeds the expected timezone without leaking local paths', () => {
+    const dataDir = createTempDir();
+
+    const result = writeEnvironmentCheckPage({
+      dataDir,
+      fingerprintPolicy: {
+        ...DEFAULT_FINGERPRINT_POLICY,
+        timezone: 'America/New_York'
+      }
+    });
+    const html = readFileSync(result.filePath, 'utf8');
+
+    expect(html).toContain('<div class="row"><dt>目标时区</dt><dd id="expected-timezone"></dd></div>');
+    expect(html).toContain('"timezone":"America/New_York"');
+    expect(html).not.toContain(dataDir);
   });
 });

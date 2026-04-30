@@ -306,6 +306,9 @@ export interface ProxyConnectionInput {
   scheme: ProxyScheme;
   host: string;
   port: number;
+  username?: string;
+  password?: string;
+  expectedTimezone?: string;
   timeoutMs?: number;
 }
 
@@ -313,6 +316,14 @@ export interface ProxyTestResult {
   status: Exclude<ProxyTestStatus, 'untested' | 'testing'>;
   message: string;
   testedAt: string;
+  ip?: string;
+  ipTimezone?: string;
+  timezoneMatch?: boolean;
+  geo?: {
+    country?: string;
+    region?: string;
+    city?: string;
+  };
 }
 
 export interface ChromiumInstallResult {

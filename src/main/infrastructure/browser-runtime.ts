@@ -62,7 +62,10 @@ class ExternalChromiumController implements BrowserController {
     if (profile.runtimeChannel === 'custom-kernel') {
       kernelPolicyPath = writeKernelPolicyFile(profile);
     }
-    const environmentCheckPage = writeEnvironmentCheckPage({ dataDir: this.dataDir });
+    const environmentCheckPage = writeEnvironmentCheckPage({
+      dataDir: this.dataDir,
+      fingerprintPolicy: profile.fingerprintPolicy
+    });
     const plan = buildChromiumLaunchPlan({
       executablePath: kernelInstallation?.executablePath ?? officialInstallation?.executablePath ?? '',
       profile,

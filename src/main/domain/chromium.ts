@@ -163,7 +163,10 @@ export class MockBrowserController implements BrowserController {
   async launch(profile: BrowserProfile): Promise<BrowserLaunchResult> {
     this.running.add(profile.id);
     if (this.dataDir) {
-      writeEnvironmentCheckPage({ dataDir: this.dataDir });
+      writeEnvironmentCheckPage({
+        dataDir: this.dataDir,
+        fingerprintPolicy: profile.fingerprintPolicy
+      });
     }
     const kernelPolicyPath = profile.runtimeChannel === 'custom-kernel' ? writeKernelPolicyFile(profile) : undefined;
     return {

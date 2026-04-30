@@ -81,15 +81,23 @@ export function registerIpcHandlers(services: ApplicationServices): void {
   });
 
   ipcMain.handle('proxy.test', async (_event, input: ProxyConnectionInput & { profileId?: string }) => {
-    const result = await testProxyConnection(input);
-    if (input.profileId) {
-      const profile = services.profileService.getProfile(input.profileId);
+    const profile = input.profileId ? services.profileService.getProfile(input.profileId) : null;
+    const result = await testProxyConnection({
+      ...input,
+      username: input.username || profile?.proxy?.username,
+      password:
+        input.password ||
+        (profile?.proxy?.encryptedPassword ? services.secretBox.decrypt(profile.proxy.encryptedPassword) : undefined)
+    });
+    if (input.profileId && profile) {
       if (profile.proxyId) {
         services.profileService.setProxyTestStatus(profile.proxyId, result);
         services.profileService.recordAudit(input.profileId, 'PROXY_TESTED', {
           status: result.status,
           host: input.host,
-          port: input.port
+          port: input.port,
+          ipTimezone: result.ipTimezone,
+          timezoneMatch: result.timezoneMatch
         });
         services.trialService.incrementMetric('proxyTestCount');
       }
@@ -108,13 +116,18 @@ export function registerIpcHandlers(services: ApplicationServices): void {
           scheme: profile.proxy.scheme,
           host: profile.proxy.host,
           port: profile.proxy.port,
+          username: profile.proxy.username,
+          password: profile.proxy.encryptedPassword ? services.secretBox.decrypt(profile.proxy.encryptedPassword) : undefined,
+          expectedTimezone: profile.fingerprintPolicy.timezone,
           timeoutMs: 3000
         });
         services.profileService.setProxyTestStatus(profile.proxy.id, result);
         services.profileService.recordAudit(profile.id, 'PROXY_TESTED', {
           status: result.status,
           host: profile.proxy.host,
-          port: profile.proxy.port
+          port: profile.proxy.port,
+          ipTimezone: result.ipTimezone,
+          timezoneMatch: result.timezoneMatch
         });
         services.trialService.incrementMetric('proxyTestCount');
         return { profileId: profile.id, result };

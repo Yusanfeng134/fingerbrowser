@@ -34,6 +34,7 @@ import {
 } from 'lucide-react';
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { DEFAULT_FINGERPRINT_POLICY } from '../../shared/defaults';
+import { TIMEZONE_OPTION_GROUPS } from '../../shared/timezones';
 import type {
   AuditEvent,
   AppVersionInfo,
@@ -582,6 +583,9 @@ export function App(): JSX.Element {
         scheme: draft.proxyScheme,
         host: draft.proxyHost,
         port: Number(draft.proxyPort),
+        username: draft.proxyUsername || undefined,
+        password: draft.proxyPassword || undefined,
+        expectedTimezone: draft.fingerprintPolicy.timezone,
         timeoutMs: 3000
       });
       await loadProfiles();
@@ -1818,7 +1822,8 @@ export function App(): JSX.Element {
                 </label>
                 <label>
                   时区
-                  <input
+                  <select
+                    aria-label="时区"
                     value={draft.fingerprintPolicy.timezone}
                     onChange={(event) =>
                       setDraft({
@@ -1826,7 +1831,17 @@ export function App(): JSX.Element {
                         fingerprintPolicy: { ...draft.fingerprintPolicy, timezone: event.target.value }
                       })
                     }
-                  />
+                  >
+                    {TIMEZONE_OPTION_GROUPS.map(({ region, options }) => (
+                      <optgroup key={region} label={region}>
+                        {options.map((option) => (
+                          <option key={option.value} value={option.value}>
+                            {option.label} - {option.value}
+                          </option>
+                        ))}
+                      </optgroup>
+                    ))}
+                  </select>
                 </label>
               </div>
               <div className="inline-grid">

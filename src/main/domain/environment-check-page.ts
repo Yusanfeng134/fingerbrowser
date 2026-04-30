@@ -1,24 +1,32 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
+import type { FingerprintPolicy } from '../../shared/types';
 
 export interface EnvironmentCheckPageResult {
   filePath: string;
   url: string;
 }
 
-export function writeEnvironmentCheckPage(options: { dataDir: string }): EnvironmentCheckPageResult {
+export function writeEnvironmentCheckPage(options: {
+  dataDir: string;
+  fingerprintPolicy?: Pick<FingerprintPolicy, 'locale' | 'timezone'>;
+}): EnvironmentCheckPageResult {
   const dir = path.join(options.dataDir, 'environment-check');
   const filePath = path.join(dir, 'environment-check.html');
   mkdirSync(dir, { recursive: true });
-  writeFileSync(filePath, environmentCheckHtml(), 'utf8');
+  writeFileSync(filePath, environmentCheckHtml(options.fingerprintPolicy), 'utf8');
   return {
     filePath,
     url: pathToFileURL(filePath).toString()
   };
 }
 
-function environmentCheckHtml(): string {
+function environmentCheckHtml(fingerprintPolicy?: Pick<FingerprintPolicy, 'locale' | 'timezone'>): string {
+  const expectedPolicyJson = JSON.stringify({
+    locale: fingerprintPolicy?.locale ?? null,
+    timezone: fingerprintPolicy?.timezone ?? null
+  });
   return `<!doctype html>
 <html lang="zh-CN">
 <head>
@@ -116,6 +124,8 @@ function environmentCheckHtml(): string {
         <h2>网络</h2>
         <dl>
           <div class="row"><dt>外网 IP</dt><dd id="public-ip">检测中</dd></div>
+          <div class="row"><dt>IP 时区</dt><dd id="ip-timezone">检测中</dd></div>
+          <div class="row"><dt>时区一致性</dt><dd id="timezone-consistency">等待检测</dd></div>
           <div class="row"><dt>检测状态</dt><dd id="ip-status">正在查询公开 IP 服务</dd></div>
         </dl>
       </section>
@@ -133,6 +143,7 @@ function environmentCheckHtml(): string {
         <dl>
           <div class="row"><dt>语言</dt><dd id="language"></dd></div>
           <div class="row"><dt>语言列表</dt><dd id="languages"></dd></div>
+          <div class="row"><dt>目标时区</dt><dd id="expected-timezone"></dd></div>
           <div class="row"><dt>时区</dt><dd id="timezone"></dd></div>
           <div class="row"><dt>本地时间</dt><dd id="local-time"></dd></div>
         </dl>
@@ -162,6 +173,7 @@ function environmentCheckHtml(): string {
     </div>
     <p class="note">外网 IP 查询由当前浏览器环境直接访问公开 IP 服务；查询失败不影响其他本地检查。</p>
   </main>
+  <script id="expected-policy" type="application/json">${expectedPolicyJson}</script>
   <script>
     const setText = (id, value) => {
       document.getElementById(id).textContent = value || '无法检测';
@@ -172,6 +184,8 @@ function environmentCheckHtml(): string {
     setText('cookie-enabled', navigator.cookieEnabled ? '可用' : '不可用');
     setText('language', navigator.language);
     setText('languages', Array.isArray(navigator.languages) ? navigator.languages.join(', ') : '不支持');
+    const expectedPolicy = JSON.parse(document.getElementById('expected-policy').textContent || '{}');
+    setText('expected-timezone', expectedPolicy.timezone || '未设置');
     setText('timezone', Intl.DateTimeFormat().resolvedOptions().timeZone || '无法检测');
     setText('local-time', new Date().toLocaleString());
     setText('viewport', window.innerWidth + ' x ' + window.innerHeight);
@@ -203,21 +217,56 @@ function environmentCheckHtml(): string {
     queryPermission('notifications', 'permission-notifications');
     queryPermission('geolocation', 'permission-geolocation');
 
+    function currentJavascriptTimezone() {
+      return Intl.DateTimeFormat().resolvedOptions().timeZone || '';
+    }
+
+    function updateTimezoneConsistency(ipTimezone) {
+      const jsTimezone = currentJavascriptTimezone();
+      if (!ipTimezone || !jsTimezone) {
+        setText('timezone-consistency', '无法检测');
+        return;
+      }
+      setText('timezone-consistency', ipTimezone === jsTimezone ? '一致' : '不一致：IP=' + ipTimezone + ' / JS=' + jsTimezone);
+    }
+
     async function detectPublicIp() {
       const endpoints = [
-        'https://api.ipify.org?format=json',
-        'https://ifconfig.co/json'
+        {
+          url: 'https://ipwho.is/',
+          parse: (data) => ({
+            ip: data.ip,
+            timezone: data.timezone && data.timezone.id
+          })
+        },
+        {
+          url: 'https://ipapi.co/json/',
+          parse: (data) => ({
+            ip: data.ip,
+            timezone: data.timezone
+          })
+        },
+        {
+          url: 'https://ifconfig.co/json',
+          parse: (data) => ({
+            ip: data.ip || data.ip_addr,
+            timezone: data.time_zone
+          })
+        }
       ];
       for (const endpoint of endpoints) {
         try {
-          const response = await fetch(endpoint, { cache: 'no-store' });
+          const response = await fetch(endpoint.url, { cache: 'no-store' });
           if (!response.ok) {
             continue;
           }
           const data = await response.json();
-          const ip = data.ip || data.ip_addr;
+          const result = endpoint.parse(data);
+          const ip = result.ip;
           if (ip) {
             setText('public-ip', ip);
+            setText('ip-timezone', result.timezone || '无法检测');
+            updateTimezoneConsistency(result.timezone);
             setText('ip-status', '检测完成');
             return;
           }
@@ -226,6 +275,8 @@ function environmentCheckHtml(): string {
         }
       }
       setText('public-ip', '无法检测');
+      setText('ip-timezone', '无法检测');
+      setText('timezone-consistency', '无法检测');
       setText('ip-status', '公开 IP 服务不可用或网络不可达');
     }
 

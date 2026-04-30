@@ -33,7 +33,12 @@ test('中文 UI 完成激活 license、新建环境、代理测试、导出审�
     expiresAt: new Date(Date.now() + 86_400_000),
     overrides: { profileLimit: 2 }
   });
-  const proxyServer = net.createServer((socket) => socket.end());
+  const proxySockets = new Set<net.Socket>();
+  const proxyServer = net.createServer((socket) => {
+    proxySockets.add(socket);
+    socket.once('close', () => proxySockets.delete(socket));
+    socket.end();
+  });
   await new Promise<void>((resolve) => proxyServer.listen(0, '127.0.0.1', resolve));
   const address = proxyServer.address();
   if (!address || typeof address === 'string') {
@@ -255,6 +260,9 @@ test('中文 UI 完成激活 license、新建环境、代理测试、导出审�
     await expect(page.getByText(activationCode)).toHaveCount(0);
   } finally {
     await app.close();
+    for (const socket of proxySockets) {
+      socket.destroy();
+    }
     await new Promise<void>((resolve) => proxyServer.close(() => resolve()));
   }
 });
