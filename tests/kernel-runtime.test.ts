@@ -6,6 +6,7 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { buildChromiumLaunchPlan } from '../src/main/domain/chromium';
 import { createAppSettingsService } from '../src/main/domain/app-settings-service';
 import {
+  DEFAULT_KERNEL_RUNTIME_MANIFEST,
   KERNEL_POLICY_SCHEMA_VERSION,
   buildKernelPolicyDocument,
   createKernelRuntimeManager,
@@ -53,6 +54,10 @@ function createProfile(runtimeChannel: BrowserProfile['runtimeChannel'] = 'custo
 }
 
 describe('kernel runtime domain', () => {
+  it('advertises the latest local custom kernel patchset in the default manifest', () => {
+    expect(DEFAULT_KERNEL_RUNTIME_MANIFEST.patchsetVersion).toBe('2026.04.30.1');
+  });
+
   it('builds a redacted policy document from the existing fingerprint policy', () => {
     const policy = buildKernelPolicyDocument(createProfile());
 

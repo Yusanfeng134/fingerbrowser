@@ -35,7 +35,7 @@ export interface KernelRuntimeManager {
 export const DEFAULT_KERNEL_RUNTIME_MANIFEST: KernelRuntimeManifest = {
   version: '0.1.0',
   baseChromiumRevision: 'refs/tags/124.0.6367.207',
-  patchsetVersion: '2026.04.29.1',
+  patchsetVersion: '2026.04.30.1',
   platform: 'darwin',
   arch: 'arm64',
   artifactUrl: 'manual://fingerbrowser-kernel-v0.1.0-mac-arm64.zip',

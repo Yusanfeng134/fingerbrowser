@@ -6,6 +6,7 @@
   "private": true,
   "scripts": {
     "dev": "npm run rebuild:electron && electron-vite dev",
+    "dev:kernel": "node scripts/dev-with-local-kernel.mjs",
     "build": "electron-vite build",
     "rebuild:node": "npm rebuild better-sqlite3",
     "rebuild:electron": "electron-rebuild -f -w better-sqlite3",

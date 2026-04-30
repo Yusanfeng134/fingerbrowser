@@ -7,6 +7,7 @@
 ```bash
 npm install
 npm run dev
+npm run dev:kernel
 npm run typecheck
 npm run lint
 npm test
@@ -15,6 +16,14 @@ npm run e2e
 npm run package:mac
 npm run release:trial
 npm run license:issue -- --plan trial --team "试卖团队" --days 7
+```
+
+`npm run dev:kernel` 会自动读取同级目录
+`../fingerbrowser-kernel/dist/fingerbrowser-kernel-v0.1.0-mac-arm64.manifest.json`，
+以自研内核 manifest 启动客户端。也可以手动指定：
+
+```bash
+FINGERBROWSER_KERNEL_MANIFEST=/path/to/fingerbrowser-kernel.manifest.json npm run dev
 ```
 
 如果 Electron 二进制下载阶段网络失败，可临时使用镜像重试：
