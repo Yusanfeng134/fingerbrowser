@@ -31,6 +31,7 @@ interface CredentialRow {
 
 export interface CredentialService {
   listCredentials(input?: ListCredentialsInput): CredentialEntry[];
+  listLaunchUrlsForProfile(profileId: string): string[];
   countCredentials(): number;
   createCredential(input: CreateCredentialInput): CredentialEntry;
   updateCredential(input: UpdateCredentialInput): CredentialEntry;
@@ -74,6 +75,24 @@ export function createCredentialService(options: CredentialServiceOptions): Cred
       updatedAt: row.updated_at,
       lastCopiedAt: row.last_copied_at
     };
+  }
+
+  function normalizeLaunchUrl(value: string): string | null {
+    const trimmed = value.trim();
+    if (!trimmed) {
+      return null;
+    }
+    try {
+      const url = new URL(trimmed);
+      if (url.protocol !== 'http:' && url.protocol !== 'https:') {
+        return null;
+      }
+      url.username = '';
+      url.password = '';
+      return url.toString();
+    } catch {
+      return null;
+    }
   }
 
   function getRow(id: string): CredentialRow {
@@ -126,6 +145,25 @@ export function createCredentialService(options: CredentialServiceOptions): Cred
         )
         .all(...values) as CredentialRow[];
       return rows.map(mapCredential);
+    },
+    listLaunchUrlsForProfile(profileId: string): string[] {
+      assertProfileExists(profileId);
+      const rows = db
+        .prepare(
+          `select website_url
+           from credentials
+           where profile_id = ?
+           order by updated_at desc`
+        )
+        .all(profileId) as Array<{ website_url: string }>;
+      const urls = new Set<string>();
+      for (const row of rows) {
+        const url = normalizeLaunchUrl(row.website_url);
+        if (url) {
+          urls.add(url);
+        }
+      }
+      return [...urls];
     },
     countCredentials(): number {
       const row = db.prepare('select count(*) as count from credentials').get() as { count: number };

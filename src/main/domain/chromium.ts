@@ -13,6 +13,7 @@ export interface ChromiumLaunchPlanInput {
   proxyAuthExtensionDir?: string;
   kernelPolicyPath?: string;
   startUrl?: string;
+  startUrls?: string[];
 }
 
 export interface ChromiumLaunchPlan {
@@ -20,12 +21,17 @@ export interface ChromiumLaunchPlan {
   args: string[];
   env: NodeJS.ProcessEnv;
   startUrl?: string;
+  startUrls: string[];
 }
 
 export interface BrowserController {
-  launch(profile: BrowserProfile, proxy: ProxyConfig | null): Promise<BrowserLaunchResult>;
+  launch(profile: BrowserProfile, proxy: ProxyConfig | null, options?: BrowserLaunchOptions): Promise<BrowserLaunchResult>;
   stop(profileId: string): Promise<void>;
   has(profileId: string): boolean;
+}
+
+export interface BrowserLaunchOptions {
+  startUrls?: string[];
 }
 
 export interface BrowserLaunchResult {
@@ -68,14 +74,16 @@ export function buildChromiumLaunchPlan(input: ChromiumLaunchPlanInput): Chromiu
     }
   }
 
-  if (input.startUrl) {
-    args.push(input.startUrl);
+  const startUrls = [...(input.startUrl ? [input.startUrl] : []), ...(input.startUrls ?? [])];
+  for (const startUrl of startUrls) {
+    args.push(startUrl);
   }
 
   return {
     executablePath: input.executablePath,
     args,
     startUrl: input.startUrl,
+    startUrls,
     env: {
       ...process.env,
       TZ: fingerprintPolicy.timezone
@@ -125,12 +133,13 @@ export class ManagedBrowserController implements BrowserController {
     private readonly spawnProcess: (command: string, args: string[], options: { env: NodeJS.ProcessEnv }) => ChildProcess
   ) {}
 
-  async launch(profile: BrowserProfile, proxy: ProxyConfig | null): Promise<BrowserLaunchResult> {
+  async launch(profile: BrowserProfile, proxy: ProxyConfig | null, options: BrowserLaunchOptions = {}): Promise<BrowserLaunchResult> {
     const plan = buildChromiumLaunchPlan({
       executablePath: this.executablePath,
       profile,
       proxy,
-      kernelPolicyPath: profile.runtimeChannel === 'custom-kernel' ? writeKernelPolicyFile(profile) : undefined
+      kernelPolicyPath: profile.runtimeChannel === 'custom-kernel' ? writeKernelPolicyFile(profile) : undefined,
+      startUrls: options.startUrls
     });
     const child = this.spawnProcess(plan.executablePath, plan.args, { env: plan.env });
     this.running.set(profile.id, child);

@@ -45,7 +45,10 @@ export function registerIpcHandlers(services: ApplicationServices): void {
 
   ipcMain.handle('profiles.launch', async (_event, profileId: string) => {
     const profile = services.profileService.getProfile(profileId);
-    const result = await services.browserController.launch(profile, profile.proxy);
+    const credentialStartUrls = services.credentialService.listLaunchUrlsForProfile(profileId);
+    const result = await services.browserController.launch(profile, profile.proxy, {
+      startUrls: credentialStartUrls
+    });
     services.profileService.setProfileStatus(profileId, 'running');
     if (result.runtimeChannel === 'custom-kernel') {
       services.profileService.recordAudit(profileId, 'KERNEL_POLICY_APPLIED', {
@@ -59,7 +62,8 @@ export function registerIpcHandlers(services: ApplicationServices): void {
     }
     services.profileService.recordAudit(profileId, 'PROFILE_LAUNCHED', {
       pid: result.pid,
-      runtimeChannel: result.runtimeChannel
+      runtimeChannel: result.runtimeChannel,
+      credentialUrlCount: credentialStartUrls.length
     });
     services.trialService.incrementMetric('browserLaunchCount');
     return {

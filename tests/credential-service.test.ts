@@ -153,6 +153,53 @@ describe('credential service', () => {
     expect(passwordResult.copiedAt).toBeTruthy();
   });
 
+  it('returns only safe bound login URLs for environment launch tabs', () => {
+    const { profileService, credentialService } = createHarness();
+    const profile = profileService.createProfile({ name: '环境 A' });
+    const otherProfile = profileService.createProfile({ name: '环境 B' });
+    credentialService.createCredential({
+      profileId: profile.id,
+      title: 'Console',
+      websiteUrl: 'https://operator:secret@console.test/login',
+      username: 'operator',
+      password: 'copy-secret'
+    });
+    credentialService.createCredential({
+      profileId: profile.id,
+      title: 'Console Duplicate',
+      websiteUrl: 'https://console.test/login',
+      username: 'operator',
+      password: 'copy-secret'
+    });
+    credentialService.createCredential({
+      profileId: profile.id,
+      title: 'Unsafe Script',
+      websiteUrl: 'javascript:alert(1)',
+      username: 'operator',
+      password: 'copy-secret'
+    });
+    credentialService.createCredential({
+      profileId: null,
+      title: 'Unbound',
+      websiteUrl: 'https://unbound.test/login',
+      username: 'operator',
+      password: 'copy-secret'
+    });
+    credentialService.createCredential({
+      profileId: otherProfile.id,
+      title: 'Other',
+      websiteUrl: 'https://other.test/login',
+      username: 'operator',
+      password: 'copy-secret'
+    });
+
+    const urls = credentialService.listLaunchUrlsForProfile(profile.id);
+
+    expect(urls).toEqual(['https://console.test/login']);
+    expect(JSON.stringify(urls)).not.toContain('secret');
+    expect(JSON.stringify(urls)).not.toContain('copy-secret');
+  });
+
   it('reveals a password without copying it or updating the copied timestamp', () => {
     const { db, profileService, credentialService, clipboardWrites } = createHarness();
     const profile = profileService.createProfile({ name: '环境 A' });

@@ -4,6 +4,7 @@ import path from 'node:path';
 import type { BrowserProfile, ProxyConfig } from '../../shared/types';
 import {
   buildChromiumLaunchPlan,
+  type BrowserLaunchOptions,
   type BrowserLaunchResult,
   type BrowserController,
   MockBrowserController,
@@ -42,7 +43,7 @@ class ExternalChromiumController implements BrowserController {
     private readonly secretBox: SecretBox
   ) {}
 
-  async launch(profile: BrowserProfile, proxy: ProxyConfig | null): Promise<BrowserLaunchResult> {
+  async launch(profile: BrowserProfile, proxy: ProxyConfig | null, options: BrowserLaunchOptions = {}): Promise<BrowserLaunchResult> {
     const officialInstallation = profile.runtimeChannel === 'official' ? await this.chromiumInstaller.ensureInstalled() : null;
     const kernelInstallation =
       profile.runtimeChannel === 'custom-kernel' ? await this.kernelRuntimeManager.ensureInstalled() : null;
@@ -72,7 +73,8 @@ class ExternalChromiumController implements BrowserController {
       proxy,
       proxyAuthExtensionDir,
       kernelPolicyPath,
-      startUrl: environmentCheckPage.url
+      startUrl: environmentCheckPage.url,
+      startUrls: options.startUrls
     });
     const child = spawn(plan.executablePath, plan.args, {
       env: plan.env,

@@ -68,7 +68,28 @@ describe('Chromium launch planning', () => {
     });
 
     expect(plan.startUrl).toBe('file:///tmp/fingerbrowser/environment-check/environment-check.html');
+    expect(plan.startUrls).toEqual(['file:///tmp/fingerbrowser/environment-check/environment-check.html']);
     expect(plan.args.at(-1)).toBe('file:///tmp/fingerbrowser/environment-check/environment-check.html');
     expect(plan.args).toContain('--fingerbrowser-policy=/tmp/fingerbrowser/profile-1/fingerbrowser_policy.json');
+  });
+
+  it('opens environment check first and bound credential URLs after it without exposing passwords', () => {
+    const profile = createTestProfile();
+
+    const plan = buildChromiumLaunchPlan({
+      executablePath: '/Applications/Chromium.app/Contents/MacOS/Chromium',
+      profile,
+      proxy: null,
+      startUrl: 'file:///tmp/fingerbrowser/environment-check/environment-check.html',
+      startUrls: ['https://admin.acme.test/login', 'https://mail.acme.test/']
+    });
+
+    expect(plan.startUrls).toEqual([
+      'file:///tmp/fingerbrowser/environment-check/environment-check.html',
+      'https://admin.acme.test/login',
+      'https://mail.acme.test/'
+    ]);
+    expect(plan.args.slice(-3)).toEqual(plan.startUrls);
+    expect(JSON.stringify(plan)).not.toContain('plain-password');
   });
 });
