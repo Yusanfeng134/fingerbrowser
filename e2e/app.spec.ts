@@ -37,7 +37,17 @@ test('中文 UI 完成激活 license、新建环境、代理测试、导出审�
   const proxyServer = net.createServer((socket) => {
     proxySockets.add(socket);
     socket.once('close', () => proxySockets.delete(socket));
-    socket.end();
+    socket.once('data', () => {
+      const body = JSON.stringify({
+        status: 'success',
+        query: '203.0.113.8',
+        timezone: 'America/Los_Angeles',
+        country: 'United States',
+        regionName: 'California',
+        city: 'Los Angeles'
+      });
+      socket.end(`HTTP/1.1 200 OK\r\ncontent-type: application/json\r\ncontent-length: ${Buffer.byteLength(body)}\r\n\r\n${body}`);
+    });
   });
   await new Promise<void>((resolve) => proxyServer.listen(0, '127.0.0.1', resolve));
   const address = proxyServer.address();
@@ -76,6 +86,10 @@ test('中文 UI 完成激活 license、新建环境、代理测试、导出审�
     await page.getByLabel('代理端口').fill(String(address.port));
     await page.getByLabel('代理账号').fill('operator');
     await page.getByLabel('代理密码').fill('proxy-password');
+    await page.getByLabel('时区').selectOption('America/Chicago');
+    await page.getByRole('button', { name: '根据代理匹配时区' }).click();
+    await expect(page.getByLabel('时区')).toHaveValue('America/Los_Angeles');
+    await expect(page.getByText(/已匹配代理 IP 时区 America\/Los_Angeles/)).toBeVisible();
     await expect(page.getByLabel('内核通道')).toHaveValue('official');
     await page.getByRole('button', { name: '保存环境' }).click();
 
@@ -214,13 +228,13 @@ test('中文 UI 完成激活 license、新建环境、代理测试、导出审�
     expect(existsSync(checkPagePath)).toBe(true);
     expect(readFileSync(checkPagePath, 'utf8')).toContain('合规环境自检');
     await page.getByRole('button', { name: '关闭环境' }).click();
-    await expect(page.getByText('已关闭')).toBeVisible();
+    await expect(page.getByText('已关闭').first()).toBeVisible();
 
     await page.getByLabel('内核通道').selectOption('custom-kernel');
     await page.getByRole('button', { name: '启动 Chromium' }).click();
     await expect(page.getByText('运行中')).toBeVisible();
     await page.getByRole('button', { name: '关闭环境' }).click();
-    await expect(page.getByText('已关闭')).toBeVisible();
+    await expect(page.getByText('已关闭').first()).toBeVisible();
     await page.getByRole('tab', { name: '审计' }).click();
     await expect(page.getByText('KERNEL_LAUNCHED')).toBeVisible();
     await page.getByRole('tab', { name: '配置' }).click();
@@ -237,7 +251,7 @@ test('中文 UI 完成激活 license、新建环境、代理测试、导出审�
     await page.getByRole('button', { name: '启动 Chromium' }).click();
     await expect(page.getByText('运行中')).toBeVisible();
     await page.getByRole('button', { name: '关闭环境' }).click();
-    await expect(page.getByText('已关闭')).toBeVisible();
+    await expect(page.getByText('已关闭').first()).toBeVisible();
 
     await page.getByRole('button', { name: '新建环境' }).click();
     await expect(page.getByText('当前套餐环境数已达上限')).toBeVisible();

@@ -598,6 +598,47 @@ export function App(): JSX.Element {
     });
   };
 
+  const handleMatchProxyTimezone = (): void => {
+    void run('根据代理匹配时区', async () => {
+      if (!draft.proxyHost || !draft.proxyPort) {
+        throw new Error('请先填写代理主机和端口');
+      }
+      const result = await window.fingerBrowser.proxy.test({
+        profileId: draft.id ?? undefined,
+        scheme: draft.proxyScheme,
+        host: draft.proxyHost,
+        port: Number(draft.proxyPort),
+        username: draft.proxyUsername || undefined,
+        password: draft.proxyPassword || undefined,
+        expectedTimezone: draft.fingerprintPolicy.timezone,
+        timeoutMs: 3000
+      });
+      if (result.status !== 'passed') {
+        throw new Error(result.message);
+      }
+      if (!result.ipTimezone) {
+        throw new Error('未能从代理出口 IP 识别时区，请确认代理支持外网访问后重试');
+      }
+      const nextDraft = {
+        ...draft,
+        fingerprintPolicy: {
+          ...draft.fingerprintPolicy,
+          timezone: result.ipTimezone
+        }
+      };
+      setDraft(nextDraft);
+      if (nextDraft.id) {
+        const saved = await window.fingerBrowser.profiles.update(draftToUpdateInput(nextDraft));
+        await loadProfiles();
+        await loadAudits(saved.id);
+        setSelectedId(saved.id);
+      }
+      await loadCommercialState();
+      await loadTrialState();
+      return `已匹配代理 IP 时区 ${result.ipTimezone}`;
+    });
+  };
+
   const handleLaunch = (): void => {
     if (!selectedProfile) {
       return;
@@ -1843,6 +1884,13 @@ export function App(): JSX.Element {
                     ))}
                   </select>
                 </label>
+                <div className="timezone-match-control">
+                  <span>代理出口</span>
+                  <button className="secondary-button compact-button" type="button" onClick={handleMatchProxyTimezone} disabled={busy}>
+                    <Globe2 size={14} />
+                    根据代理匹配时区
+                  </button>
+                </div>
               </div>
               <div className="inline-grid">
                 <label>

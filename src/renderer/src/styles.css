@@ -484,6 +484,19 @@ p {
   font-weight: 680;
 }
 
+.timezone-match-control {
+  display: grid;
+  align-content: end;
+  gap: 6px;
+  color: #6d726b;
+  font-size: 12px;
+  font-weight: 680;
+}
+
+.timezone-match-control .secondary-button {
+  width: 100%;
+}
+
 .detail-form input,
 .detail-form select,
 .credential-panel input,
