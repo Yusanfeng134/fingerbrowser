@@ -43,6 +43,7 @@ export type AuditAction =
   | 'CREDENTIAL_USERNAME_COPIED'
   | 'CREDENTIAL_PASSWORD_COPIED'
   | 'CREDENTIAL_PASSWORD_REVEALED'
+  | 'SECURITY_LAB_OPENED'
   | 'FEEDBACK_PACKAGED'
   | 'UPDATE_CHECKED'
   | 'ERROR_RECORDED';
@@ -348,6 +349,12 @@ export interface ExportResult {
   filePath: string;
 }
 
+export interface SecurityLabOpenResult {
+  filePath: string;
+  url: string;
+  boundCredentialCount: number;
+}
+
 export interface AppApi {
   profiles: {
     list: () => Promise<ProfileDetails[]>;
@@ -394,6 +401,9 @@ export interface AppApi {
   };
   feedback: {
     package: (input: FeedbackPackageInput) => Promise<ExportResult>;
+  };
+  securityLab: {
+    open: (profileId: string) => Promise<SecurityLabOpenResult>;
   };
   credentials: {
     list: (input?: ListCredentialsInput) => Promise<CredentialEntry[]>;

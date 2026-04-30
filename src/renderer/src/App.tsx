@@ -194,6 +194,7 @@ const actionLabel: Record<string, string> = {
   CREDENTIAL_USERNAME_COPIED: '复制账号',
   CREDENTIAL_PASSWORD_COPIED: '复制密码',
   CREDENTIAL_PASSWORD_REVEALED: '查看密码',
+  SECURITY_LAB_OPENED: '打开安全实验',
   FEEDBACK_PACKAGED: '生成反馈包',
   UPDATE_CHECKED: '检查更新',
   ERROR_RECORDED: '记录错误'
@@ -894,6 +895,17 @@ export function App(): JSX.Element {
       return;
     }
     handleOpenVault(`profile:${selectedProfile.id}`);
+  };
+
+  const handleOpenSecurityLab = (): void => {
+    if (!selectedProfile) {
+      return;
+    }
+    void run('打开本地安全实验页', async () => {
+      const result = await window.fingerBrowser.securityLab.open(selectedProfile.id);
+      await loadAudits(selectedProfile.id);
+      return `已打开本地安全实验页，绑定密码项 ${result.boundCredentialCount} 个`;
+    });
   };
 
   const handleResetVaultCredential = (): void => {
@@ -2039,6 +2051,11 @@ export function App(): JSX.Element {
                 <button className="secondary-button wide" type="button" onClick={handleOpenSelectedProfileVault} disabled={busy}>
                   <LockKeyhole size={16} />
                   打开密码库
+                </button>
+
+                <button className="secondary-button wide" type="button" onClick={handleOpenSecurityLab} disabled={busy}>
+                  <ShieldCheck size={16} />
+                  打开本地安全实验页
                 </button>
 
                 <div className="search-row credential-search">

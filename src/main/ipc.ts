@@ -15,6 +15,7 @@ import { exportAuditEvents, exportProfiles, packageSupportLogs } from './domain/
 import type { ApplicationServices } from './services';
 import { testProxyConnection } from './domain/proxy';
 import { checkForUpdates, RELEASES_PAGE_URL } from './domain/release';
+import { writeCredentialSafetyLabPage } from './domain/security-lab';
 
 export function registerIpcHandlers(services: ApplicationServices): void {
   ipcMain.handle('profiles.list', () => services.profileService.listProfiles());
@@ -294,6 +295,26 @@ export function registerIpcHandlers(services: ApplicationServices): void {
       kernel: services.kernelRuntimeManager.status()
     });
     services.profileService.recordAudit(null, 'FEEDBACK_PACKAGED', { filePath: result.filePath });
+    return result;
+  });
+
+  ipcMain.handle('securityLab.open', async (_event, profileId: string) => {
+    services.licenseService.assertCanUseCredentials();
+    const profile = services.profileService.getProfile(profileId);
+    const boundCredentialCount = services.credentialService.listCredentials({ profileId: profile.id }).length;
+    const result = writeCredentialSafetyLabPage({
+      dataDir: services.dataDir,
+      profileId: profile.id,
+      boundCredentialCount
+    });
+    const openError = await shell.openPath(result.filePath);
+    if (openError) {
+      throw new Error(openError);
+    }
+    services.profileService.recordAudit(profile.id, 'SECURITY_LAB_OPENED', {
+      boundCredentialCount: result.boundCredentialCount,
+      filePath: result.filePath
+    });
     return result;
   });
 

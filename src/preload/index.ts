@@ -63,6 +63,10 @@ const api: AppApi = {
   feedback: {
     package: (input) => ipcRenderer.invoke('feedback.package', input) as ReturnType<AppApi['feedback']['package']>
   },
+  securityLab: {
+    open: (profileId: string) =>
+      ipcRenderer.invoke('securityLab.open', profileId) as ReturnType<AppApi['securityLab']['open']>
+  },
   credentials: {
     list: (input?: ListCredentialsInput) =>
       ipcRenderer.invoke('credentials.list', input) as ReturnType<AppApi['credentials']['list']>,
