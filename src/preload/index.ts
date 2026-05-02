@@ -27,7 +27,8 @@ const api: AppApi = {
     testAll: () => ipcRenderer.invoke('proxy.testAll') as ReturnType<AppApi['proxy']['testAll']>,
     localStatus: (profileId?: string) =>
       ipcRenderer.invoke('proxy.localStatus', profileId) as ReturnType<AppApi['proxy']['localStatus']>,
-    system: () => ipcRenderer.invoke('proxy.system') as ReturnType<AppApi['proxy']['system']>
+    system: () => ipcRenderer.invoke('proxy.system') as ReturnType<AppApi['proxy']['system']>,
+    scanLocal: () => ipcRenderer.invoke('proxy.scanLocal') as ReturnType<AppApi['proxy']['scanLocal']>
   },
   audit: {
     list: (profileId?: string) => ipcRenderer.invoke('audit.list', profileId) as ReturnType<AppApi['audit']['list']>,

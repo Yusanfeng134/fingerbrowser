@@ -1,5 +1,26 @@
-import { describe, expect, it } from 'vitest';
-import { explainProxyFailure, parseMacSystemProxy } from '../src/main/domain/system-proxy';
+import net from 'node:net';
+import { afterEach, describe, expect, it } from 'vitest';
+import { detectLocalProxyPorts, explainProxyFailure, parseMacSystemProxy } from '../src/main/domain/system-proxy';
+
+const servers: net.Server[] = [];
+
+afterEach(async () => {
+  await Promise.all(
+    servers.splice(0).map(
+      (server) =>
+        new Promise<void>((resolve) => {
+          server.close(() => resolve());
+        })
+    )
+  );
+});
+
+async function listen(port: number): Promise<net.Server> {
+  const server = net.createServer((socket) => socket.end());
+  await new Promise<void>((resolve) => server.listen(port, '127.0.0.1', resolve));
+  servers.push(server);
+  return server;
+}
 
 const scutilWithHttpAndSocks = `<dictionary> {
   ExceptionsList : <array> {
@@ -81,5 +102,37 @@ describe('proxy failure explanations', () => {
     const explanation = explainProxyFailure('connect ECONNREFUSED 127.0.0.1:7890');
 
     expect(explanation).toContain('本机代理端口 127.0.0.1:7890 没有服务在监听');
+  });
+});
+
+describe('local proxy port scanning', () => {
+  it('detects common localhost HTTP and SOCKS proxy ports', async () => {
+    await listen(7890);
+    await listen(7891);
+
+    const result = await detectLocalProxyPorts({
+      ports: [
+        { port: 7890, scheme: 'http', label: 'Clash HTTP' },
+        { port: 7891, scheme: 'socks5', label: 'Clash SOCKS' },
+        { port: 1080, scheme: 'socks5', label: 'SOCKS' }
+      ],
+      timeoutMs: 200
+    });
+
+    expect(result.available).toBe(true);
+    expect(result.selected).toMatchObject({ scheme: 'http', host: '127.0.0.1', port: 7890, source: 'local-scan' });
+    expect(result.candidates).toContainEqual(expect.objectContaining({ scheme: 'socks5', port: 7891 }));
+    expect(result.message).toContain('已发现本机代理端口 127.0.0.1:7890');
+  });
+
+  it('returns a readable empty result when common ports are closed', async () => {
+    const result = await detectLocalProxyPorts({
+      ports: [{ port: 1, scheme: 'http', label: 'closed' }],
+      timeoutMs: 50
+    });
+
+    expect(result.available).toBe(false);
+    expect(result.selected).toBeUndefined();
+    expect(result.message).toBe('未发现本机常见代理端口');
   });
 });

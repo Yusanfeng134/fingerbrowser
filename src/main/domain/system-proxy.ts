@@ -1,7 +1,25 @@
 import { execFileSync } from 'node:child_process';
+import net from 'node:net';
 import type { ProxyScheme, SystemProxyCandidate, SystemProxyDetectionResult, SystemProxySource } from '../../shared/types';
 
 type ScutilValueMap = Map<string, string>;
+
+export interface LocalProxyPortProbe {
+  port: number;
+  scheme: ProxyScheme;
+  label: string;
+}
+
+const DEFAULT_LOCAL_PROXY_PORTS: LocalProxyPortProbe[] = [
+  { port: 7890, scheme: 'http', label: 'Clash HTTP' },
+  { port: 7891, scheme: 'socks5', label: 'Clash SOCKS' },
+  { port: 6152, scheme: 'http', label: 'Surge HTTP' },
+  { port: 6153, scheme: 'socks5', label: 'Surge SOCKS' },
+  { port: 1080, scheme: 'socks5', label: 'SOCKS' },
+  { port: 8080, scheme: 'http', label: 'HTTP' },
+  { port: 8888, scheme: 'http', label: 'HTTP' },
+  { port: 8118, scheme: 'http', label: 'Privoxy' }
+];
 
 export function detectMacSystemProxy(): SystemProxyDetectionResult {
   if (process.platform !== 'darwin') {
@@ -40,6 +58,40 @@ export function parseMacSystemProxy(output: string): SystemProxyDetectionResult 
     candidates,
     ...(selected ? { selected } : {}),
     message: selected ? `已识别系统 ${selected.source.toUpperCase()} 代理 ${selected.host}:${selected.port}` : '未检测到已启用的 macOS 系统代理'
+  };
+}
+
+export async function detectLocalProxyPorts(options: {
+  ports?: LocalProxyPortProbe[];
+  timeoutMs?: number;
+} = {}): Promise<SystemProxyDetectionResult> {
+  const ports = options.ports ?? DEFAULT_LOCAL_PROXY_PORTS;
+  const timeoutMs = options.timeoutMs ?? 350;
+  const candidates = (
+    await Promise.all(
+      ports.map(async (probe) => {
+        const open = await canConnectLocalPort(probe.port, timeoutMs);
+        if (!open) {
+          return null;
+        }
+        return {
+          scheme: probe.scheme,
+          host: '127.0.0.1',
+          port: probe.port,
+          source: 'local-scan' as const,
+          bypassList: ['localhost', '127.0.0.1', '*.local']
+        } satisfies SystemProxyCandidate;
+      })
+    )
+  ).filter((candidate): candidate is NonNullable<typeof candidate> => Boolean(candidate));
+  const selected = candidates[0];
+  return {
+    available: Boolean(selected),
+    candidates,
+    ...(selected ? { selected } : {}),
+    message: selected
+      ? `已发现本机代理端口 ${selected.host}:${selected.port}（${selected.scheme.toUpperCase()}）`
+      : '未发现本机常见代理端口'
   };
 }
 
@@ -129,4 +181,19 @@ function parseExceptionsList(output: string): string[] {
 function extractEndpoint(message: string): string | undefined {
   const match = /((?:\d{1,3}\.){3}\d{1,3}|localhost|[\w.-]+):(\d{1,5})/.exec(message);
   return match ? `${match[1]}:${match[2]}` : undefined;
+}
+
+function canConnectLocalPort(port: number, timeoutMs: number): Promise<boolean> {
+  return new Promise((resolve) => {
+    const socket = net.createConnection({ host: '127.0.0.1', port });
+    const finish = (open: boolean): void => {
+      socket.removeAllListeners();
+      socket.destroy();
+      resolve(open);
+    };
+    socket.setTimeout(timeoutMs);
+    socket.once('connect', () => finish(true));
+    socket.once('timeout', () => finish(false));
+    socket.once('error', () => finish(false));
+  });
 }

@@ -52,6 +52,7 @@ import type {
   RedactedLicenseState,
   ReleaseCheckResult,
   RuntimeChannel,
+  SystemProxyDetectionResult,
   TrialMetrics,
   UpdateProfileInput,
   UsageSummary
@@ -624,22 +625,34 @@ export function App(): JSX.Element {
   const handleImportSystemProxy = (): void => {
     void run('读取系统代理', async () => {
       const result = await window.fingerBrowser.proxy.system();
-      if (!result.selected) {
-        throw new Error(result.message);
-      }
-      const selected = result.selected;
-      setDraft((current) => ({
-        ...current,
-        proxyEnabled: true,
-        proxyScheme: selected.scheme,
-        proxyHost: selected.host,
-        proxyPort: String(selected.port),
-        proxyUsername: '',
-        proxyPassword: '',
-        proxyBypassList: selected.bypassList.length > 0 ? selected.bypassList.join(',') : current.proxyBypassList
-      }));
+      applyDetectedProxy(result);
       return `${result.message}，已填入当前环境`;
     });
+  };
+
+  const handleScanLocalProxy = (): void => {
+    void run('扫描本机端口', async () => {
+      const result = await window.fingerBrowser.proxy.scanLocal();
+      applyDetectedProxy(result);
+      return `${result.message}，已填入当前环境`;
+    });
+  };
+
+  const applyDetectedProxy = (result: SystemProxyDetectionResult): void => {
+    if (!result.selected) {
+      throw new Error(result.message);
+    }
+    const selected = result.selected;
+    setDraft((current) => ({
+      ...current,
+      proxyEnabled: true,
+      proxyScheme: selected.scheme,
+      proxyHost: selected.host,
+      proxyPort: String(selected.port),
+      proxyUsername: '',
+      proxyPassword: '',
+      proxyBypassList: selected.bypassList.length > 0 ? selected.bypassList.join(',') : current.proxyBypassList
+    }));
   };
 
   const handleMatchProxyTimezone = (): void => {
@@ -1804,6 +1817,10 @@ export function App(): JSX.Element {
                 <button className="secondary-button" type="button" onClick={handleImportSystemProxy} disabled={busy}>
                   <RefreshCw size={16} />
                   读取系统代理
+                </button>
+                <button className="secondary-button" type="button" onClick={handleScanLocalProxy} disabled={busy}>
+                  <Search size={16} />
+                  扫描本机端口
                 </button>
                 <button className="secondary-button" type="button" onClick={handleProxyTest} disabled={busy}>
                   <CheckCircle2 size={16} />

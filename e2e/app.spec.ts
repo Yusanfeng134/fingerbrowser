@@ -88,6 +88,7 @@ test('中文 UI 完成激活 license、新建环境、代理测试、导出审�
     await page.getByLabel('代理账号').fill('operator');
     await page.getByLabel('代理密码').fill('proxy-password');
     await expect(page.getByRole('button', { name: '读取系统代理' })).toBeVisible();
+    await expect(page.getByRole('button', { name: '扫描本机端口' })).toBeVisible();
     await page.getByLabel('时区').selectOption('America/Chicago');
     await page.getByRole('button', { name: '根据代理匹配时区' }).click();
     await expect(page.getByLabel('时区')).toHaveValue('America/Los_Angeles');

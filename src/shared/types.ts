@@ -9,7 +9,7 @@ export type LicenseStatus = 'inactive' | 'active' | 'grace' | 'expired';
 export type ReleaseStatus = 'up-to-date' | 'update-available' | 'unavailable' | 'error';
 export type KernelManifestSource = 'default' | 'environment' | 'imported';
 export type ProxyRuntimeState = 'stopped' | 'running' | 'error';
-export type SystemProxySource = 'http' | 'https' | 'socks5';
+export type SystemProxySource = 'http' | 'https' | 'socks5' | 'local-scan';
 export type FeedbackIssueType = 'bug' | 'setup' | 'feature' | 'other';
 export type FeedbackSeverity = 'low' | 'medium' | 'high';
 export type TrialMetricKey =
@@ -407,6 +407,7 @@ export interface AppApi {
     testAll: () => Promise<Array<{ profileId: string; result: ProxyTestResult }>>;
     localStatus: (profileId?: string) => Promise<ProxyRuntimeStatus[]>;
     system: () => Promise<SystemProxyDetectionResult>;
+    scanLocal: () => Promise<SystemProxyDetectionResult>;
   };
   audit: {
     list: (profileId?: string) => Promise<AuditEvent[]>;
