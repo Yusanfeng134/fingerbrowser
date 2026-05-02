@@ -36,6 +36,7 @@ export interface BrowserController {
 export interface BrowserLaunchOptions {
   startUrls?: string[];
   proxyDiagnostic?: ProxyTestResult | null;
+  googleApiEnvironment?: NodeJS.ProcessEnv;
 }
 
 export interface BrowserLaunchResult {
@@ -159,6 +160,7 @@ export class ManagedBrowserController implements BrowserController {
       profile,
       proxy,
       kernelPolicyPath: profile.runtimeChannel === 'custom-kernel' ? writeKernelPolicyFile(profile) : undefined,
+      googleApiEnvironment: options.googleApiEnvironment,
       startUrls: options.startUrls
     });
     const child = this.spawnProcess(plan.executablePath, plan.args, { env: plan.env });

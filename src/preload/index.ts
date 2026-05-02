@@ -12,6 +12,7 @@ import type {
   ProxyConnectionInput,
   ReorderDesktopFolderShortcutsInput,
   ReorderDesktopItemsInput,
+  SaveGoogleAccountConfigInput,
   UpdateCredentialInput,
   UpdateProfileInput
 } from '../shared/types';
@@ -75,6 +76,12 @@ const api: AppApi = {
     clearManifest: () => ipcRenderer.invoke('kernel.clearManifest') as ReturnType<AppApi['kernel']['clearManifest']>,
     openRuntimeFolder: () =>
       ipcRenderer.invoke('kernel.openRuntimeFolder') as ReturnType<AppApi['kernel']['openRuntimeFolder']>
+  },
+  googleAccount: {
+    status: () => ipcRenderer.invoke('googleAccount.status') as ReturnType<AppApi['googleAccount']['status']>,
+    save: (input: SaveGoogleAccountConfigInput) =>
+      ipcRenderer.invoke('googleAccount.save', input) as ReturnType<AppApi['googleAccount']['save']>,
+    clear: () => ipcRenderer.invoke('googleAccount.clear') as ReturnType<AppApi['googleAccount']['clear']>
   },
   app: {
     version: () => ipcRenderer.invoke('app.version') as ReturnType<AppApi['app']['version']>

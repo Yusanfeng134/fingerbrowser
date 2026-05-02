@@ -46,6 +46,7 @@ import type {
   KernelRuntimeStatus,
   FeedbackIssueType,
   FeedbackSeverity,
+  GoogleAccountConfigStatus,
   CreateProfileInput,
   FingerprintPolicy,
   ProfileDetails,
@@ -120,6 +121,13 @@ interface FeedbackDraftState {
   includeDiagnostics: boolean;
 }
 
+interface GoogleAccountDraftState {
+  enabled: boolean;
+  apiKey: string;
+  clientId: string;
+  clientSecret: string;
+}
+
 const emptyDraft: DraftState = {
   id: null,
   name: '',
@@ -151,6 +159,13 @@ const emptyFeedbackDraft: FeedbackDraftState = {
   contact: '',
   description: '',
   includeDiagnostics: true
+};
+
+const emptyGoogleAccountDraft: GoogleAccountDraftState = {
+  enabled: false,
+  apiKey: '',
+  clientId: '',
+  clientSecret: ''
 };
 
 const statusText: Record<BrowserProfile['status'], string> = {
@@ -205,6 +220,8 @@ const actionLabel: Record<string, string> = {
   KERNEL_MANIFEST_CLEARED: '重置内核 manifest',
   KERNEL_POLICY_APPLIED: '应用内核策略',
   KERNEL_LAUNCHED: '启动自研内核',
+  GOOGLE_ACCOUNT_CONFIG_UPDATED: '更新 Google 账号配置',
+  GOOGLE_ACCOUNT_CONFIG_CLEARED: '清除 Google 账号配置',
   LICENSE_ACTIVATED: '激活许可证',
   LICENSE_REFRESHED: '刷新许可证',
   LICENSE_DEACTIVATED: '停用许可证',
@@ -346,6 +363,8 @@ export function App(): JSX.Element {
   const [releaseCheck, setReleaseCheck] = useState<ReleaseCheckResult | null>(null);
   const [kernelManifest, setKernelManifest] = useState<KernelRuntimeManifest | null>(null);
   const [kernelStatus, setKernelStatus] = useState<KernelRuntimeStatus | null>(null);
+  const [googleAccountStatus, setGoogleAccountStatus] = useState<GoogleAccountConfigStatus | null>(null);
+  const [googleAccountDraft, setGoogleAccountDraft] = useState<GoogleAccountDraftState>(emptyGoogleAccountDraft);
   const [proxyRuntimeStatuses, setProxyRuntimeStatuses] = useState<ProxyRuntimeStatus[]>([]);
   const [metrics, setMetrics] = useState<TrialMetrics | null>(null);
   const [feedbackDraft, setFeedbackDraft] = useState<FeedbackDraftState>(emptyFeedbackDraft);
@@ -535,6 +554,15 @@ export function App(): JSX.Element {
     setKernelStatus(nextStatus);
   }, []);
 
+  const loadGoogleAccountState = useCallback(async () => {
+    const nextStatus = await window.fingerBrowser.googleAccount.status();
+    setGoogleAccountStatus(nextStatus);
+    setGoogleAccountDraft((current) => ({
+      ...current,
+      enabled: nextStatus.enabled
+    }));
+  }, []);
+
   const loadProxyRuntimeStatus = useCallback(async (profileId?: string) => {
     const statuses = await window.fingerBrowser.proxy.localStatus(profileId);
     setProxyRuntimeStatuses((current) => {
@@ -553,9 +581,18 @@ export function App(): JSX.Element {
       loadCommercialState(),
       loadTrialState(),
       loadKernelState(),
+      loadGoogleAccountState(),
       loadProxyRuntimeStatus()
     ]).catch((error) => setNotice(error instanceof Error ? error.message : '加载环境失败'));
-  }, [loadCommercialState, loadDesktopShortcuts, loadKernelState, loadProfiles, loadProxyRuntimeStatus, loadTrialState]);
+  }, [
+    loadCommercialState,
+    loadDesktopShortcuts,
+    loadGoogleAccountState,
+    loadKernelState,
+    loadProfiles,
+    loadProxyRuntimeStatus,
+    loadTrialState
+  ]);
 
   useEffect(() => {
     if (selectedProfile) {
@@ -1071,6 +1108,36 @@ export function App(): JSX.Element {
     void run('打开自研内核目录', async () => {
       const result = await window.fingerBrowser.kernel.openRuntimeFolder();
       return `已打开：${result.folderPath}`;
+    });
+  };
+
+  const handleSaveGoogleAccountConfig = (): void => {
+    void run('保存 Google 账号配置', async () => {
+      const status = await window.fingerBrowser.googleAccount.save({
+        enabled: googleAccountDraft.enabled,
+        apiKey: googleAccountDraft.apiKey,
+        clientId: googleAccountDraft.clientId,
+        clientSecret: googleAccountDraft.clientSecret
+      });
+      setGoogleAccountStatus(status);
+      setGoogleAccountDraft({
+        enabled: status.enabled,
+        apiKey: '',
+        clientId: '',
+        clientSecret: ''
+      });
+      await loadAudits(selectedProfile?.id);
+      return status.enabled ? 'Google 账号登录支持已启用' : 'Google 账号登录支持已保存但未启用';
+    });
+  };
+
+  const handleClearGoogleAccountConfig = (): void => {
+    void run('清除 Google 账号配置', async () => {
+      const status = await window.fingerBrowser.googleAccount.clear();
+      setGoogleAccountStatus(status);
+      setGoogleAccountDraft(emptyGoogleAccountDraft);
+      await loadAudits(selectedProfile?.id);
+      return '已清除 Google 账号配置';
     });
   };
 
@@ -2482,6 +2549,81 @@ export function App(): JSX.Element {
                   <span className="kernel-wide">导入时间：{formatDate(kernelStatus.importedAt)}</span>
                 ) : null}
                 {kernelStatus?.lastError ? <span className="kernel-wide kernel-error">错误：{kernelStatus.lastError}</span> : null}
+              </div>
+              <div className="google-account-card" aria-label="Google 账号登录配置">
+                <div className="google-account-header">
+                  <div>
+                    <strong>Google 账号登录</strong>
+                    <span>
+                      {googleAccountStatus?.configured
+                        ? googleAccountStatus.enabled
+                          ? '已启用，自研内核启动时注入 Google API 环境'
+                          : '已配置，当前未启用'
+                        : '未配置'}
+                    </span>
+                  </div>
+                  {googleAccountStatus?.updatedAt ? <small>更新：{formatDate(googleAccountStatus.updatedAt)}</small> : null}
+                </div>
+                <label className="checkbox-row">
+                  <input
+                    type="checkbox"
+                    checked={googleAccountDraft.enabled}
+                    onChange={(event) =>
+                      setGoogleAccountDraft({
+                        ...googleAccountDraft,
+                        enabled: event.target.checked
+                      })
+                    }
+                  />
+                  启用自研内核 Google 账号登录支持
+                </label>
+                <div className="inline-grid">
+                  <label>
+                    Google API Key
+                    <input
+                      aria-label="Google API Key"
+                      type="password"
+                      value={googleAccountDraft.apiKey}
+                      onChange={(event) => setGoogleAccountDraft({ ...googleAccountDraft, apiKey: event.target.value })}
+                      placeholder={googleAccountStatus?.configured ? '已保存，留空则不修改' : 'AIza...'}
+                    />
+                  </label>
+                  <label>
+                    OAuth Client ID
+                    <input
+                      aria-label="Google OAuth Client ID"
+                      type="password"
+                      value={googleAccountDraft.clientId}
+                      onChange={(event) => setGoogleAccountDraft({ ...googleAccountDraft, clientId: event.target.value })}
+                      placeholder={googleAccountStatus?.configured ? '已保存，留空则不修改' : 'client-id.apps.googleusercontent.com'}
+                    />
+                  </label>
+                  <label>
+                    OAuth Client Secret
+                    <input
+                      aria-label="Google OAuth Client Secret"
+                      type="password"
+                      value={googleAccountDraft.clientSecret}
+                      onChange={(event) =>
+                        setGoogleAccountDraft({ ...googleAccountDraft, clientSecret: event.target.value })
+                      }
+                      placeholder={googleAccountStatus?.configured ? '已保存，留空则不修改' : 'client secret'}
+                    />
+                  </label>
+                </div>
+                <div className="kernel-actions">
+                  <button className="secondary-button" type="button" onClick={handleSaveGoogleAccountConfig} disabled={busy}>
+                    <Save size={16} />
+                    保存 Google 配置
+                  </button>
+                  <button className="secondary-button" type="button" onClick={handleClearGoogleAccountConfig} disabled={busy}>
+                    <Trash2 size={15} />
+                    清除配置
+                  </button>
+                </div>
+                <p className="helper-text">
+                  仅用于自研内核手动登录 Google 账号。配置会加密保存在本机，启动时通过环境变量传给 Chromium，不写入启动参数或审计详情。
+                </p>
               </div>
               <div className="kernel-actions">
                 <button className="secondary-button" type="button" onClick={handleEnsureChromium} disabled={busy}>

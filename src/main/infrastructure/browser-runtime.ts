@@ -77,6 +77,7 @@ class ExternalChromiumController implements BrowserController {
       proxy,
       proxyServerOverride: localProxy ? `http://${localProxy.listenHost}:${localProxy.listenPort}` : undefined,
       kernelPolicyPath,
+      googleApiEnvironment: options.googleApiEnvironment,
       startUrl: environmentCheckPage.url,
       startUrls: options.startUrls
     });

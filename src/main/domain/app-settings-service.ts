@@ -3,6 +3,13 @@ import type { ApplicationDatabase } from '../infrastructure/database';
 export interface AppSettingsValues {
   kernelManifestPath: string;
   kernelManifestImportedAt: string;
+  googleAccountConfig: {
+    enabled: boolean;
+    encryptedApiKey: string;
+    encryptedClientId: string;
+    encryptedClientSecret: string;
+    updatedAt: string;
+  };
 }
 
 export type AppSettingsKey = keyof AppSettingsValues;

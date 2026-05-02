@@ -321,6 +321,27 @@ export function registerIpcHandlers(services: ApplicationServices): void {
     return { folderPath: status.runtimeRoot };
   });
 
+  ipcMain.handle('googleAccount.status', () => services.googleAccountService.status());
+
+  ipcMain.handle('googleAccount.save', (_event, input) => {
+    const status = services.googleAccountService.save(input);
+    services.profileService.recordAudit(null, 'GOOGLE_ACCOUNT_CONFIG_UPDATED', {
+      enabled: status.enabled,
+      configured: status.configured
+    });
+    return status;
+  });
+
+  ipcMain.handle('googleAccount.clear', () => {
+    const previous = services.googleAccountService.status();
+    const status = services.googleAccountService.clear();
+    services.profileService.recordAudit(null, 'GOOGLE_ACCOUNT_CONFIG_CLEARED', {
+      previouslyEnabled: previous.enabled,
+      previouslyConfigured: previous.configured
+    });
+    return status;
+  });
+
   ipcMain.handle('app.version', () => services.trialService.version());
 
   ipcMain.handle('release.checkForUpdates', async () => {
@@ -548,7 +569,8 @@ async function launchProfile(services: ApplicationServices, profileId: string) {
   const proxyDiagnostic = await createLaunchProxyDiagnostic(services, profile);
   const result = await services.browserController.launch(profile, profile.proxy, {
     startUrls: credentialStartUrls,
-    proxyDiagnostic
+    proxyDiagnostic,
+    googleApiEnvironment: services.googleAccountService.runtimeEnvironment(profile.runtimeChannel)
   });
   services.profileService.setProfileStatus(profileId, 'running');
   if (result.runtimeChannel === 'custom-kernel') {

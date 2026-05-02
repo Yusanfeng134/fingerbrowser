@@ -6,6 +6,7 @@ import { createAppSettingsService, type AppSettingsService } from './domain/app-
 import { createCredentialService, type CredentialService } from './domain/credential-service';
 import { createDesktopService, type DesktopService } from './domain/desktop-service';
 import { createNodeSecretBox, createSafeStorageSecretBox, type SecretBox } from './domain/encryption';
+import { createGoogleAccountService, type GoogleAccountService } from './domain/google-account-service';
 import { getDeviceFingerprint } from './domain/license';
 import { createLicenseService, type LicenseService } from './domain/license-service';
 import { RELEASES_PAGE_URL } from './domain/release';
@@ -34,6 +35,7 @@ export interface ApplicationServices {
   desktopService: DesktopService;
   credentialService: CredentialService;
   licenseService: LicenseService;
+  googleAccountService: GoogleAccountService;
   trialService: TrialService;
   chromiumInstaller: ChromiumInstaller;
   kernelRuntimeManager: KernelRuntimeManager;
@@ -69,6 +71,10 @@ export function createApplicationServices(): ApplicationServices {
     secretBox,
     signingSecret: process.env.FINGERBROWSER_LICENSE_SIGNING_SECRET ?? 'fingerbrowser-commercial-trial-dev-secret',
     deviceId: getDeviceFingerprint(deviceSeed)
+  });
+  const googleAccountService = createGoogleAccountService({
+    settings: appSettingsService,
+    secretBox
   });
   const trialService = createTrialService({
     db,
@@ -107,6 +113,7 @@ export function createApplicationServices(): ApplicationServices {
     desktopService,
     credentialService,
     licenseService,
+    googleAccountService,
     trialService,
     chromiumInstaller,
     kernelRuntimeManager,

@@ -657,6 +657,54 @@ p {
   background: #fff0ed;
 }
 
+.google-account-card {
+  display: grid;
+  gap: 10px;
+  padding: 12px;
+  border: 1px solid #d7dfd8;
+  border-radius: 8px;
+  background: #f6f9f5;
+}
+
+.google-account-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.google-account-header div {
+  display: grid;
+  gap: 3px;
+}
+
+.google-account-header strong {
+  color: #29312c;
+  font-size: 13px;
+}
+
+.google-account-header span,
+.google-account-header small,
+.helper-text {
+  color: #73776f;
+  font-size: 12px;
+  font-weight: 620;
+}
+
+.detail-form .checkbox-row {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 28px;
+  color: #45504a;
+}
+
+.detail-form .checkbox-row input {
+  width: 15px;
+  height: 15px;
+  padding: 0;
+}
+
 .kernel-actions {
   display: grid;
   gap: 8px;

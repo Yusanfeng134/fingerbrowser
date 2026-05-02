@@ -278,6 +278,14 @@ test('中文 UI 完成激活 license、新建环境、代理测试、导出审�
     await sideNav.getByRole('link', { name: '环境' }).click();
 
     await page.getByLabel('内核通道').selectOption('custom-kernel');
+    await page.getByLabel('Google API Key').fill('e2e-google-api-key');
+    await page.getByLabel('Google OAuth Client ID').fill('e2e-google-client-id');
+    await page.getByLabel('Google OAuth Client Secret').fill('e2e-google-client-secret');
+    await page.getByLabel('启用自研内核 Google 账号登录支持').check();
+    await page.getByRole('button', { name: '保存 Google 配置' }).click();
+    await expect(page.getByText(/Google 账号登录支持已启用/)).toBeVisible();
+    await expect(page.getByLabel('Google 账号登录配置')).toContainText('已启用');
+    await expect(page.getByText('e2e-google-client-secret')).toHaveCount(0);
     await page.getByRole('button', { name: '启动 Chromium' }).click();
     await expect(page.getByText('运行中').first()).toBeVisible();
     await page.getByRole('button', { name: '关闭环境' }).click();

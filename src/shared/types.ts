@@ -42,6 +42,8 @@ export type AuditAction =
   | 'KERNEL_MANIFEST_CLEARED'
   | 'KERNEL_POLICY_APPLIED'
   | 'KERNEL_LAUNCHED'
+  | 'GOOGLE_ACCOUNT_CONFIG_UPDATED'
+  | 'GOOGLE_ACCOUNT_CONFIG_CLEARED'
   | 'LICENSE_ACTIVATED'
   | 'LICENSE_REFRESHED'
   | 'LICENSE_DEACTIVATED'
@@ -375,6 +377,19 @@ export interface KernelOpenRuntimeFolderResult {
   folderPath: string;
 }
 
+export interface GoogleAccountConfigStatus {
+  enabled: boolean;
+  configured: boolean;
+  updatedAt: string | null;
+}
+
+export interface SaveGoogleAccountConfigInput {
+  enabled: boolean;
+  apiKey?: string;
+  clientId?: string;
+  clientSecret?: string;
+}
+
 export interface FeedbackPackageInput {
   issueType: FeedbackIssueType;
   severity: FeedbackSeverity;
@@ -508,6 +523,11 @@ export interface AppApi {
     importManifest: (manifestPath?: string) => Promise<KernelRuntimeStatus>;
     clearManifest: () => Promise<KernelRuntimeStatus>;
     openRuntimeFolder: () => Promise<KernelOpenRuntimeFolderResult>;
+  };
+  googleAccount: {
+    status: () => Promise<GoogleAccountConfigStatus>;
+    save: (input: SaveGoogleAccountConfigInput) => Promise<GoogleAccountConfigStatus>;
+    clear: () => Promise<GoogleAccountConfigStatus>;
   };
   app: {
     version: () => Promise<AppVersionInfo>;
