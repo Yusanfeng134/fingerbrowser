@@ -9,6 +9,7 @@ export type LicenseStatus = 'inactive' | 'active' | 'grace' | 'expired';
 export type ReleaseStatus = 'up-to-date' | 'update-available' | 'unavailable' | 'error';
 export type KernelManifestSource = 'default' | 'environment' | 'imported';
 export type ProxyRuntimeState = 'stopped' | 'running' | 'error';
+export type SystemProxySource = 'http' | 'https' | 'socks5';
 export type FeedbackIssueType = 'bug' | 'setup' | 'feature' | 'other';
 export type FeedbackSeverity = 'low' | 'medium' | 'high';
 export type TrialMetricKey =
@@ -131,6 +132,21 @@ export interface ProxyRuntimeStatus {
   lastExitIp?: string;
   lastExitTimezone?: string;
   timezoneMatch?: boolean;
+}
+
+export interface SystemProxyCandidate {
+  scheme: ProxyScheme;
+  host: string;
+  port: number;
+  source: SystemProxySource;
+  bypassList: string[];
+}
+
+export interface SystemProxyDetectionResult {
+  available: boolean;
+  candidates: SystemProxyCandidate[];
+  selected?: SystemProxyCandidate;
+  message: string;
 }
 
 export interface BrowserProfile {
@@ -390,6 +406,7 @@ export interface AppApi {
     test: (input: ProxyConnectionInput & { profileId?: string }) => Promise<ProxyTestResult>;
     testAll: () => Promise<Array<{ profileId: string; result: ProxyTestResult }>>;
     localStatus: (profileId?: string) => Promise<ProxyRuntimeStatus[]>;
+    system: () => Promise<SystemProxyDetectionResult>;
   };
   audit: {
     list: (profileId?: string) => Promise<AuditEvent[]>;

@@ -16,6 +16,7 @@ import type { ApplicationServices } from './services';
 import { testProxyConnection } from './domain/proxy';
 import { checkForUpdates, RELEASES_PAGE_URL } from './domain/release';
 import { writeCredentialSafetyLabPage } from './domain/security-lab';
+import { detectMacSystemProxy } from './domain/system-proxy';
 
 export function registerIpcHandlers(services: ApplicationServices): void {
   ipcMain.handle('profiles.list', () => services.profileService.listProfiles());
@@ -194,6 +195,8 @@ export function registerIpcHandlers(services: ApplicationServices): void {
     }
     return services.localProxyManager.listStatuses();
   });
+
+  ipcMain.handle('proxy.system', () => detectMacSystemProxy());
 
   ipcMain.handle('audit.list', (_event, profileId?: string) => services.profileService.listAuditEvents(profileId));
 

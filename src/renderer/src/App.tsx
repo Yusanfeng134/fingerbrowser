@@ -621,6 +621,27 @@ export function App(): JSX.Element {
     });
   };
 
+  const handleImportSystemProxy = (): void => {
+    void run('读取系统代理', async () => {
+      const result = await window.fingerBrowser.proxy.system();
+      if (!result.selected) {
+        throw new Error(result.message);
+      }
+      const selected = result.selected;
+      setDraft((current) => ({
+        ...current,
+        proxyEnabled: true,
+        proxyScheme: selected.scheme,
+        proxyHost: selected.host,
+        proxyPort: String(selected.port),
+        proxyUsername: '',
+        proxyPassword: '',
+        proxyBypassList: selected.bypassList.length > 0 ? selected.bypassList.join(',') : current.proxyBypassList
+      }));
+      return `${result.message}，已填入当前环境`;
+    });
+  };
+
   const handleMatchProxyTimezone = (): void => {
     void run('根据代理匹配时区', async () => {
       if (!draft.proxyHost || !draft.proxyPort) {
@@ -1779,10 +1800,16 @@ export function App(): JSX.Element {
                   onChange={(event) => setDraft({ ...draft, proxyBypassList: event.target.value })}
                 />
               </label>
-              <button className="secondary-button wide" type="button" onClick={handleProxyTest} disabled={busy}>
-                <CheckCircle2 size={16} />
-                测试代理
-              </button>
+              <div className="proxy-actions">
+                <button className="secondary-button" type="button" onClick={handleImportSystemProxy} disabled={busy}>
+                  <RefreshCw size={16} />
+                  读取系统代理
+                </button>
+                <button className="secondary-button" type="button" onClick={handleProxyTest} disabled={busy}>
+                  <CheckCircle2 size={16} />
+                  测试代理
+                </button>
+              </div>
               <div className={`local-proxy-card ${selectedProxyRuntime?.state ?? 'stopped'}`} aria-label="本地代理状态">
                 <div className="local-proxy-title">
                   <span>本地代理状态</span>

@@ -1,6 +1,7 @@
 import type { ProxyConfig, ProxyConnectionInput, ProxyTestResult } from '../../shared/types';
 import { normalizeTimezone } from '../../shared/timezones';
 import { requestThroughLocalProxy } from './local-proxy';
+import { explainProxyFailure } from './system-proxy';
 
 export type LogSafeProxyConfig = Omit<ProxyConfig, 'encryptedPassword'> & {
   encryptedPassword: '[encrypted]' | '';
@@ -61,9 +62,11 @@ export async function testProxyConnection(
       }
     };
   } catch (error) {
+    const detail = error instanceof Error ? error.message : '未知错误';
+    const explanation = explainProxyFailure(detail);
     return {
       status: 'failed',
-      message: `代理出口检测失败：${error instanceof Error ? error.message : '未知错误'}`,
+      message: `代理出口检测失败：${detail}${explanation ? `。${explanation}` : ''}`,
       testedAt
     };
   }
