@@ -65,4 +65,51 @@ describe('environment check page', () => {
     expect(html).toContain('"timezone":"America/New_York"');
     expect(html).not.toContain(dataDir);
   });
+
+  it('embeds redacted proxy diagnostics for first-screen network checks', () => {
+    const dataDir = createTempDir();
+
+    const result = writeEnvironmentCheckPage({
+      dataDir,
+      fingerprintPolicy: {
+        ...DEFAULT_FINGERPRINT_POLICY,
+        timezone: 'America/Los_Angeles'
+      },
+      proxyDiagnostic: {
+        status: 'passed',
+        message: '代理连通',
+        testedAt: '2026-05-02T10:00:00.000Z',
+        ip: '203.0.113.8',
+        ipTimezone: 'America/Los_Angeles',
+        timezoneMatch: true
+      }
+    });
+    const html = readFileSync(result.filePath, 'utf8');
+
+    expect(html).toContain('proxy-diagnostic');
+    expect(html).toContain('"ip":"203.0.113.8"');
+    expect(html).toContain('"ipTimezone":"America/Los_Angeles"');
+    expect(html).toContain('主进程代理检测结果');
+    expect(html).not.toContain('代理连通');
+    expect(html).not.toContain('"message"');
+    expect(html).not.toMatch(/password|token|secret|encrypted/i);
+  });
+
+  it('escapes embedded diagnostic JSON so external text cannot break script tags', () => {
+    const dataDir = createTempDir();
+
+    const result = writeEnvironmentCheckPage({
+      dataDir,
+      proxyDiagnostic: {
+        status: 'failed',
+        message: '代理出口检测失败',
+        testedAt: '2026-05-02T10:00:00.000Z',
+        ipTimezone: '</script><script>alert("x")</script>'
+      }
+    });
+    const html = readFileSync(result.filePath, 'utf8');
+
+    expect(html).not.toContain('</script><script>alert("x")</script>');
+    expect(html).toContain('\\u003c/script\\u003e');
+  });
 });

@@ -231,7 +231,13 @@ test('中文 UI 完成激活 license、新建环境、代理测试、导出审�
     await expect(page.getByLabel('本地代理状态')).toContainText('HTTP');
     const checkPagePath = path.join(dataDir, 'environment-check', 'environment-check.html');
     expect(existsSync(checkPagePath)).toBe(true);
-    expect(readFileSync(checkPagePath, 'utf8')).toContain('合规环境自检');
+    const checkPageHtml = readFileSync(checkPagePath, 'utf8');
+    expect(checkPageHtml).toContain('合规环境自检');
+    expect(checkPageHtml).toContain('proxy-diagnostic');
+    expect(checkPageHtml).toContain('"ip":"203.0.113.8"');
+    expect(checkPageHtml).toContain('"ipTimezone":"America/Los_Angeles"');
+    expect(checkPageHtml).toContain('主进程代理检测结果');
+    expect(checkPageHtml).not.toContain('proxy-password');
     await page.getByRole('button', { name: '关闭环境' }).click();
     await expect(page.getByText('已关闭').first()).toBeVisible();
     await expect(page.getByLabel('本地代理状态')).toContainText('未启动');

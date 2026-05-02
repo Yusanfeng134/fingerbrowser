@@ -7,7 +7,9 @@ import type {
   FeedbackPackageInput,
   CreateProfileInput,
   ListCredentialsInput,
+  ProfileDetails,
   ProxyConnectionInput,
+  ProxyTestResult,
   UpdateCredentialInput,
   UpdateProfileInput
 } from '../shared/types';
@@ -48,8 +50,10 @@ export function registerIpcHandlers(services: ApplicationServices): void {
   ipcMain.handle('profiles.launch', async (_event, profileId: string) => {
     const profile = services.profileService.getProfile(profileId);
     const credentialStartUrls = services.credentialService.listLaunchUrlsForProfile(profileId);
+    const proxyDiagnostic = await createLaunchProxyDiagnostic(services, profile);
     const result = await services.browserController.launch(profile, profile.proxy, {
-      startUrls: credentialStartUrls
+      startUrls: credentialStartUrls,
+      proxyDiagnostic
     });
     services.profileService.setProfileStatus(profileId, 'running');
     if (result.runtimeChannel === 'custom-kernel') {
@@ -74,7 +78,10 @@ export function registerIpcHandlers(services: ApplicationServices): void {
       runtimeChannel: result.runtimeChannel,
       credentialUrlCount: credentialStartUrls.length,
       localProxyEnabled: Boolean(result.localProxy),
-      upstreamScheme: result.localProxy?.upstreamScheme
+      upstreamScheme: result.localProxy?.upstreamScheme,
+      proxyDiagnosticStatus: proxyDiagnostic?.status,
+      proxyDiagnosticIpTimezone: proxyDiagnostic?.ipTimezone,
+      proxyDiagnosticTimezoneMatch: proxyDiagnostic?.timezoneMatch
     });
     services.trialService.incrementMetric('browserLaunchCount');
     return {
@@ -494,4 +501,51 @@ export function registerIpcHandlers(services: ApplicationServices): void {
     services.profileService.recordAudit(null, 'SUPPORT_LOGS_PACKAGED', { filePath });
     return { filePath };
   });
+}
+
+async function createLaunchProxyDiagnostic(
+  services: ApplicationServices,
+  profile: ProfileDetails
+): Promise<ProxyTestResult | null> {
+  if (!profile.proxy) {
+    return null;
+  }
+
+  const result = await safeTestProfileProxy(services, profile);
+  services.profileService.setProxyTestStatus(profile.proxy.id, result);
+  services.localProxyManager.updateExitMetadata(profile.id, {
+    ip: result.ip,
+    ipTimezone: result.ipTimezone,
+    timezoneMatch: result.timezoneMatch,
+    ...(result.status === 'failed' ? { error: result.message } : {})
+  });
+  return result;
+}
+
+async function safeTestProfileProxy(services: ApplicationServices, profile: ProfileDetails): Promise<ProxyTestResult> {
+  if (!profile.proxy) {
+    return {
+      status: 'failed',
+      message: '代理配置不存在',
+      testedAt: new Date().toISOString()
+    };
+  }
+
+  try {
+    return await testProxyConnection({
+      scheme: profile.proxy.scheme,
+      host: profile.proxy.host,
+      port: profile.proxy.port,
+      username: profile.proxy.username,
+      password: profile.proxy.encryptedPassword ? services.secretBox.decrypt(profile.proxy.encryptedPassword) : undefined,
+      expectedTimezone: profile.fingerprintPolicy.timezone,
+      timeoutMs: 3000
+    });
+  } catch (error) {
+    return {
+      status: 'failed',
+      message: error instanceof Error ? `代理出口预检测失败：${error.message}` : '代理出口预检测失败：未知错误',
+      testedAt: new Date().toISOString()
+    };
+  }
 }

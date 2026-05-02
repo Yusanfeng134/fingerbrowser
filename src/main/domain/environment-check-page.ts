@@ -1,7 +1,7 @@
 import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
 import { pathToFileURL } from 'node:url';
-import type { FingerprintPolicy } from '../../shared/types';
+import type { FingerprintPolicy, ProxyTestResult } from '../../shared/types';
 
 export interface EnvironmentCheckPageResult {
   filePath: string;
@@ -11,22 +11,27 @@ export interface EnvironmentCheckPageResult {
 export function writeEnvironmentCheckPage(options: {
   dataDir: string;
   fingerprintPolicy?: Pick<FingerprintPolicy, 'locale' | 'timezone'>;
+  proxyDiagnostic?: ProxyTestResult | null;
 }): EnvironmentCheckPageResult {
   const dir = path.join(options.dataDir, 'environment-check');
   const filePath = path.join(dir, 'environment-check.html');
   mkdirSync(dir, { recursive: true });
-  writeFileSync(filePath, environmentCheckHtml(options.fingerprintPolicy), 'utf8');
+  writeFileSync(filePath, environmentCheckHtml(options.fingerprintPolicy, options.proxyDiagnostic), 'utf8');
   return {
     filePath,
     url: pathToFileURL(filePath).toString()
   };
 }
 
-function environmentCheckHtml(fingerprintPolicy?: Pick<FingerprintPolicy, 'locale' | 'timezone'>): string {
-  const expectedPolicyJson = JSON.stringify({
+function environmentCheckHtml(
+  fingerprintPolicy?: Pick<FingerprintPolicy, 'locale' | 'timezone'>,
+  proxyDiagnostic?: ProxyTestResult | null
+): string {
+  const expectedPolicyJson = jsonForScript({
     locale: fingerprintPolicy?.locale ?? null,
     timezone: fingerprintPolicy?.timezone ?? null
   });
+  const proxyDiagnosticJson = jsonForScript(redactProxyDiagnostic(proxyDiagnostic));
   return `<!doctype html>
 <html lang="zh-CN">
 <head>
@@ -174,6 +179,7 @@ function environmentCheckHtml(fingerprintPolicy?: Pick<FingerprintPolicy, 'local
     <p class="note">外网 IP 查询由当前浏览器环境直接访问公开 IP 服务；查询失败不影响其他本地检查。</p>
   </main>
   <script id="expected-policy" type="application/json">${expectedPolicyJson}</script>
+  <script id="proxy-diagnostic" type="application/json">${proxyDiagnosticJson}</script>
   <script>
     const setText = (id, value) => {
       document.getElementById(id).textContent = value || '无法检测';
@@ -228,6 +234,22 @@ function environmentCheckHtml(fingerprintPolicy?: Pick<FingerprintPolicy, 'local
         return;
       }
       setText('timezone-consistency', ipTimezone === jsTimezone ? '一致' : '不一致：IP=' + ipTimezone + ' / JS=' + jsTimezone);
+    }
+
+    function applyProxyDiagnostic() {
+      const diagnostic = JSON.parse(document.getElementById('proxy-diagnostic').textContent || 'null');
+      if (!diagnostic || diagnostic.status !== 'passed' || !diagnostic.ip) {
+        return false;
+      }
+      setText('public-ip', diagnostic.ip);
+      setText('ip-timezone', diagnostic.ipTimezone || '无法检测');
+      if (typeof diagnostic.timezoneMatch === 'boolean') {
+        setText('timezone-consistency', diagnostic.timezoneMatch ? '一致' : '不一致：IP=' + diagnostic.ipTimezone + ' / JS=' + currentJavascriptTimezone());
+      } else {
+        updateTimezoneConsistency(diagnostic.ipTimezone);
+      }
+      setText('ip-status', '主进程代理检测结果');
+      return true;
     }
 
     async function detectPublicIp() {
@@ -309,10 +331,47 @@ function environmentCheckHtml(fingerprintPolicy?: Pick<FingerprintPolicy, 'local
       }, 2500);
     }
 
-    detectPublicIp();
+    if (!applyProxyDiagnostic()) {
+      detectPublicIp();
+    }
     detectWebRtc();
   </script>
 </body>
 </html>
 `;
+}
+
+type EmbeddedProxyDiagnostic = Pick<ProxyTestResult, 'status' | 'testedAt'> &
+  Partial<Pick<ProxyTestResult, 'ip' | 'ipTimezone' | 'timezoneMatch'>>;
+
+function redactProxyDiagnostic(input?: ProxyTestResult | null): EmbeddedProxyDiagnostic | null {
+  if (!input) {
+    return null;
+  }
+  return {
+    status: input.status,
+    testedAt: input.testedAt,
+    ...(input.ip ? { ip: input.ip } : {}),
+    ...(input.ipTimezone ? { ipTimezone: input.ipTimezone } : {}),
+    ...(input.timezoneMatch !== undefined ? { timezoneMatch: input.timezoneMatch } : {})
+  };
+}
+
+function jsonForScript(value: unknown): string {
+  return JSON.stringify(value).replace(/[<>&\u2028\u2029]/g, (character) => {
+    switch (character) {
+      case '<':
+        return '\\u003c';
+      case '>':
+        return '\\u003e';
+      case '&':
+        return '\\u0026';
+      case '\u2028':
+        return '\\u2028';
+      case '\u2029':
+        return '\\u2029';
+      default:
+        return character;
+    }
+  });
 }

@@ -1,7 +1,7 @@
 import type { ChildProcess } from 'node:child_process';
 import { mkdirSync, writeFileSync } from 'node:fs';
 import path from 'node:path';
-import type { BrowserProfile, ProxyConfig, ProxyRuntimeStatus, RuntimeChannel } from '../../shared/types';
+import type { BrowserProfile, ProxyConfig, ProxyRuntimeStatus, ProxyTestResult, RuntimeChannel } from '../../shared/types';
 import { formatProxyServer } from './proxy';
 import { writeKernelPolicyFile } from './kernel-runtime';
 import { writeEnvironmentCheckPage } from './environment-check-page';
@@ -35,6 +35,7 @@ export interface BrowserController {
 
 export interface BrowserLaunchOptions {
   startUrls?: string[];
+  proxyDiagnostic?: ProxyTestResult | null;
 }
 
 export interface BrowserLaunchResult {
@@ -192,7 +193,7 @@ export class MockBrowserController implements BrowserController {
     private readonly decryptSecret?: (value: string) => string
   ) {}
 
-  async launch(profile: BrowserProfile, proxy: ProxyConfig | null): Promise<BrowserLaunchResult> {
+  async launch(profile: BrowserProfile, proxy: ProxyConfig | null, options: BrowserLaunchOptions = {}): Promise<BrowserLaunchResult> {
     this.running.add(profile.id);
     const localProxy = proxy
       ? await this.localProxyManager?.start(profile.id, {
@@ -206,7 +207,8 @@ export class MockBrowserController implements BrowserController {
     if (this.dataDir) {
       writeEnvironmentCheckPage({
         dataDir: this.dataDir,
-        fingerprintPolicy: profile.fingerprintPolicy
+        fingerprintPolicy: profile.fingerprintPolicy,
+        proxyDiagnostic: options.proxyDiagnostic
       });
     }
     const kernelPolicyPath = profile.runtimeChannel === 'custom-kernel' ? writeKernelPolicyFile(profile) : undefined;

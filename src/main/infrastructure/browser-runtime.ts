@@ -68,7 +68,8 @@ class ExternalChromiumController implements BrowserController {
     }
     const environmentCheckPage = writeEnvironmentCheckPage({
       dataDir: this.dataDir,
-      fingerprintPolicy: profile.fingerprintPolicy
+      fingerprintPolicy: profile.fingerprintPolicy,
+      proxyDiagnostic: options.proxyDiagnostic
     });
     const plan = buildChromiumLaunchPlan({
       executablePath: kernelInstallation?.executablePath ?? officialInstallation?.executablePath ?? '',
