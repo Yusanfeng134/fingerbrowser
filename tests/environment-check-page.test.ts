@@ -37,6 +37,7 @@ describe('environment check page', () => {
     expect(html).toContain('ipwho.is');
     expect(html).toContain('IP 时区');
     expect(html).toContain('时区一致性');
+    expect(html).toContain('<div class="row"><dt>启动预检</dt><dd id="proxy-preflight">未执行</dd></div>');
   });
 
   it('does not embed local paths or sensitive values in the generated page', () => {
@@ -90,6 +91,8 @@ describe('environment check page', () => {
     expect(html).toContain('"ip":"203.0.113.8"');
     expect(html).toContain('"ipTimezone":"America/Los_Angeles"');
     expect(html).toContain('主进程代理检测结果');
+    expect(html).toContain('主进程代理预检通过');
+    expect(html).toContain('主进程代理预检失败');
     expect(html).not.toContain('代理连通');
     expect(html).not.toContain('"message"');
     expect(html).not.toMatch(/password|token|secret|encrypted/i);

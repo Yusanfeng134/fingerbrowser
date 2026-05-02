@@ -132,6 +132,7 @@ function environmentCheckHtml(
           <div class="row"><dt>IP 时区</dt><dd id="ip-timezone">检测中</dd></div>
           <div class="row"><dt>时区一致性</dt><dd id="timezone-consistency">等待检测</dd></div>
           <div class="row"><dt>检测状态</dt><dd id="ip-status">正在查询公开 IP 服务</dd></div>
+          <div class="row"><dt>启动预检</dt><dd id="proxy-preflight">未执行</dd></div>
         </dl>
       </section>
       <section>
@@ -238,7 +239,11 @@ function environmentCheckHtml(
 
     function applyProxyDiagnostic() {
       const diagnostic = JSON.parse(document.getElementById('proxy-diagnostic').textContent || 'null');
-      if (!diagnostic || diagnostic.status !== 'passed' || !diagnostic.ip) {
+      if (!diagnostic) {
+        return false;
+      }
+      setText('proxy-preflight', diagnostic.status === 'passed' ? '主进程代理预检通过' : '主进程代理预检失败');
+      if (diagnostic.status !== 'passed' || !diagnostic.ip) {
         return false;
       }
       setText('public-ip', diagnostic.ip);
