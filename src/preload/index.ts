@@ -2,11 +2,16 @@ import { contextBridge, ipcRenderer } from 'electron';
 import type {
   ActivateLicenseInput,
   AppApi,
+  CreateDesktopFolderFromShortcutsInput,
+  CreateDesktopFolderInput,
   CreateDesktopShortcutInput,
   CreateCredentialInput,
+  MoveDesktopShortcutInput,
   CreateProfileInput,
   ListCredentialsInput,
   ProxyConnectionInput,
+  ReorderDesktopFolderShortcutsInput,
+  ReorderDesktopItemsInput,
   UpdateCredentialInput,
   UpdateProfileInput
 } from '../shared/types';
@@ -24,10 +29,24 @@ const api: AppApi = {
   },
   desktop: {
     list: () => ipcRenderer.invoke('desktop.list') as ReturnType<AppApi['desktop']['list']>,
+    listFolders: () => ipcRenderer.invoke('desktop.listFolders') as ReturnType<AppApi['desktop']['listFolders']>,
+    listItems: () => ipcRenderer.invoke('desktop.listItems') as ReturnType<AppApi['desktop']['listItems']>,
     createShortcut: (input: CreateDesktopShortcutInput) =>
       ipcRenderer.invoke('desktop.createShortcut', input) as ReturnType<AppApi['desktop']['createShortcut']>,
+    createFolder: (input?: CreateDesktopFolderInput) =>
+      ipcRenderer.invoke('desktop.createFolder', input) as ReturnType<AppApi['desktop']['createFolder']>,
+    createFolderFromShortcuts: (input: CreateDesktopFolderFromShortcutsInput) =>
+      ipcRenderer.invoke('desktop.createFolderFromShortcuts', input) as ReturnType<AppApi['desktop']['createFolderFromShortcuts']>,
+    moveShortcut: (input: MoveDesktopShortcutInput) =>
+      ipcRenderer.invoke('desktop.moveShortcut', input) as ReturnType<AppApi['desktop']['moveShortcut']>,
+    reorderItems: (input: ReorderDesktopItemsInput) =>
+      ipcRenderer.invoke('desktop.reorderItems', input) as ReturnType<AppApi['desktop']['reorderItems']>,
+    reorderFolderShortcuts: (input: ReorderDesktopFolderShortcutsInput) =>
+      ipcRenderer.invoke('desktop.reorderFolderShortcuts', input) as ReturnType<AppApi['desktop']['reorderFolderShortcuts']>,
     deleteShortcut: (id: string) =>
       ipcRenderer.invoke('desktop.deleteShortcut', id) as ReturnType<AppApi['desktop']['deleteShortcut']>,
+    deleteFolder: (id: string) =>
+      ipcRenderer.invoke('desktop.deleteFolder', id) as ReturnType<AppApi['desktop']['deleteFolder']>,
     launchShortcut: (id: string) =>
       ipcRenderer.invoke('desktop.launchShortcut', id) as ReturnType<AppApi['desktop']['launchShortcut']>
   },

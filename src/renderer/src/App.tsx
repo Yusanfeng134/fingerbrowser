@@ -32,7 +32,7 @@ import {
   Upload,
   Wifi
 } from 'lucide-react';
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { type DragEvent, useCallback, useEffect, useMemo, useState } from 'react';
 import { DEFAULT_FINGERPRINT_POLICY } from '../../shared/defaults';
 import { TIMEZONE_OPTION_GROUPS } from '../../shared/timezones';
 import type {
@@ -57,6 +57,8 @@ import type {
   TrialMetrics,
   UpdateProfileInput,
   UsageSummary,
+  DesktopFolder,
+  DesktopItem,
   DesktopShortcut
 } from '../../shared/types';
 import {
@@ -104,6 +106,9 @@ type WorkspaceView = 'profiles' | 'vault' | 'desktop';
 type VaultEditorMode = 'view' | 'edit' | 'new';
 type SideNavKey = 'profiles' | 'vault' | 'desktop';
 type PasswordGeneratorTarget = 'vault' | 'profile' | null;
+type DesktopDragPayload =
+  | { type: 'shortcut'; id: string; folderId: string | null }
+  | { type: 'folder'; id: string };
 
 interface FeedbackDraftState {
   issueType: FeedbackIssueType;
@@ -184,6 +189,9 @@ const actionLabel: Record<string, string> = {
   DESKTOP_SHORTCUT_CREATED: '创建桌面快捷方式',
   DESKTOP_SHORTCUT_DELETED: '删除桌面快捷方式',
   DESKTOP_SHORTCUT_LAUNCHED: '桌面启动环境',
+  DESKTOP_SHORTCUT_MOVED: '移动桌面快捷方式',
+  DESKTOP_FOLDER_CREATED: '创建桌面文件夹',
+  DESKTOP_FOLDER_DELETED: '删除桌面文件夹',
   PROXY_CREATED: '创建代理',
   PROXY_UPDATED: '更新代理',
   PROXY_TESTED: '测试代理',
@@ -318,6 +326,10 @@ export function App(): JSX.Element {
   const [vaultAllCredentials, setVaultAllCredentials] = useState<CredentialEntry[]>([]);
   const [vaultCredentials, setVaultCredentials] = useState<CredentialEntry[]>([]);
   const [desktopShortcuts, setDesktopShortcuts] = useState<DesktopShortcut[]>([]);
+  const [desktopFolders, setDesktopFolders] = useState<DesktopFolder[]>([]);
+  const [desktopItems, setDesktopItems] = useState<DesktopItem[]>([]);
+  const [openDesktopFolderId, setOpenDesktopFolderId] = useState<string | null>(null);
+  const [desktopDragPayload, setDesktopDragPayload] = useState<DesktopDragPayload | null>(null);
   const [vaultDraft, setVaultDraft] = useState<CredentialDraftState>(emptyCredentialDraft);
   const [vaultQuery, setVaultQuery] = useState('');
   const [vaultMenuId, setVaultMenuId] = useState<CredentialVaultMenuId>('all');
@@ -424,6 +436,19 @@ export function App(): JSX.Element {
     [desktopShortcuts]
   );
 
+  const openDesktopFolder = useMemo(
+    () => desktopFolders.find((folder) => folder.id === openDesktopFolderId) ?? null,
+    [desktopFolders, openDesktopFolderId]
+  );
+
+  const openFolderShortcuts = useMemo(
+    () =>
+      [...desktopShortcuts]
+        .filter((shortcut) => shortcut.folderId === openDesktopFolderId)
+        .sort((first, second) => first.positionIndex - second.positionIndex),
+    [desktopShortcuts, openDesktopFolderId]
+  );
+
   const loadProfiles = useCallback(async () => {
     const nextProfiles = await window.fingerBrowser.profiles.list();
     setProfiles(nextProfiles);
@@ -433,8 +458,15 @@ export function App(): JSX.Element {
   }, []);
 
   const loadDesktopShortcuts = useCallback(async () => {
-    const shortcuts = await window.fingerBrowser.desktop.list();
+    const [shortcuts, folders, items] = await Promise.all([
+      window.fingerBrowser.desktop.list(),
+      window.fingerBrowser.desktop.listFolders(),
+      window.fingerBrowser.desktop.listItems()
+    ]);
     setDesktopShortcuts(shortcuts);
+    setDesktopFolders(folders);
+    setDesktopItems(items);
+    setOpenDesktopFolderId((current) => (current && folders.some((folder) => folder.id === current) ? current : null));
   }, []);
 
   const loadAudits = useCallback(async (profileId?: string) => {
@@ -633,6 +665,199 @@ export function App(): JSX.Element {
       await loadAudits(shortcut.profileId);
       return `已启动：${shortcut.label}`;
     });
+  };
+
+  const handleCreateDesktopFolder = (): void => {
+    void run('新建桌面文件夹', async () => {
+      const folder = await window.fingerBrowser.desktop.createFolder({ name: '新建文件夹' });
+      await loadDesktopShortcuts();
+      setOpenDesktopFolderId(folder.id);
+      await loadAudits();
+      return `已创建文件夹：${folder.name}`;
+    });
+  };
+
+  const handleDeleteDesktopFolder = (folder: DesktopFolder): void => {
+    void run('删除桌面文件夹', async () => {
+      await window.fingerBrowser.desktop.deleteFolder(folder.id);
+      await loadDesktopShortcuts();
+      setOpenDesktopFolderId(null);
+      await loadAudits();
+      return `已删除文件夹：${folder.name}`;
+    });
+  };
+
+  const refreshDesktopAfterDrag = async (): Promise<void> => {
+    await loadDesktopShortcuts();
+    await loadAudits(selectedProfile?.id);
+  };
+
+  const handleDesktopDragStart = (
+    event: DragEvent<HTMLElement>,
+    payload: DesktopDragPayload
+  ): void => {
+    setDesktopDragPayload(payload);
+    event.dataTransfer.effectAllowed = 'move';
+    event.dataTransfer.setData('application/x-fingerbrowser-desktop', JSON.stringify(payload));
+  };
+
+  const readDesktopDragPayload = (event: DragEvent<HTMLElement>): DesktopDragPayload | null => {
+    if (desktopDragPayload) {
+      return desktopDragPayload;
+    }
+    try {
+      const raw = event.dataTransfer.getData('application/x-fingerbrowser-desktop');
+      return raw ? (JSON.parse(raw) as DesktopDragPayload) : null;
+    } catch {
+      return null;
+    }
+  };
+
+  const handleDropOnDesktopShortcut = (event: DragEvent<HTMLElement>, target: DesktopShortcut): void => {
+    event.preventDefault();
+    event.stopPropagation();
+    const payload = readDesktopDragPayload(event);
+    setDesktopDragPayload(null);
+    if (!payload || payload.id === target.id) {
+      return;
+    }
+    void run('整理我的桌面', async () => {
+      if (payload.type === 'shortcut') {
+        if (!target.folderId) {
+          await window.fingerBrowser.desktop.createFolderFromShortcuts({
+            sourceShortcutId: payload.id,
+            targetShortcutId: target.id
+          });
+        } else {
+          await window.fingerBrowser.desktop.moveShortcut({
+            shortcutId: payload.id,
+            folderId: target.folderId
+          });
+        }
+      } else {
+        await reorderTopDesktopItem(payload, { type: 'shortcut', id: target.id });
+      }
+      await refreshDesktopAfterDrag();
+      return '桌面已整理';
+    });
+  };
+
+  const handleDropOnDesktopFolder = (event: DragEvent<HTMLElement>, folder: DesktopFolder): void => {
+    event.preventDefault();
+    event.stopPropagation();
+    const payload = readDesktopDragPayload(event);
+    setDesktopDragPayload(null);
+    if (!payload || payload.id === folder.id) {
+      return;
+    }
+    void run('整理我的桌面', async () => {
+      if (payload.type === 'shortcut') {
+        await window.fingerBrowser.desktop.moveShortcut({
+          shortcutId: payload.id,
+          folderId: folder.id
+        });
+        setOpenDesktopFolderId(folder.id);
+      } else {
+        await reorderTopDesktopItem(payload, { type: 'folder', id: folder.id });
+      }
+      await refreshDesktopAfterDrag();
+      return '桌面已整理';
+    });
+  };
+
+  const handleDropOnDesktopSurface = (event: DragEvent<HTMLElement>): void => {
+    event.preventDefault();
+    const payload = readDesktopDragPayload(event);
+    setDesktopDragPayload(null);
+    if (!payload || payload.type !== 'shortcut' || payload.folderId === null) {
+      return;
+    }
+    void run('移出到我的桌面', async () => {
+      await window.fingerBrowser.desktop.moveShortcut({
+        shortcutId: payload.id,
+        folderId: null
+      });
+      await refreshDesktopAfterDrag();
+      return '已移出到我的桌面';
+    });
+  };
+
+  const handleDropOnOpenFolder = (event: DragEvent<HTMLElement>, folder: DesktopFolder): void => {
+    event.preventDefault();
+    event.stopPropagation();
+    const payload = readDesktopDragPayload(event);
+    setDesktopDragPayload(null);
+    if (!payload || payload.type !== 'shortcut') {
+      return;
+    }
+    void run('移动到文件夹', async () => {
+      await window.fingerBrowser.desktop.moveShortcut({
+        shortcutId: payload.id,
+        folderId: folder.id
+      });
+      await refreshDesktopAfterDrag();
+      return `已移动到：${folder.name}`;
+    });
+  };
+
+  const handleDropOnFolderShortcut = (
+    event: DragEvent<HTMLElement>,
+    target: DesktopShortcut,
+    folder: DesktopFolder
+  ): void => {
+    event.preventDefault();
+    event.stopPropagation();
+    const payload = readDesktopDragPayload(event);
+    setDesktopDragPayload(null);
+    if (!payload || payload.type !== 'shortcut' || payload.id === target.id) {
+      return;
+    }
+    void run('整理文件夹', async () => {
+      if (payload.folderId !== folder.id) {
+        await window.fingerBrowser.desktop.moveShortcut({
+          shortcutId: payload.id,
+          folderId: folder.id
+        });
+      }
+      const nextOrder = [payload.id, ...openFolderShortcuts.map((shortcut) => shortcut.id).filter((id) => id !== payload.id)];
+      const targetIndex = nextOrder.indexOf(target.id);
+      const sourceIndex = nextOrder.indexOf(payload.id);
+      nextOrder.splice(sourceIndex, 1);
+      nextOrder.splice(Math.max(targetIndex, 0), 0, payload.id);
+      await window.fingerBrowser.desktop.reorderFolderShortcuts({
+        folderId: folder.id,
+        shortcutIds: nextOrder
+      });
+      await refreshDesktopAfterDrag();
+      return '文件夹已整理';
+    });
+  };
+
+  const handleMoveShortcutToDesktop = (shortcut: DesktopShortcut): void => {
+    void run('移出到我的桌面', async () => {
+      await window.fingerBrowser.desktop.moveShortcut({
+        shortcutId: shortcut.id,
+        folderId: null
+      });
+      await refreshDesktopAfterDrag();
+      return `已移出：${shortcut.label}`;
+    });
+  };
+
+  const reorderTopDesktopItem = async (
+    payload: DesktopDragPayload,
+    target: { type: 'shortcut' | 'folder'; id: string }
+  ): Promise<void> => {
+    const current = desktopItems.map((item) => ({ type: item.type, id: item.id }));
+    const sourceKey = `${payload.type}:${payload.id}`;
+    const targetKey = `${target.type}:${target.id}`;
+    const withoutSource = current.filter((item) => `${item.type}:${item.id}` !== sourceKey);
+    const targetIndex = withoutSource.findIndex((item) => `${item.type}:${item.id}` === targetKey);
+    if (targetIndex < 0) {
+      return;
+    }
+    withoutSource.splice(targetIndex, 0, { type: payload.type, id: payload.id });
+    await window.fingerBrowser.desktop.reorderItems({ items: withoutSource });
   };
 
   const handleSelectVaultMenu = (menuId: CredentialVaultMenuId): void => {
@@ -1540,60 +1765,134 @@ export function App(): JSX.Element {
               <p className="section-kicker">本地快捷入口</p>
               <h2>我的桌面</h2>
             </div>
-            <button
-              className="primary-button"
-              type="button"
-              onClick={() => handleCreateDesktopShortcut()}
-              disabled={!selectedProfile || busy || (selectedProfile ? desktopProfileIds.has(selectedProfile.id) : false)}
-            >
-              <FolderPlus size={17} />
-              添加当前环境
-            </button>
+            <div className="desktop-toolbar">
+              <button
+                className="secondary-button"
+                type="button"
+                onClick={handleCreateDesktopFolder}
+                disabled={busy}
+              >
+                <FolderPlus size={17} />
+                新建文件夹
+              </button>
+              <button
+                className="primary-button"
+                type="button"
+                onClick={() => handleCreateDesktopShortcut()}
+                disabled={!selectedProfile || busy || (selectedProfile ? desktopProfileIds.has(selectedProfile.id) : false)}
+              >
+                <Grid2X2 size={17} />
+                添加当前环境
+              </button>
+            </div>
           </header>
 
-          <div className="desktop-surface" aria-label="我的桌面快捷方式">
-            {desktopShortcuts.map((shortcut) => (
-              <div className="desktop-shortcut" key={shortcut.id}>
-                <button
-                  type="button"
-                  className={`desktop-icon ${shortcut.iconVariant}`}
-                  onClick={() => handleLaunchDesktopShortcut(shortcut)}
-                  disabled={busy}
-                  aria-label={`启动桌面快捷方式 ${shortcut.label}`}
-                  title={`启动 ${shortcut.label}`}
+          <div
+            className="desktop-surface"
+            aria-label="我的桌面快捷方式"
+            onDragOver={(event) => event.preventDefault()}
+            onDrop={handleDropOnDesktopSurface}
+          >
+            {desktopItems.map((item) =>
+              item.type === 'shortcut' ? (
+                <div
+                  className="desktop-shortcut"
+                  key={`shortcut:${item.id}`}
+                  draggable={!busy}
+                  onDragStart={(event) =>
+                    handleDesktopDragStart(event, { type: 'shortcut', id: item.shortcut.id, folderId: item.shortcut.folderId })
+                  }
+                  onDragEnd={() => setDesktopDragPayload(null)}
+                  onDragOver={(event) => event.preventDefault()}
+                  onDrop={(event) => handleDropOnDesktopShortcut(event, item.shortcut)}
                 >
-                  <span>{desktopIconLabel[shortcut.iconVariant] ?? '环'}</span>
-                  <Globe2 size={34} />
-                </button>
-                <strong title={shortcut.label}>{shortcut.label}</strong>
-                <span className={`desktop-shortcut-status ${statusTone[shortcut.profileStatus]}`}>
-                  {statusText[shortcut.profileStatus]} · {runtimeChannelText[shortcut.runtimeChannel]}
-                </span>
-                <div className="desktop-shortcut-actions">
                   <button
-                    className="secondary-button compact-button"
                     type="button"
-                    onClick={() => handleLaunchDesktopShortcut(shortcut)}
+                    className={`desktop-icon ${item.shortcut.iconVariant}`}
+                    onClick={() => handleLaunchDesktopShortcut(item.shortcut)}
                     disabled={busy}
-                    aria-label={`启动 ${shortcut.label}`}
+                    aria-label={`启动桌面快捷方式 ${item.shortcut.label}`}
+                    title={`启动 ${item.shortcut.label}`}
                   >
-                    <Play size={14} />
-                    启动
+                    <span>{desktopIconLabel[item.shortcut.iconVariant] ?? '环'}</span>
+                    <Globe2 size={34} />
                   </button>
-                  <button
-                    className="icon-button"
-                    type="button"
-                    onClick={() => handleDeleteDesktopShortcut(shortcut)}
-                    disabled={busy}
-                    aria-label={`移除桌面快捷方式 ${shortcut.label}`}
-                    title="移除快捷方式"
-                  >
-                    <Trash2 size={15} />
-                  </button>
+                  <strong title={item.shortcut.label}>{item.shortcut.label}</strong>
+                  <span className={`desktop-shortcut-status ${statusTone[item.shortcut.profileStatus]}`}>
+                    {statusText[item.shortcut.profileStatus]} · {runtimeChannelText[item.shortcut.runtimeChannel]}
+                  </span>
+                  <div className="desktop-shortcut-actions">
+                    <button
+                      className="secondary-button compact-button"
+                      type="button"
+                      onClick={() => handleLaunchDesktopShortcut(item.shortcut)}
+                      disabled={busy}
+                      aria-label={`启动 ${item.shortcut.label}`}
+                    >
+                      <Play size={14} />
+                      启动
+                    </button>
+                    <button
+                      className="icon-button"
+                      type="button"
+                      onClick={() => handleDeleteDesktopShortcut(item.shortcut)}
+                      disabled={busy}
+                      aria-label={`移除桌面快捷方式 ${item.shortcut.label}`}
+                      title="移除快捷方式"
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
                 </div>
-              </div>
-            ))}
-            {desktopShortcuts.length === 0 ? (
+              ) : (
+                <div
+                  className="desktop-shortcut desktop-folder-shortcut"
+                  key={`folder:${item.id}`}
+                  draggable={!busy}
+                  onDragStart={(event) => handleDesktopDragStart(event, { type: 'folder', id: item.folder.id })}
+                  onDragEnd={() => setDesktopDragPayload(null)}
+                  onDragOver={(event) => event.preventDefault()}
+                  onDrop={(event) => handleDropOnDesktopFolder(event, item.folder)}
+                >
+                  <button
+                    type="button"
+                    className="desktop-icon folder"
+                    onClick={() => setOpenDesktopFolderId(item.folder.id)}
+                    disabled={busy}
+                    aria-label={`打开桌面文件夹 ${item.folder.name}`}
+                    title={`打开 ${item.folder.name}`}
+                  >
+                    <span>{item.folder.shortcutCount}</span>
+                    <FolderOpen size={34} />
+                  </button>
+                  <strong title={item.folder.name}>{item.folder.name}</strong>
+                  <span className="desktop-shortcut-status">{item.folder.shortcutCount} 个环境</span>
+                  <div className="desktop-shortcut-actions">
+                    <button
+                      className="secondary-button compact-button"
+                      type="button"
+                      onClick={() => setOpenDesktopFolderId(item.folder.id)}
+                      disabled={busy}
+                      aria-label={`打开 ${item.folder.name}`}
+                    >
+                      <FolderOpen size={14} />
+                      打开
+                    </button>
+                    <button
+                      className="icon-button"
+                      type="button"
+                      onClick={() => handleDeleteDesktopFolder(item.folder)}
+                      disabled={busy}
+                      aria-label={`删除桌面文件夹 ${item.folder.name}`}
+                      title="删除文件夹"
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
+                </div>
+              )
+            )}
+            {desktopItems.length === 0 ? (
               <div className="desktop-empty">
                 <Grid2X2 size={26} />
                 <strong>暂无桌面快捷方式</strong>
@@ -1601,6 +1900,87 @@ export function App(): JSX.Element {
               </div>
             ) : null}
           </div>
+          {openDesktopFolder ? (
+            <section
+              className="desktop-folder-panel"
+              aria-label={`桌面文件夹 ${openDesktopFolder.name}`}
+              onDragOver={(event) => event.preventDefault()}
+              onDrop={(event) => handleDropOnOpenFolder(event, openDesktopFolder)}
+            >
+              <div className="desktop-folder-header">
+                <div>
+                  <p className="section-kicker">桌面文件夹</p>
+                  <h3>{openDesktopFolder.name}</h3>
+                </div>
+                <div className="desktop-folder-actions">
+                  <button className="secondary-button" type="button" onClick={() => setOpenDesktopFolderId(null)}>
+                    关闭
+                  </button>
+                  <button
+                    className="secondary-button"
+                    type="button"
+                    onClick={() => handleDeleteDesktopFolder(openDesktopFolder)}
+                    disabled={busy}
+                  >
+                    <Trash2 size={15} />
+                    删除文件夹
+                  </button>
+                </div>
+              </div>
+              <div className="desktop-folder-grid">
+                {openFolderShortcuts.map((shortcut) => (
+                  <div
+                    className="desktop-shortcut"
+                    key={shortcut.id}
+                    draggable={!busy}
+                    onDragStart={(event) =>
+                      handleDesktopDragStart(event, { type: 'shortcut', id: shortcut.id, folderId: shortcut.folderId })
+                    }
+                    onDragEnd={() => setDesktopDragPayload(null)}
+                    onDragOver={(event) => event.preventDefault()}
+                    onDrop={(event) => handleDropOnFolderShortcut(event, shortcut, openDesktopFolder)}
+                  >
+                    <button
+                      type="button"
+                      className={`desktop-icon ${shortcut.iconVariant}`}
+                      onClick={() => handleLaunchDesktopShortcut(shortcut)}
+                      disabled={busy}
+                      aria-label={`启动文件夹快捷方式 ${shortcut.label}`}
+                      title={`启动 ${shortcut.label}`}
+                    >
+                      <span>{desktopIconLabel[shortcut.iconVariant] ?? '环'}</span>
+                      <Globe2 size={34} />
+                    </button>
+                    <strong title={shortcut.label}>{shortcut.label}</strong>
+                    <span className={`desktop-shortcut-status ${statusTone[shortcut.profileStatus]}`}>
+                      {statusText[shortcut.profileStatus]}
+                    </span>
+                    <div className="desktop-shortcut-actions">
+                      <button
+                        className="secondary-button compact-button"
+                        type="button"
+                        onClick={() => handleMoveShortcutToDesktop(shortcut)}
+                        disabled={busy}
+                      >
+                        移出
+                      </button>
+                      <button
+                        className="icon-button"
+                        type="button"
+                        onClick={() => handleDeleteDesktopShortcut(shortcut)}
+                        disabled={busy}
+                        aria-label={`移除文件夹快捷方式 ${shortcut.label}`}
+                        title="移除快捷方式"
+                      >
+                        <Trash2 size={15} />
+                      </button>
+                    </div>
+                  </div>
+                ))}
+                {openFolderShortcuts.length === 0 ? <div className="desktop-empty">拖拽环境图标到这里</div> : null}
+              </div>
+            </section>
+          ) : null}
           <footer className="notice-bar desktop-notice" aria-live="polite">
             {busy ? <RefreshCw className="spin" size={15} /> : <CheckCircle2 size={15} />}
             {notice}

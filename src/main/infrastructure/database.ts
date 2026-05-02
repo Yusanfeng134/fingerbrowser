@@ -84,13 +84,23 @@ export function openApplicationDatabase(filePath: string): ApplicationDatabase {
     create table if not exists desktop_shortcuts (
       id text primary key,
       profile_id text not null unique,
+      folder_id text,
       icon_variant text not null,
       position_index integer not null,
       created_at text not null,
       updated_at text not null
     );
 
-    create index if not exists idx_desktop_shortcuts_position on desktop_shortcuts(position_index, created_at);
+    create table if not exists desktop_folders (
+      id text primary key,
+      name text not null,
+      position_index integer not null,
+      created_at text not null,
+      updated_at text not null
+    );
+
+    create index if not exists idx_desktop_shortcuts_scope_position on desktop_shortcuts(folder_id, position_index, created_at);
+    create index if not exists idx_desktop_folders_position on desktop_folders(position_index, created_at);
 
     insert or ignore into credentials (
       id, profile_id, title, website_url, username, encrypted_password, created_at, updated_at, last_copied_at
@@ -118,6 +128,10 @@ export function openApplicationDatabase(filePath: string): ApplicationDatabase {
   const profileColumns = db.pragma('table_info(profiles)') as Array<{ name: string }>;
   if (!profileColumns.some((column) => column.name === 'runtime_channel')) {
     db.exec("alter table profiles add column runtime_channel text not null default 'official';");
+  }
+  const desktopShortcutColumns = db.pragma('table_info(desktop_shortcuts)') as Array<{ name: string }>;
+  if (!desktopShortcutColumns.some((column) => column.name === 'folder_id')) {
+    db.exec('alter table desktop_shortcuts add column folder_id text;');
   }
   return db;
 }

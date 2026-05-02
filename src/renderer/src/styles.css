@@ -1227,6 +1227,13 @@ p {
   margin-bottom: 22px;
 }
 
+.desktop-toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
 .desktop-surface {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
@@ -1293,6 +1300,17 @@ p {
 
 .desktop-icon.slate {
   background: linear-gradient(145deg, #63666d 0%, #22252b 68%, #08090b 100%);
+}
+
+.desktop-icon.folder {
+  color: #2d3330;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.7), rgba(255, 255, 255, 0)),
+    #f4c84f;
+}
+
+.desktop-icon.folder span {
+  color: rgba(45, 51, 48, 0.58);
 }
 
 .desktop-shortcut strong {
@@ -1362,6 +1380,44 @@ p {
 .desktop-empty span {
   max-width: 420px;
   font-size: 13px;
+}
+
+.desktop-folder-panel {
+  display: grid;
+  gap: 16px;
+  margin: 0 12px 18px;
+  padding: 18px;
+  border: 1px solid #d9e0d8;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.76);
+  box-shadow: 0 18px 44px rgba(33, 39, 35, 0.1);
+}
+
+.desktop-folder-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.desktop-folder-header h3 {
+  margin: 2px 0 0;
+  font-size: 20px;
+  line-height: 1.2;
+}
+
+.desktop-folder-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  justify-content: flex-end;
+}
+
+.desktop-folder-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(124px, 1fr));
+  gap: 24px 18px;
+  min-height: 150px;
 }
 
 .spin {

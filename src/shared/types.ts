@@ -27,6 +27,9 @@ export type AuditAction =
   | 'DESKTOP_SHORTCUT_CREATED'
   | 'DESKTOP_SHORTCUT_DELETED'
   | 'DESKTOP_SHORTCUT_LAUNCHED'
+  | 'DESKTOP_SHORTCUT_MOVED'
+  | 'DESKTOP_FOLDER_CREATED'
+  | 'DESKTOP_FOLDER_DELETED'
   | 'PROXY_CREATED'
   | 'PROXY_UPDATED'
   | 'PROXY_TESTED'
@@ -177,12 +180,62 @@ export interface DesktopShortcut {
   profileStatus: ProfileStatus;
   runtimeChannel: RuntimeChannel;
   iconVariant: string;
+  folderId: string | null;
+  folderName: string | null;
+  positionIndex: number;
   createdAt: string;
   updatedAt: string;
 }
 
+export interface DesktopFolder {
+  id: string;
+  name: string;
+  shortcutCount: number;
+  positionIndex: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export type DesktopItem =
+  | {
+      type: 'shortcut';
+      id: string;
+      positionIndex: number;
+      shortcut: DesktopShortcut;
+    }
+  | {
+      type: 'folder';
+      id: string;
+      positionIndex: number;
+      folder: DesktopFolder;
+    };
+
 export interface CreateDesktopShortcutInput {
   profileId: string;
+}
+
+export interface CreateDesktopFolderInput {
+  name?: string;
+}
+
+export interface CreateDesktopFolderFromShortcutsInput {
+  sourceShortcutId: string;
+  targetShortcutId: string;
+  name?: string;
+}
+
+export interface MoveDesktopShortcutInput {
+  shortcutId: string;
+  folderId: string | null;
+}
+
+export interface ReorderDesktopItemsInput {
+  items: Array<{ type: 'shortcut' | 'folder'; id: string }>;
+}
+
+export interface ReorderDesktopFolderShortcutsInput {
+  folderId: string;
+  shortcutIds: string[];
 }
 
 export interface AuditEvent {
@@ -422,8 +475,16 @@ export interface AppApi {
   };
   desktop: {
     list: () => Promise<DesktopShortcut[]>;
+    listFolders: () => Promise<DesktopFolder[]>;
+    listItems: () => Promise<DesktopItem[]>;
     createShortcut: (input: CreateDesktopShortcutInput) => Promise<DesktopShortcut>;
+    createFolder: (input?: CreateDesktopFolderInput) => Promise<DesktopFolder>;
+    createFolderFromShortcuts: (input: CreateDesktopFolderFromShortcutsInput) => Promise<DesktopFolder>;
+    moveShortcut: (input: MoveDesktopShortcutInput) => Promise<DesktopShortcut>;
+    reorderItems: (input: ReorderDesktopItemsInput) => Promise<DesktopItem[]>;
+    reorderFolderShortcuts: (input: ReorderDesktopFolderShortcutsInput) => Promise<DesktopShortcut[]>;
     deleteShortcut: (id: string) => Promise<{ id: string }>;
+    deleteFolder: (id: string) => Promise<{ id: string }>;
     launchShortcut: (id: string) => Promise<LaunchResult>;
   };
   proxy: {

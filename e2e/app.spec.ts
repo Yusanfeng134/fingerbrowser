@@ -231,7 +231,16 @@ test('中文 UI 完成激活 license、新建环境、代理测试、导出审�
     await sideNav.getByRole('link', { name: '我的桌面' }).click();
     await expect(page.getByRole('heading', { name: '我的桌面' })).toBeVisible();
     await expect(page.getByLabel('我的桌面快捷方式').getByText('E2E 运营环境')).toBeVisible();
-    await page.getByRole('button', { name: '启动桌面快捷方式 E2E 运营环境' }).click();
+    await page.getByRole('button', { name: '新建文件夹' }).click();
+    await expect(page.getByText(/已创建文件夹：新建文件夹/)).toBeVisible();
+    await page
+      .locator('.desktop-shortcut')
+      .filter({ hasText: 'E2E 运营环境' })
+      .dragTo(page.locator('.desktop-folder-shortcut').filter({ hasText: '新建文件夹' }));
+    const desktopFolderPanel = page.getByRole('region', { name: '桌面文件夹 新建文件夹' });
+    await expect(desktopFolderPanel).toBeVisible();
+    await expect(desktopFolderPanel.getByText('E2E 运营环境')).toBeVisible();
+    await page.getByRole('button', { name: '启动文件夹快捷方式 E2E 运营环境' }).click();
     await expect(page.getByText(/已启动：E2E 运营环境/)).toBeVisible();
     await sideNav.getByRole('link', { name: '环境' }).click();
     await expect(page.getByText('运行中').first()).toBeVisible();
@@ -252,6 +261,10 @@ test('中文 UI 完成激活 license、新建环境、代理测试、导出审�
     await expect(page.getByText('已关闭').first()).toBeVisible();
     await expect(page.getByLabel('本地代理状态')).toContainText('未启动');
     await sideNav.getByRole('link', { name: '我的桌面' }).click();
+    await page.getByRole('button', { name: '移出' }).click();
+    await expect(page.getByText(/已移出：E2E 运营环境/)).toBeVisible();
+    await page.getByRole('button', { name: '删除文件夹' }).click();
+    await expect(page.getByText(/已删除文件夹：新建文件夹/)).toBeVisible();
     await page.getByRole('button', { name: '移除桌面快捷方式 E2E 运营环境' }).click();
     await expect(page.getByText(/已从我的桌面移除：E2E 运营环境/)).toBeVisible();
     await expect(page.getByLabel('我的桌面快捷方式').getByText('E2E 运营环境')).toHaveCount(0);

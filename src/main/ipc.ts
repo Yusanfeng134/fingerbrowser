@@ -6,10 +6,15 @@ import type {
   CreateCredentialInput,
   FeedbackPackageInput,
   CreateProfileInput,
+  CreateDesktopFolderFromShortcutsInput,
+  CreateDesktopFolderInput,
   ListCredentialsInput,
+  MoveDesktopShortcutInput,
   ProfileDetails,
   ProxyConnectionInput,
   ProxyTestResult,
+  ReorderDesktopFolderShortcutsInput,
+  ReorderDesktopItemsInput,
   UpdateCredentialInput,
   UpdateProfileInput
 } from '../shared/types';
@@ -53,6 +58,10 @@ export function registerIpcHandlers(services: ApplicationServices): void {
 
   ipcMain.handle('desktop.list', () => services.desktopService.listShortcuts());
 
+  ipcMain.handle('desktop.listFolders', () => services.desktopService.listFolders());
+
+  ipcMain.handle('desktop.listItems', () => services.desktopService.listDesktopItems());
+
   ipcMain.handle('desktop.createShortcut', (_event, input: { profileId: string }) => {
     const shortcut = services.desktopService.createShortcut(input);
     services.profileService.recordAudit(shortcut.profileId, 'DESKTOP_SHORTCUT_CREATED', {
@@ -61,11 +70,56 @@ export function registerIpcHandlers(services: ApplicationServices): void {
     return shortcut;
   });
 
+  ipcMain.handle('desktop.createFolder', (_event, input?: CreateDesktopFolderInput) => {
+    const folder = services.desktopService.createFolder(input);
+    services.profileService.recordAudit(null, 'DESKTOP_FOLDER_CREATED', {
+      folderId: folder.id,
+      name: folder.name
+    });
+    return folder;
+  });
+
+  ipcMain.handle('desktop.createFolderFromShortcuts', (_event, input: CreateDesktopFolderFromShortcutsInput) => {
+    const folder = services.desktopService.createFolderFromShortcuts(input);
+    services.profileService.recordAudit(null, 'DESKTOP_FOLDER_CREATED', {
+      folderId: folder.id,
+      name: folder.name,
+      sourceShortcutId: input.sourceShortcutId,
+      targetShortcutId: input.targetShortcutId
+    });
+    return folder;
+  });
+
+  ipcMain.handle('desktop.moveShortcut', (_event, input: MoveDesktopShortcutInput) => {
+    const shortcut = services.desktopService.moveShortcut(input);
+    services.profileService.recordAudit(shortcut.profileId, 'DESKTOP_SHORTCUT_MOVED', {
+      shortcutId: shortcut.id,
+      folderId: shortcut.folderId
+    });
+    return shortcut;
+  });
+
+  ipcMain.handle('desktop.reorderItems', (_event, input: ReorderDesktopItemsInput) => {
+    return services.desktopService.reorderDesktopItems(input);
+  });
+
+  ipcMain.handle('desktop.reorderFolderShortcuts', (_event, input: ReorderDesktopFolderShortcutsInput) => {
+    return services.desktopService.reorderFolderShortcuts(input);
+  });
+
   ipcMain.handle('desktop.deleteShortcut', (_event, id: string) => {
     const shortcut = services.desktopService.getShortcut(id);
     services.desktopService.deleteShortcut(id);
     services.profileService.recordAudit(shortcut.profileId, 'DESKTOP_SHORTCUT_DELETED', {
       shortcutId: id
+    });
+    return { id };
+  });
+
+  ipcMain.handle('desktop.deleteFolder', (_event, id: string) => {
+    services.desktopService.deleteFolder(id);
+    services.profileService.recordAudit(null, 'DESKTOP_FOLDER_DELETED', {
+      folderId: id
     });
     return { id };
   });

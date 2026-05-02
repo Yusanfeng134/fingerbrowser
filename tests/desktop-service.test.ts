@@ -65,4 +65,66 @@ describe('desktop service', () => {
 
     expect(() => desktopService.createShortcut({ profileId: 'missing-profile' })).toThrow('浏览器环境不存在');
   });
+
+  it('creates a folder from two shortcuts and keeps them inside the folder', () => {
+    const { desktopService, profileService } = createHarness();
+    const first = profileService.createProfile({ name: '账号 1' });
+    const second = profileService.createProfile({ name: '账号 2' });
+    const firstShortcut = desktopService.createShortcut({ profileId: first.id });
+    const secondShortcut = desktopService.createShortcut({ profileId: second.id });
+
+    const folder = desktopService.createFolderFromShortcuts({
+      sourceShortcutId: firstShortcut.id,
+      targetShortcutId: secondShortcut.id
+    });
+    const folders = desktopService.listFolders();
+    const shortcuts = desktopService.listShortcuts();
+
+    expect(folders).toHaveLength(1);
+    expect(folders[0]).toMatchObject({
+      id: folder.id,
+      name: '新建文件夹',
+      shortcutCount: 2
+    });
+    expect(shortcuts.map((shortcut) => shortcut.folderId)).toEqual([folder.id, folder.id]);
+    expect(shortcuts.map((shortcut) => shortcut.folderName)).toEqual(['新建文件夹', '新建文件夹']);
+  });
+
+  it('moves shortcuts into and out of folders and supports scoped ordering', () => {
+    const { desktopService, profileService } = createHarness();
+    const first = profileService.createProfile({ name: '环境 A' });
+    const second = profileService.createProfile({ name: '环境 B' });
+    const third = profileService.createProfile({ name: '环境 C' });
+    const firstShortcut = desktopService.createShortcut({ profileId: first.id });
+    const secondShortcut = desktopService.createShortcut({ profileId: second.id });
+    const thirdShortcut = desktopService.createShortcut({ profileId: third.id });
+    const folder = desktopService.createFolder({ name: '客户组' });
+
+    desktopService.moveShortcut({ shortcutId: firstShortcut.id, folderId: folder.id });
+    desktopService.moveShortcut({ shortcutId: secondShortcut.id, folderId: folder.id });
+    desktopService.reorderFolderShortcuts({
+      folderId: folder.id,
+      shortcutIds: [secondShortcut.id, firstShortcut.id]
+    });
+    desktopService.moveShortcut({ shortcutId: firstShortcut.id, folderId: null });
+    desktopService.reorderDesktopItems({
+      items: [
+        { type: 'shortcut', id: thirdShortcut.id },
+        { type: 'folder', id: folder.id },
+        { type: 'shortcut', id: firstShortcut.id }
+      ]
+    });
+
+    const shortcuts = desktopService.listShortcuts();
+    const topItems = desktopService.listDesktopItems();
+    const folderShortcuts = shortcuts.filter((shortcut) => shortcut.folderId === folder.id);
+
+    expect(folderShortcuts.map((shortcut) => shortcut.id)).toEqual([secondShortcut.id]);
+    expect(shortcuts.find((shortcut) => shortcut.id === firstShortcut.id)?.folderId).toBeNull();
+    expect(topItems.map((item) => `${item.type}:${item.id}`)).toEqual([
+      `shortcut:${thirdShortcut.id}`,
+      `folder:${folder.id}`,
+      `shortcut:${firstShortcut.id}`
+    ]);
+  });
 });
