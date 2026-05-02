@@ -99,9 +99,6 @@ export function openApplicationDatabase(filePath: string): ApplicationDatabase {
       updated_at text not null
     );
 
-    create index if not exists idx_desktop_shortcuts_scope_position on desktop_shortcuts(folder_id, position_index, created_at);
-    create index if not exists idx_desktop_folders_position on desktop_folders(position_index, created_at);
-
     insert or ignore into credentials (
       id, profile_id, title, website_url, username, encrypted_password, created_at, updated_at, last_copied_at
     )
@@ -133,5 +130,9 @@ export function openApplicationDatabase(filePath: string): ApplicationDatabase {
   if (!desktopShortcutColumns.some((column) => column.name === 'folder_id')) {
     db.exec('alter table desktop_shortcuts add column folder_id text;');
   }
+  db.exec(`
+    create index if not exists idx_desktop_shortcuts_scope_position on desktop_shortcuts(folder_id, position_index, created_at);
+    create index if not exists idx_desktop_folders_position on desktop_folders(position_index, created_at);
+  `);
   return db;
 }

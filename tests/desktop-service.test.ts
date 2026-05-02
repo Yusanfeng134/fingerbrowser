@@ -1,6 +1,7 @@
 import { mkdtempSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
+import Database from 'better-sqlite3';
 import { afterEach, describe, expect, it } from 'vitest';
 import { createDesktopService } from '../src/main/domain/desktop-service';
 import { createNodeSecretBox } from '../src/main/domain/encryption';
@@ -126,5 +127,43 @@ describe('desktop service', () => {
       `folder:${folder.id}`,
       `shortcut:${firstShortcut.id}`
     ]);
+  });
+
+  it('migrates legacy desktop shortcuts before creating folder indexes', () => {
+    const dataDir = mkdtempSync(path.join(tmpdir(), 'fingerbrowser-desktop-legacy-test-'));
+    tempDirs.push(dataDir);
+    const dbPath = path.join(dataDir, 'app.sqlite');
+    const legacyDb = new Database(dbPath);
+    legacyDb.exec(`
+      create table profiles (
+        id text primary key,
+        name text not null,
+        tags_json text not null,
+        status text not null,
+        user_data_dir text not null unique,
+        chromium_version text not null,
+        runtime_channel text not null default 'official',
+        fingerprint_policy_json text not null,
+        proxy_id text,
+        created_at text not null,
+        updated_at text not null
+      );
+      create table desktop_shortcuts (
+        id text primary key,
+        profile_id text not null unique,
+        icon_variant text not null,
+        position_index integer not null,
+        created_at text not null,
+        updated_at text not null
+      );
+    `);
+    legacyDb.close();
+
+    const migratedDb = openApplicationDatabase(dbPath);
+    const columns = migratedDb.pragma('table_info(desktop_shortcuts)') as Array<{ name: string }>;
+    const indexes = migratedDb.pragma('index_list(desktop_shortcuts)') as Array<{ name: string }>;
+
+    expect(columns.map((column) => column.name)).toContain('folder_id');
+    expect(indexes.map((index) => index.name)).toContain('idx_desktop_shortcuts_scope_position');
   });
 });
