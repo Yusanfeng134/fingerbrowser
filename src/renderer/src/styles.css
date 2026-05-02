@@ -135,6 +135,14 @@ p {
   background: #fbfcfa;
 }
 
+.desktop-workspace {
+  grid-column: 2 / 4;
+  border-right: 0;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.8), rgba(246, 248, 245, 0.92)),
+    #fbfcfa;
+}
+
 .topbar {
   display: flex;
   align-items: flex-start;
@@ -415,7 +423,7 @@ p {
 
 .drawer-actions {
   display: grid;
-  grid-template-columns: 36px minmax(116px, 1fr) minmax(148px, 1.15fr);
+  grid-template-columns: 36px minmax(116px, 1fr) minmax(112px, 0.9fr) minmax(148px, 1.15fr);
   gap: 8px;
 }
 
@@ -1212,6 +1220,147 @@ p {
   border: 1px dashed #d0cabd;
   border-radius: 8px;
   color: #73776f;
+  font-size: 13px;
+}
+
+.desktop-topbar {
+  margin-bottom: 22px;
+}
+
+.desktop-surface {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(132px, 1fr));
+  gap: 32px 24px;
+  align-content: start;
+  min-height: calc(100vh - 128px);
+  padding: 20px 12px 32px;
+}
+
+.desktop-notice {
+  margin-top: 0;
+  padding: 0 12px;
+}
+
+.desktop-shortcut {
+  display: grid;
+  justify-items: center;
+  gap: 8px;
+  min-width: 0;
+}
+
+.desktop-icon {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 78px;
+  height: 78px;
+  border: 1px solid rgba(34, 41, 37, 0.08);
+  border-radius: 20px;
+  color: #ffffff;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.5),
+    0 10px 22px rgba(32, 37, 34, 0.14);
+}
+
+.desktop-icon span {
+  position: absolute;
+  top: 9px;
+  right: 10px;
+  color: rgba(255, 255, 255, 0.68);
+  font-size: 12px;
+  font-weight: 820;
+}
+
+.desktop-icon.emerald {
+  background: linear-gradient(145deg, #2fe28f 0%, #12876f 58%, #0e5f58 100%);
+}
+
+.desktop-icon.blue {
+  background: linear-gradient(145deg, #48c8ff 0%, #1674d1 58%, #193d8f 100%);
+}
+
+.desktop-icon.violet {
+  background: linear-gradient(145deg, #d46dff 0%, #7b3bd1 55%, #322065 100%);
+}
+
+.desktop-icon.amber {
+  background: linear-gradient(145deg, #ffe174 0%, #f2a316 58%, #b85b13 100%);
+}
+
+.desktop-icon.rose {
+  background: linear-gradient(145deg, #ff7b8f 0%, #d93354 55%, #8f233f 100%);
+}
+
+.desktop-icon.slate {
+  background: linear-gradient(145deg, #63666d 0%, #22252b 68%, #08090b 100%);
+}
+
+.desktop-shortcut strong {
+  max-width: 128px;
+  overflow: hidden;
+  color: #202522;
+  font-size: 14px;
+  line-height: 1.25;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.desktop-shortcut-status {
+  max-width: 132px;
+  overflow: hidden;
+  color: #71766f;
+  font-size: 11px;
+  font-weight: 720;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.desktop-shortcut-status.good {
+  color: #176757;
+}
+
+.desktop-shortcut-status.bad {
+  color: #9b3f24;
+}
+
+.desktop-shortcut-actions {
+  display: flex;
+  gap: 6px;
+  min-height: 30px;
+  opacity: 0;
+  transform: translateY(-2px);
+  transition:
+    opacity 0.16s ease,
+    transform 0.16s ease;
+}
+
+.desktop-shortcut:hover .desktop-shortcut-actions,
+.desktop-shortcut:focus-within .desktop-shortcut-actions {
+  opacity: 1;
+  transform: translateY(0);
+}
+
+.desktop-empty {
+  display: grid;
+  place-items: center;
+  gap: 8px;
+  grid-column: 1 / -1;
+  min-height: 260px;
+  border: 1px dashed #ccd6cf;
+  border-radius: 8px;
+  color: #6c746f;
+  background: rgba(255, 255, 255, 0.54);
+  text-align: center;
+}
+
+.desktop-empty strong {
+  color: #29312c;
+}
+
+.desktop-empty span {
+  max-width: 420px;
   font-size: 13px;
 }
 

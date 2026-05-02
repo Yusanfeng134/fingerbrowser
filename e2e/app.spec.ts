@@ -101,6 +101,7 @@ test('中文 UI 完成激活 license、新建环境、代理测试、导出审�
 
     const sideNav = page.getByRole('navigation', { name: '主导航' });
     await expect(sideNav.getByRole('link', { name: '环境' })).toBeVisible();
+    await expect(sideNav.getByRole('link', { name: '我的桌面' })).toBeVisible();
     await expect(sideNav.getByRole('link', { name: '密码库' })).toBeVisible();
     await expect(sideNav.getByRole('link', { name: '审计' })).toHaveCount(0);
     await expect(sideNav.getByRole('link', { name: '设置' })).toHaveCount(0);
@@ -225,7 +226,14 @@ test('中文 UI 完成激活 license、新建环境、代理测试、导出审�
     await page.getByRole('button', { name: '测试代理' }).click();
     await expect(page.getByText(/代理连通/)).toBeVisible();
 
-    await page.getByRole('button', { name: '启动 Chromium' }).click();
+    await page.getByRole('button', { name: '添加到桌面' }).click();
+    await expect(page.getByText(/已添加到我的桌面：E2E 运营环境/)).toBeVisible();
+    await sideNav.getByRole('link', { name: '我的桌面' }).click();
+    await expect(page.getByRole('heading', { name: '我的桌面' })).toBeVisible();
+    await expect(page.getByLabel('我的桌面快捷方式').getByText('E2E 运营环境')).toBeVisible();
+    await page.getByRole('button', { name: '启动桌面快捷方式 E2E 运营环境' }).click();
+    await expect(page.getByText(/已启动：E2E 运营环境/)).toBeVisible();
+    await sideNav.getByRole('link', { name: '环境' }).click();
     await expect(page.getByText('运行中').first()).toBeVisible();
     await expect(page.getByLabel('本地代理状态')).toContainText('运行中');
     await expect(page.getByLabel('本地代理状态')).toContainText('HTTP');
@@ -243,6 +251,11 @@ test('中文 UI 完成激活 license、新建环境、代理测试、导出审�
     await page.getByRole('button', { name: '关闭环境' }).click();
     await expect(page.getByText('已关闭').first()).toBeVisible();
     await expect(page.getByLabel('本地代理状态')).toContainText('未启动');
+    await sideNav.getByRole('link', { name: '我的桌面' }).click();
+    await page.getByRole('button', { name: '移除桌面快捷方式 E2E 运营环境' }).click();
+    await expect(page.getByText(/已从我的桌面移除：E2E 运营环境/)).toBeVisible();
+    await expect(page.getByLabel('我的桌面快捷方式').getByText('E2E 运营环境')).toHaveCount(0);
+    await sideNav.getByRole('link', { name: '环境' }).click();
 
     await page.getByLabel('内核通道').selectOption('custom-kernel');
     await page.getByRole('button', { name: '启动 Chromium' }).click();

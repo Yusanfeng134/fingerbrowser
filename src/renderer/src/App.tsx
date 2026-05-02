@@ -13,6 +13,7 @@ import {
   EyeOff,
   FolderOpen,
   FolderPlus,
+  Grid2X2,
   Globe2,
   KeyRound,
   LockKeyhole,
@@ -55,7 +56,8 @@ import type {
   SystemProxyDetectionResult,
   TrialMetrics,
   UpdateProfileInput,
-  UsageSummary
+  UsageSummary,
+  DesktopShortcut
 } from '../../shared/types';
 import {
   buildCredentialVaultMenu,
@@ -98,9 +100,9 @@ interface CredentialDraftState {
 }
 
 type ActiveTab = 'config' | 'credentials' | 'audit' | 'license' | 'trial';
-type WorkspaceView = 'profiles' | 'vault';
+type WorkspaceView = 'profiles' | 'vault' | 'desktop';
 type VaultEditorMode = 'view' | 'edit' | 'new';
-type SideNavKey = 'profiles' | 'vault';
+type SideNavKey = 'profiles' | 'vault' | 'desktop';
 type PasswordGeneratorTarget = 'vault' | 'profile' | null;
 
 interface FeedbackDraftState {
@@ -179,6 +181,9 @@ const actionLabel: Record<string, string> = {
   PROFILE_UPDATED: '更新环境',
   PROFILE_LAUNCHED: '启动 Chromium',
   PROFILE_STOPPED: '关闭环境',
+  DESKTOP_SHORTCUT_CREATED: '创建桌面快捷方式',
+  DESKTOP_SHORTCUT_DELETED: '删除桌面快捷方式',
+  DESKTOP_SHORTCUT_LAUNCHED: '桌面启动环境',
   PROXY_CREATED: '创建代理',
   PROXY_UPDATED: '更新代理',
   PROXY_TESTED: '测试代理',
@@ -207,6 +212,15 @@ const actionLabel: Record<string, string> = {
   FEEDBACK_PACKAGED: '生成反馈包',
   UPDATE_CHECKED: '检查更新',
   ERROR_RECORDED: '记录错误'
+};
+
+const desktopIconLabel: Record<string, string> = {
+  emerald: '绿',
+  blue: '蓝',
+  violet: '紫',
+  amber: '黄',
+  rose: '红',
+  slate: '黑'
 };
 
 const licenseStatusText: Record<RedactedLicenseState['status'], string> = {
@@ -303,6 +317,7 @@ export function App(): JSX.Element {
   const [credentialQuery, setCredentialQuery] = useState('');
   const [vaultAllCredentials, setVaultAllCredentials] = useState<CredentialEntry[]>([]);
   const [vaultCredentials, setVaultCredentials] = useState<CredentialEntry[]>([]);
+  const [desktopShortcuts, setDesktopShortcuts] = useState<DesktopShortcut[]>([]);
   const [vaultDraft, setVaultDraft] = useState<CredentialDraftState>(emptyCredentialDraft);
   const [vaultQuery, setVaultQuery] = useState('');
   const [vaultMenuId, setVaultMenuId] = useState<CredentialVaultMenuId>('all');
@@ -404,12 +419,22 @@ export function App(): JSX.Element {
     [selectedVaultCredentialId, vaultCredentials]
   );
 
+  const desktopProfileIds = useMemo(
+    () => new Set(desktopShortcuts.map((shortcut) => shortcut.profileId)),
+    [desktopShortcuts]
+  );
+
   const loadProfiles = useCallback(async () => {
     const nextProfiles = await window.fingerBrowser.profiles.list();
     setProfiles(nextProfiles);
     if (nextProfiles.length > 0) {
       setSelectedId((current) => current ?? nextProfiles[0].id);
     }
+  }, []);
+
+  const loadDesktopShortcuts = useCallback(async () => {
+    const shortcuts = await window.fingerBrowser.desktop.list();
+    setDesktopShortcuts(shortcuts);
   }, []);
 
   const loadAudits = useCallback(async (profileId?: string) => {
@@ -489,10 +514,15 @@ export function App(): JSX.Element {
   }, []);
 
   useEffect(() => {
-    void Promise.all([loadProfiles(), loadCommercialState(), loadTrialState(), loadKernelState(), loadProxyRuntimeStatus()]).catch(
-      (error) => setNotice(error instanceof Error ? error.message : '加载环境失败')
-    );
-  }, [loadCommercialState, loadKernelState, loadProfiles, loadProxyRuntimeStatus, loadTrialState]);
+    void Promise.all([
+      loadProfiles(),
+      loadDesktopShortcuts(),
+      loadCommercialState(),
+      loadTrialState(),
+      loadKernelState(),
+      loadProxyRuntimeStatus()
+    ]).catch((error) => setNotice(error instanceof Error ? error.message : '加载环境失败'));
+  }, [loadCommercialState, loadDesktopShortcuts, loadKernelState, loadProfiles, loadProxyRuntimeStatus, loadTrialState]);
 
   useEffect(() => {
     if (selectedProfile) {
@@ -520,7 +550,12 @@ export function App(): JSX.Element {
         setNotice(error instanceof Error ? error.message : '加载全局密码库失败')
       );
     }
-  }, [loadVaultCredentials, workspaceView]);
+    if (workspaceView === 'desktop') {
+      void loadDesktopShortcuts().catch((error) =>
+        setNotice(error instanceof Error ? error.message : '加载我的桌面失败')
+      );
+    }
+  }, [loadDesktopShortcuts, loadVaultCredentials, workspaceView]);
 
   useEffect(() => {
     setRevealedCredential(null);
@@ -553,6 +588,51 @@ export function App(): JSX.Element {
     setPasswordGeneratorTarget(null);
     setGeneratedPassword('');
     setRevealedCredential(null);
+  };
+
+  const handleOpenDesktop = (): void => {
+    setWorkspaceView('desktop');
+    setActiveNavKey('desktop');
+    setPasswordGeneratorTarget(null);
+    setGeneratedPassword('');
+    setRevealedCredential(null);
+  };
+
+  const handleCreateDesktopShortcut = (profileId?: string): void => {
+    const targetProfileId = profileId ?? selectedProfile?.id;
+    if (!targetProfileId) {
+      setNotice('请先选择一个环境');
+      return;
+    }
+    void run('添加桌面快捷方式', async () => {
+      const shortcut = await window.fingerBrowser.desktop.createShortcut({ profileId: targetProfileId });
+      await loadDesktopShortcuts();
+      await loadAudits(shortcut.profileId);
+      return `已添加到我的桌面：${shortcut.label}`;
+    });
+  };
+
+  const handleDeleteDesktopShortcut = (shortcut: DesktopShortcut): void => {
+    void run('移除桌面快捷方式', async () => {
+      await window.fingerBrowser.desktop.deleteShortcut(shortcut.id);
+      await loadDesktopShortcuts();
+      await loadAudits(shortcut.profileId);
+      return `已从我的桌面移除：${shortcut.label}`;
+    });
+  };
+
+  const handleLaunchDesktopShortcut = (shortcut: DesktopShortcut): void => {
+    void run('从我的桌面启动环境', async () => {
+      await window.fingerBrowser.desktop.launchShortcut(shortcut.id);
+      setSelectedId(shortcut.profileId);
+      await loadProfiles();
+      await loadDesktopShortcuts();
+      await loadProxyRuntimeStatus(shortcut.profileId);
+      await loadCommercialState();
+      await loadTrialState();
+      await loadAudits(shortcut.profileId);
+      return `已启动：${shortcut.label}`;
+    });
   };
 
   const handleSelectVaultMenu = (menuId: CredentialVaultMenuId): void => {
@@ -588,6 +668,7 @@ export function App(): JSX.Element {
         ? await window.fingerBrowser.profiles.update(draftToUpdateInput(draft))
         : await window.fingerBrowser.profiles.create(draftToCreateInput(draft));
       await loadProfiles();
+      await loadDesktopShortcuts();
       await loadProxyRuntimeStatus(saved.id);
       await loadCommercialState();
       await loadTrialState();
@@ -1212,6 +1293,17 @@ export function App(): JSX.Element {
             环境
           </a>
           <a
+            className={activeNavKey === 'desktop' ? 'active' : ''}
+            href="#my-desktop"
+            onClick={(event) => {
+              event.preventDefault();
+              handleOpenDesktop();
+            }}
+          >
+            <Grid2X2 size={17} />
+            我的桌面
+          </a>
+          <a
             className={activeNavKey === 'vault' ? 'active' : ''}
             href="#password-vault"
             onClick={(event) => {
@@ -1324,7 +1416,7 @@ export function App(): JSX.Element {
           ) : null}
         </div>
       </section>
-      ) : (
+      ) : workspaceView === 'vault' ? (
         <section className="profile-list vault-workspace" id="password-vault">
           <header className="topbar">
             <div>
@@ -1441,8 +1533,82 @@ export function App(): JSX.Element {
             </div>
           )}
         </section>
+      ) : (
+        <section className="profile-list desktop-workspace" id="my-desktop">
+          <header className="topbar desktop-topbar">
+            <div>
+              <p className="section-kicker">本地快捷入口</p>
+              <h2>我的桌面</h2>
+            </div>
+            <button
+              className="primary-button"
+              type="button"
+              onClick={() => handleCreateDesktopShortcut()}
+              disabled={!selectedProfile || busy || (selectedProfile ? desktopProfileIds.has(selectedProfile.id) : false)}
+            >
+              <FolderPlus size={17} />
+              添加当前环境
+            </button>
+          </header>
+
+          <div className="desktop-surface" aria-label="我的桌面快捷方式">
+            {desktopShortcuts.map((shortcut) => (
+              <div className="desktop-shortcut" key={shortcut.id}>
+                <button
+                  type="button"
+                  className={`desktop-icon ${shortcut.iconVariant}`}
+                  onClick={() => handleLaunchDesktopShortcut(shortcut)}
+                  disabled={busy}
+                  aria-label={`启动桌面快捷方式 ${shortcut.label}`}
+                  title={`启动 ${shortcut.label}`}
+                >
+                  <span>{desktopIconLabel[shortcut.iconVariant] ?? '环'}</span>
+                  <Globe2 size={34} />
+                </button>
+                <strong title={shortcut.label}>{shortcut.label}</strong>
+                <span className={`desktop-shortcut-status ${statusTone[shortcut.profileStatus]}`}>
+                  {statusText[shortcut.profileStatus]} · {runtimeChannelText[shortcut.runtimeChannel]}
+                </span>
+                <div className="desktop-shortcut-actions">
+                  <button
+                    className="secondary-button compact-button"
+                    type="button"
+                    onClick={() => handleLaunchDesktopShortcut(shortcut)}
+                    disabled={busy}
+                    aria-label={`启动 ${shortcut.label}`}
+                  >
+                    <Play size={14} />
+                    启动
+                  </button>
+                  <button
+                    className="icon-button"
+                    type="button"
+                    onClick={() => handleDeleteDesktopShortcut(shortcut)}
+                    disabled={busy}
+                    aria-label={`移除桌面快捷方式 ${shortcut.label}`}
+                    title="移除快捷方式"
+                  >
+                    <Trash2 size={15} />
+                  </button>
+                </div>
+              </div>
+            ))}
+            {desktopShortcuts.length === 0 ? (
+              <div className="desktop-empty">
+                <Grid2X2 size={26} />
+                <strong>暂无桌面快捷方式</strong>
+                <span>选择一个环境后点击“添加当前环境”，或在环境详情中添加到我的桌面。</span>
+              </div>
+            ) : null}
+          </div>
+          <footer className="notice-bar desktop-notice" aria-live="polite">
+            {busy ? <RefreshCw className="spin" size={15} /> : <CheckCircle2 size={15} />}
+            {notice}
+          </footer>
+        </section>
       )}
 
+      {workspaceView !== 'desktop' ? (
       <aside className="details-drawer">
         {workspaceView === 'vault' ? (
           <>
@@ -1666,6 +1832,15 @@ export function App(): JSX.Element {
           <div className="drawer-actions">
             <button type="button" className="icon-button" onClick={handleEnsureChromium} title="检查 Chromium">
               <RefreshCw size={16} />
+            </button>
+            <button
+              type="button"
+              className="secondary-button"
+              onClick={() => handleCreateDesktopShortcut()}
+              disabled={!selectedProfile || busy || (selectedProfile ? desktopProfileIds.has(selectedProfile.id) : false)}
+            >
+              <Grid2X2 size={16} />
+              添加到桌面
             </button>
             <button type="button" className="secondary-button" onClick={handleStop} disabled={!selectedProfile || busy}>
               <Power size={16} />
@@ -2420,6 +2595,7 @@ export function App(): JSX.Element {
           </>
         )}
       </aside>
+      ) : null}
     </main>
   );
 }

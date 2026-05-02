@@ -48,49 +48,34 @@ export function registerIpcHandlers(services: ApplicationServices): void {
   });
 
   ipcMain.handle('profiles.launch', async (_event, profileId: string) => {
-    const profile = services.profileService.getProfile(profileId);
-    const credentialStartUrls = services.credentialService.listLaunchUrlsForProfile(profileId);
-    const proxyDiagnostic = await createLaunchProxyDiagnostic(services, profile);
-    const result = await services.browserController.launch(profile, profile.proxy, {
-      startUrls: credentialStartUrls,
-      proxyDiagnostic
+    return launchProfile(services, profileId);
+  });
+
+  ipcMain.handle('desktop.list', () => services.desktopService.listShortcuts());
+
+  ipcMain.handle('desktop.createShortcut', (_event, input: { profileId: string }) => {
+    const shortcut = services.desktopService.createShortcut(input);
+    services.profileService.recordAudit(shortcut.profileId, 'DESKTOP_SHORTCUT_CREATED', {
+      shortcutId: shortcut.id
     });
-    services.profileService.setProfileStatus(profileId, 'running');
-    if (result.runtimeChannel === 'custom-kernel') {
-      services.profileService.recordAudit(profileId, 'KERNEL_POLICY_APPLIED', {
-        runtimeChannel: result.runtimeChannel,
-        kernelVersion: result.kernelVersion
-      });
-      services.profileService.recordAudit(profileId, 'KERNEL_LAUNCHED', {
-        runtimeChannel: result.runtimeChannel,
-        kernelVersion: result.kernelVersion
-      });
-    }
-    if (result.localProxy) {
-      services.profileService.recordAudit(profileId, 'LOCAL_PROXY_STARTED', {
-        listenHost: result.localProxy.listenHost,
-        listenPort: result.localProxy.listenPort,
-        upstreamScheme: result.localProxy.upstreamScheme
-      });
-    }
-    services.profileService.recordAudit(profileId, 'PROFILE_LAUNCHED', {
-      pid: result.pid,
-      runtimeChannel: result.runtimeChannel,
-      credentialUrlCount: credentialStartUrls.length,
-      localProxyEnabled: Boolean(result.localProxy),
-      upstreamScheme: result.localProxy?.upstreamScheme,
-      proxyDiagnosticStatus: proxyDiagnostic?.status,
-      proxyDiagnosticIpTimezone: proxyDiagnostic?.ipTimezone,
-      proxyDiagnosticTimezoneMatch: proxyDiagnostic?.timezoneMatch
+    return shortcut;
+  });
+
+  ipcMain.handle('desktop.deleteShortcut', (_event, id: string) => {
+    const shortcut = services.desktopService.getShortcut(id);
+    services.desktopService.deleteShortcut(id);
+    services.profileService.recordAudit(shortcut.profileId, 'DESKTOP_SHORTCUT_DELETED', {
+      shortcutId: id
     });
-    services.trialService.incrementMetric('browserLaunchCount');
-    return {
-      profileId,
-      pid: result.pid,
-      runtimeChannel: result.runtimeChannel,
-      status: 'running' as const,
-      ...(result.localProxy ? { localProxy: result.localProxy } : {})
-    };
+    return { id };
+  });
+
+  ipcMain.handle('desktop.launchShortcut', async (_event, id: string) => {
+    const shortcut = services.desktopService.getShortcut(id);
+    services.profileService.recordAudit(shortcut.profileId, 'DESKTOP_SHORTCUT_LAUNCHED', {
+      shortcutId: id
+    });
+    return launchProfile(services, shortcut.profileId);
   });
 
   ipcMain.handle('profiles.stop', async (_event, profileId: string) => {
@@ -501,6 +486,52 @@ export function registerIpcHandlers(services: ApplicationServices): void {
     services.profileService.recordAudit(null, 'SUPPORT_LOGS_PACKAGED', { filePath });
     return { filePath };
   });
+}
+
+async function launchProfile(services: ApplicationServices, profileId: string) {
+  const profile = services.profileService.getProfile(profileId);
+  const credentialStartUrls = services.credentialService.listLaunchUrlsForProfile(profileId);
+  const proxyDiagnostic = await createLaunchProxyDiagnostic(services, profile);
+  const result = await services.browserController.launch(profile, profile.proxy, {
+    startUrls: credentialStartUrls,
+    proxyDiagnostic
+  });
+  services.profileService.setProfileStatus(profileId, 'running');
+  if (result.runtimeChannel === 'custom-kernel') {
+    services.profileService.recordAudit(profileId, 'KERNEL_POLICY_APPLIED', {
+      runtimeChannel: result.runtimeChannel,
+      kernelVersion: result.kernelVersion
+    });
+    services.profileService.recordAudit(profileId, 'KERNEL_LAUNCHED', {
+      runtimeChannel: result.runtimeChannel,
+      kernelVersion: result.kernelVersion
+    });
+  }
+  if (result.localProxy) {
+    services.profileService.recordAudit(profileId, 'LOCAL_PROXY_STARTED', {
+      listenHost: result.localProxy.listenHost,
+      listenPort: result.localProxy.listenPort,
+      upstreamScheme: result.localProxy.upstreamScheme
+    });
+  }
+  services.profileService.recordAudit(profileId, 'PROFILE_LAUNCHED', {
+    pid: result.pid,
+    runtimeChannel: result.runtimeChannel,
+    credentialUrlCount: credentialStartUrls.length,
+    localProxyEnabled: Boolean(result.localProxy),
+    upstreamScheme: result.localProxy?.upstreamScheme,
+    proxyDiagnosticStatus: proxyDiagnostic?.status,
+    proxyDiagnosticIpTimezone: proxyDiagnostic?.ipTimezone,
+    proxyDiagnosticTimezoneMatch: proxyDiagnostic?.timezoneMatch
+  });
+  services.trialService.incrementMetric('browserLaunchCount');
+  return {
+    profileId,
+    pid: result.pid,
+    runtimeChannel: result.runtimeChannel,
+    status: 'running' as const,
+    ...(result.localProxy ? { localProxy: result.localProxy } : {})
+  };
 }
 
 async function createLaunchProxyDiagnostic(

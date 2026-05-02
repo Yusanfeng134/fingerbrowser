@@ -81,6 +81,17 @@ export function openApplicationDatabase(filePath: string): ApplicationDatabase {
 
     create index if not exists idx_credentials_profile_id on credentials(profile_id);
 
+    create table if not exists desktop_shortcuts (
+      id text primary key,
+      profile_id text not null unique,
+      icon_variant text not null,
+      position_index integer not null,
+      created_at text not null,
+      updated_at text not null
+    );
+
+    create index if not exists idx_desktop_shortcuts_position on desktop_shortcuts(position_index, created_at);
+
     insert or ignore into credentials (
       id, profile_id, title, website_url, username, encrypted_password, created_at, updated_at, last_copied_at
     )

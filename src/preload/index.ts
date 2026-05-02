@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron';
 import type {
   ActivateLicenseInput,
   AppApi,
+  CreateDesktopShortcutInput,
   CreateCredentialInput,
   CreateProfileInput,
   ListCredentialsInput,
@@ -20,6 +21,15 @@ const api: AppApi = {
     export: () => ipcRenderer.invoke('profiles.export') as ReturnType<AppApi['profiles']['export']>,
     launch: (profileId: string) => ipcRenderer.invoke('profiles.launch', profileId) as ReturnType<AppApi['profiles']['launch']>,
     stop: (profileId: string) => ipcRenderer.invoke('profiles.stop', profileId) as ReturnType<AppApi['profiles']['stop']>
+  },
+  desktop: {
+    list: () => ipcRenderer.invoke('desktop.list') as ReturnType<AppApi['desktop']['list']>,
+    createShortcut: (input: CreateDesktopShortcutInput) =>
+      ipcRenderer.invoke('desktop.createShortcut', input) as ReturnType<AppApi['desktop']['createShortcut']>,
+    deleteShortcut: (id: string) =>
+      ipcRenderer.invoke('desktop.deleteShortcut', id) as ReturnType<AppApi['desktop']['deleteShortcut']>,
+    launchShortcut: (id: string) =>
+      ipcRenderer.invoke('desktop.launchShortcut', id) as ReturnType<AppApi['desktop']['launchShortcut']>
   },
   proxy: {
     test: (input: ProxyConnectionInput & { profileId?: string }) =>

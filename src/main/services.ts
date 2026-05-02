@@ -4,6 +4,7 @@ import path from 'node:path';
 import { app, clipboard, safeStorage } from 'electron';
 import { createAppSettingsService, type AppSettingsService } from './domain/app-settings-service';
 import { createCredentialService, type CredentialService } from './domain/credential-service';
+import { createDesktopService, type DesktopService } from './domain/desktop-service';
 import { createNodeSecretBox, createSafeStorageSecretBox, type SecretBox } from './domain/encryption';
 import { getDeviceFingerprint } from './domain/license';
 import { createLicenseService, type LicenseService } from './domain/license-service';
@@ -30,6 +31,7 @@ export interface ApplicationServices {
   secretBox: SecretBox;
   appSettingsService: AppSettingsService;
   profileService: ProfileService;
+  desktopService: DesktopService;
   credentialService: CredentialService;
   licenseService: LicenseService;
   trialService: TrialService;
@@ -55,6 +57,7 @@ export function createApplicationServices(): ApplicationServices {
     dataDir,
     secretBox
   });
+  const desktopService = createDesktopService({ db });
   const credentialService = createCredentialService({
     db,
     secretBox,
@@ -101,6 +104,7 @@ export function createApplicationServices(): ApplicationServices {
     secretBox,
     appSettingsService,
     profileService,
+    desktopService,
     credentialService,
     licenseService,
     trialService,

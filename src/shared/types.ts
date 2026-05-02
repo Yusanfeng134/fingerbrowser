@@ -24,6 +24,9 @@ export type AuditAction =
   | 'PROFILE_UPDATED'
   | 'PROFILE_LAUNCHED'
   | 'PROFILE_STOPPED'
+  | 'DESKTOP_SHORTCUT_CREATED'
+  | 'DESKTOP_SHORTCUT_DELETED'
+  | 'DESKTOP_SHORTCUT_LAUNCHED'
   | 'PROXY_CREATED'
   | 'PROXY_UPDATED'
   | 'PROXY_TESTED'
@@ -165,6 +168,21 @@ export interface BrowserProfile {
 
 export interface ProfileDetails extends BrowserProfile {
   proxy: ProxyConfig | null;
+}
+
+export interface DesktopShortcut {
+  id: string;
+  profileId: string;
+  label: string;
+  profileStatus: ProfileStatus;
+  runtimeChannel: RuntimeChannel;
+  iconVariant: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateDesktopShortcutInput {
+  profileId: string;
 }
 
 export interface AuditEvent {
@@ -401,6 +419,12 @@ export interface AppApi {
     export: () => Promise<ExportResult>;
     launch: (profileId: string) => Promise<LaunchResult>;
     stop: (profileId: string) => Promise<StopResult>;
+  };
+  desktop: {
+    list: () => Promise<DesktopShortcut[]>;
+    createShortcut: (input: CreateDesktopShortcutInput) => Promise<DesktopShortcut>;
+    deleteShortcut: (id: string) => Promise<{ id: string }>;
+    launchShortcut: (id: string) => Promise<LaunchResult>;
   };
   proxy: {
     test: (input: ProxyConnectionInput & { profileId?: string }) => Promise<ProxyTestResult>;
