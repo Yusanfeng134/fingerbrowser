@@ -233,18 +233,18 @@ test('中文 UI 完成激活 license、新建环境、代理测试、导出审�
     await expect(page.getByLabel('我的桌面快捷方式').getByText('E2E 运营环境')).toBeVisible();
     await page.getByRole('button', { name: '新建文件夹' }).click();
     await expect(page.getByText(/已创建文件夹：新建文件夹/)).toBeVisible();
-    const openedEmptyFolder = page.getByRole('region', { name: '已打开桌面文件夹 新建文件夹' });
+    const openedEmptyFolder = page.getByRole('dialog', { name: '桌面文件夹 新建文件夹' });
     await expect(openedEmptyFolder).toBeVisible();
     await expect(openedEmptyFolder).toContainText('拖拽环境图标到这里');
-    await page.getByRole('button', { name: '返回桌面' }).click();
+    await page.getByRole('button', { name: '关闭文件夹 新建文件夹' }).click();
     await page.getByRole('button', { name: '打开 新建文件夹' }).click();
     await expect(openedEmptyFolder).toBeVisible();
-    await page.getByRole('button', { name: '返回桌面' }).click();
+    await page.getByRole('button', { name: '关闭文件夹 新建文件夹' }).click();
     await page
       .locator('.desktop-shortcut')
       .filter({ hasText: 'E2E 运营环境' })
       .dragTo(page.locator('.desktop-folder-shortcut').filter({ hasText: '新建文件夹' }));
-    const desktopFolderPanel = page.getByRole('region', { name: '已打开桌面文件夹 新建文件夹' });
+    const desktopFolderPanel = page.getByRole('dialog', { name: '桌面文件夹 新建文件夹' });
     await expect(desktopFolderPanel).toBeVisible();
     await expect(desktopFolderPanel.getByText('E2E 运营环境')).toBeVisible();
     await page.getByRole('button', { name: '启动文件夹快捷方式 E2E 运营环境' }).click();
