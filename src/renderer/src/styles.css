@@ -1382,6 +1382,14 @@ p {
   font-size: 13px;
 }
 
+.desktop-folder-open-surface {
+  border-color: #bfd2c8;
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.82), rgba(247, 250, 247, 0.9)),
+    #fff;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.88);
+}
+
 .desktop-folder-panel {
   display: grid;
   gap: 16px;
