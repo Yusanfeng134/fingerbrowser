@@ -17,6 +17,7 @@ export function openApplicationDatabase(filePath: string): ApplicationDatabase {
       runtime_channel text not null default 'official',
       fingerprint_policy_json text not null,
       proxy_id text,
+      archived_at text,
       created_at text not null,
       updated_at text not null
     );
@@ -180,6 +181,9 @@ export function openApplicationDatabase(filePath: string): ApplicationDatabase {
   }
   if (!profileColumns.some((column) => column.name === 'runtime_channel')) {
     db.exec("alter table profiles add column runtime_channel text not null default 'official';");
+  }
+  if (!profileColumns.some((column) => column.name === 'archived_at')) {
+    db.exec('alter table profiles add column archived_at text;');
   }
   const desktopShortcutColumns = db.pragma('table_info(desktop_shortcuts)') as Array<{ name: string }>;
   if (!desktopShortcutColumns.some((column) => column.name === 'folder_id')) {

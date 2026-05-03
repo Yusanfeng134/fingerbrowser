@@ -312,4 +312,55 @@ describe('profile service', () => {
     service.deleteProfileTemplate(template.id);
     expect(service.listProfileTemplates()).toHaveLength(0);
   });
+
+  it('archives and restores closed profiles without deleting profile data', () => {
+    const dataDir = mkdtempSync(path.join(tmpdir(), 'fingerbrowser-profile-archive-test-'));
+    tempDirs.push(dataDir);
+    const db = openApplicationDatabase(path.join(dataDir, 'app.sqlite'));
+    const service = createProfileService({
+      db,
+      dataDir,
+      secretBox: createNodeSecretBox('test-master-key')
+    });
+
+    const profile = service.createProfile({
+      name: '待归档环境',
+      groupName: '清理项目',
+      tags: ['archive']
+    });
+
+    const archived = service.archiveProfile(profile.id);
+
+    expect(archived.id).toBe(profile.id);
+    expect(archived.archivedAt).toMatch(/T/);
+    expect(archived.userDataDir).toBe(profile.userDataDir);
+    expect(service.getProfile(profile.id).archivedAt).toBe(archived.archivedAt);
+    expect(service.listProfiles().find((item) => item.id === profile.id)?.archivedAt).toBe(archived.archivedAt);
+
+    const restored = service.restoreProfile(profile.id);
+
+    expect(restored.archivedAt).toBeNull();
+    expect(restored.userDataDir).toBe(profile.userDataDir);
+    expect(service.listAuditEvents().map((event) => event.action)).toEqual(
+      expect.arrayContaining(['PROFILE_ARCHIVED', 'PROFILE_RESTORED'])
+    );
+  });
+
+  it('blocks archiving running profiles', () => {
+    const dataDir = mkdtempSync(path.join(tmpdir(), 'fingerbrowser-profile-archive-running-test-'));
+    tempDirs.push(dataDir);
+    const db = openApplicationDatabase(path.join(dataDir, 'app.sqlite'));
+    const service = createProfileService({
+      db,
+      dataDir,
+      secretBox: createNodeSecretBox('test-master-key')
+    });
+
+    const profile = service.createProfile({
+      name: '运行中环境'
+    });
+    service.setProfileStatus(profile.id, 'running');
+
+    expect(() => service.archiveProfile(profile.id)).toThrow('请先关闭环境');
+  });
 });

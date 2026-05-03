@@ -93,7 +93,12 @@ import {
   reconcileSelectedProfileIds,
   splitWorkbenchCsv
 } from './profile-workbench';
-import type { WorkbenchProxyFilter, WorkbenchRuntimeFilter, WorkbenchStatusFilter } from './profile-workbench';
+import type {
+  WorkbenchArchiveFilter,
+  WorkbenchProxyFilter,
+  WorkbenchRuntimeFilter,
+  WorkbenchStatusFilter
+} from './profile-workbench';
 
 interface DraftState {
   id: string | null;
@@ -294,6 +299,8 @@ const actionLabel: Record<string, string> = {
   PROFILE_CREATED: '创建环境',
   PROFILE_DUPLICATED: '复制环境',
   PROFILE_CREATED_FROM_TEMPLATE: '模板创建环境',
+  PROFILE_ARCHIVED: '归档环境',
+  PROFILE_RESTORED: '恢复环境',
   PROFILE_TEMPLATE_CREATED: '保存环境模板',
   PROFILE_TEMPLATE_DELETED: '删除环境模板',
   PROFILE_UPDATED: '更新环境',
@@ -472,6 +479,7 @@ export function App(): JSX.Element {
   const [profileStatusFilter, setProfileStatusFilter] = useState<WorkbenchStatusFilter>('all');
   const [profileRuntimeFilter, setProfileRuntimeFilter] = useState<WorkbenchRuntimeFilter>('all');
   const [profileProxyFilter, setProfileProxyFilter] = useState<WorkbenchProxyFilter>('all');
+  const [profileArchiveFilter, setProfileArchiveFilter] = useState<WorkbenchArchiveFilter>('active');
   const [profileBatchDraft, setProfileBatchDraft] = useState<ProfileBatchDraftState>(emptyProfileBatchDraft);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [draft, setDraft] = useState<DraftState>(emptyDraft);
@@ -527,9 +535,10 @@ export function App(): JSX.Element {
       groupName: profileGroupFilter,
       status: profileStatusFilter,
       runtimeChannel: profileRuntimeFilter,
-      proxy: profileProxyFilter
+      proxy: profileProxyFilter,
+      archive: profileArchiveFilter
     });
-  }, [profileGroupFilter, profileProxyFilter, profileRuntimeFilter, profileStatusFilter, profiles, query]);
+  }, [profileArchiveFilter, profileGroupFilter, profileProxyFilter, profileRuntimeFilter, profileStatusFilter, profiles, query]);
 
   const profileGroupOptions = useMemo(() => getProfileGroupOptions(profiles), [profiles]);
 
@@ -892,6 +901,7 @@ export function App(): JSX.Element {
     setProfileStatusFilter('all');
     setProfileRuntimeFilter('all');
     setProfileProxyFilter('all');
+    setProfileArchiveFilter('active');
     setProfileBatchDraft(emptyProfileBatchDraft);
     setSelectedId(null);
     setDraft(emptyDraft);
@@ -1679,6 +1689,10 @@ export function App(): JSX.Element {
     if (!selectedProfile) {
       return;
     }
+    if (selectedProfile.archivedAt) {
+      setNotice('请先恢复环境再启动');
+      return;
+    }
     void run('启动 Chromium', async () => {
       const launchTarget = draft.id === selectedProfile.id ? await window.fingerBrowser.profiles.update(draftToUpdateInput(draft)) : selectedProfile;
       await window.fingerBrowser.profiles.launch(launchTarget.id);
@@ -1700,6 +1714,34 @@ export function App(): JSX.Element {
       await loadProxyRuntimeStatus(selectedProfile.id);
       await loadCommercialState();
       await loadAudits(selectedProfile.id);
+    });
+  };
+
+  const handleArchiveProfile = (): void => {
+    if (!selectedProfile) {
+      return;
+    }
+    void run('归档环境', async () => {
+      const archived = await window.fingerBrowser.profiles.archive(selectedProfile.id);
+      await loadProfiles();
+      await loadDesktopShortcuts();
+      await loadCommercialState();
+      await loadAudits(archived.id);
+      return `已归档环境：${archived.name}`;
+    });
+  };
+
+  const handleRestoreProfile = (): void => {
+    if (!selectedProfile) {
+      return;
+    }
+    void run('恢复环境', async () => {
+      const restored = await window.fingerBrowser.profiles.restore(selectedProfile.id);
+      await loadProfiles();
+      await loadDesktopShortcuts();
+      await loadCommercialState();
+      await loadAudits(restored.id);
+      return `已恢复环境：${restored.name}`;
     });
   };
 
@@ -2475,6 +2517,18 @@ export function App(): JSX.Element {
               <option value="untested">未检测</option>
             </select>
           </label>
+          <label>
+            归档
+            <select
+              aria-label="筛选归档"
+              value={profileArchiveFilter}
+              onChange={(event) => setProfileArchiveFilter(event.target.value as WorkbenchArchiveFilter)}
+            >
+              <option value="active">未归档</option>
+              <option value="archived">已归档</option>
+              <option value="all">全部环境</option>
+            </select>
+          </label>
         </div>
 
         <section className="template-toolbar" aria-label="环境模板">
@@ -2638,6 +2692,7 @@ export function App(): JSX.Element {
                 <span className="profile-name-cell">
                   <strong>{profile.name}</strong>
                   <small>
+                    {profile.archivedAt ? '已归档 · ' : ''}
                     {profile.groupName ? `${profile.groupName} · ` : ''}
                     {profile.tags.length > 0 ? profile.tags.join(' / ') : '未设置标签'}
                   </small>
@@ -3542,7 +3597,23 @@ export function App(): JSX.Element {
               <Power size={16} />
               关闭环境
             </button>
-            <button type="button" className="primary-button" onClick={handleLaunch} disabled={!selectedProfile || busy}>
+            {selectedProfile?.archivedAt ? (
+              <button type="button" className="secondary-button" onClick={handleRestoreProfile} disabled={!selectedProfile || busy}>
+                <RotateCcw size={16} />
+                恢复环境
+              </button>
+            ) : (
+              <button
+                type="button"
+                className="secondary-button"
+                onClick={handleArchiveProfile}
+                disabled={!selectedProfile || busy || selectedProfile.status === 'running'}
+              >
+                <PackageCheck size={16} />
+                归档环境
+              </button>
+            )}
+            <button type="button" className="primary-button" onClick={handleLaunch} disabled={!selectedProfile || busy || Boolean(selectedProfile?.archivedAt)}>
               <Play size={16} />
               启动 Chromium
             </button>

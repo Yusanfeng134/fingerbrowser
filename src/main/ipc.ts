@@ -122,6 +122,10 @@ export function registerIpcHandlers(services: ApplicationServices): void {
 
   handleAuthenticated('profiles.update', (_event, input: UpdateProfileInput) => services.profileService.updateProfile(input));
 
+  handleAuthenticated('profiles.archive', (_event, profileId: string) => services.profileService.archiveProfile(profileId));
+
+  handleAuthenticated('profiles.restore', (_event, profileId: string) => services.profileService.restoreProfile(profileId));
+
   handleAuthenticated('profileTemplates.list', () => services.profileService.listProfileTemplates());
 
   handleAuthenticated('profileTemplates.createFromProfile', (_event, input: CreateProfileTemplateFromProfileInput) => {
@@ -749,6 +753,9 @@ export function registerIpcHandlers(services: ApplicationServices): void {
 
 async function launchProfile(services: ApplicationServices, profileId: string) {
   const profile = services.profileService.getProfile(profileId);
+  if (profile.archivedAt) {
+    throw new Error('请先恢复环境再启动');
+  }
   const credentialStartUrls = services.credentialService.listLaunchUrlsForProfile(profileId);
   const proxyDiagnostic = await createLaunchProxyDiagnostic(services, profile);
   const result = await services.browserController.launch(profile, profile.proxy, {

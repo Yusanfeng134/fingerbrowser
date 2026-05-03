@@ -39,6 +39,7 @@ function profile(id: string, name: string): ProfileDetails {
     },
     proxyId: null,
     proxy: null,
+    archivedAt: null,
     createdAt: '2026-04-29T08:00:00.000Z',
     updatedAt: '2026-04-29T08:00:00.000Z'
   };

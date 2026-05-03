@@ -24,6 +24,7 @@ function profile(input: Partial<ProfileDetails> & Pick<ProfileDetails, 'id' | 'n
     },
     proxyId: null,
     proxy: null,
+    archivedAt: null,
     createdAt: '2026-05-03T00:00:00.000Z',
     updatedAt: '2026-05-03T00:00:00.000Z',
     ...input
@@ -75,6 +76,14 @@ describe('profile workbench helpers', () => {
       groupName: '',
       tags: ['JP'],
       status: 'closed'
+    }),
+    profile({
+      id: 'p4',
+      name: '归档环境',
+      groupName: '广告项目',
+      tags: ['old'],
+      status: 'closed',
+      archivedAt: '2026-05-03T01:00:00.000Z'
     })
   ];
 
@@ -96,6 +105,12 @@ describe('profile workbench helpers', () => {
     expect(filterWorkbenchProfiles(profiles, { proxy: 'missing' }).map((item) => item.id)).toEqual(['p3']);
     expect(filterWorkbenchProfiles(profiles, { proxy: 'failed' }).map((item) => item.id)).toEqual(['p2']);
     expect(filterWorkbenchProfiles(profiles, { query: 'crm' }).map((item) => item.id)).toEqual(['p2']);
+  });
+
+  it('hides archived profiles by default and can show archived or all profiles', () => {
+    expect(filterWorkbenchProfiles(profiles).map((item) => item.id)).toEqual(['p1', 'p2', 'p3']);
+    expect(filterWorkbenchProfiles(profiles, { archive: 'archived' }).map((item) => item.id)).toEqual(['p4']);
+    expect(filterWorkbenchProfiles(profiles, { archive: 'all' }).map((item) => item.id)).toEqual(['p1', 'p2', 'p3', 'p4']);
   });
 
   it('reconciles selected ids to visible profiles only and parses CSV values', () => {

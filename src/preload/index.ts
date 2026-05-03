@@ -47,6 +47,10 @@ const api: AppApi = {
     duplicate: (input: DuplicateProfileInput) =>
       ipcRenderer.invoke('profiles.duplicate', input) as ReturnType<AppApi['profiles']['duplicate']>,
     update: (input: UpdateProfileInput) => ipcRenderer.invoke('profiles.update', input) as ReturnType<AppApi['profiles']['update']>,
+    archive: (profileId: string) =>
+      ipcRenderer.invoke('profiles.archive', profileId) as ReturnType<AppApi['profiles']['archive']>,
+    restore: (profileId: string) =>
+      ipcRenderer.invoke('profiles.restore', profileId) as ReturnType<AppApi['profiles']['restore']>,
     export: () => ipcRenderer.invoke('profiles.export') as ReturnType<AppApi['profiles']['export']>,
     launch: (profileId: string) => ipcRenderer.invoke('profiles.launch', profileId) as ReturnType<AppApi['profiles']['launch']>,
     stop: (profileId: string) => ipcRenderer.invoke('profiles.stop', profileId) as ReturnType<AppApi['profiles']['stop']>

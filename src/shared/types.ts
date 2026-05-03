@@ -26,6 +26,8 @@ export type AuditAction =
   | 'PROFILE_CREATED'
   | 'PROFILE_DUPLICATED'
   | 'PROFILE_CREATED_FROM_TEMPLATE'
+  | 'PROFILE_ARCHIVED'
+  | 'PROFILE_RESTORED'
   | 'PROFILE_TEMPLATE_CREATED'
   | 'PROFILE_TEMPLATE_DELETED'
   | 'PROFILE_UPDATED'
@@ -229,6 +231,7 @@ export interface BrowserProfile {
   runtimeChannel: RuntimeChannel;
   fingerprintPolicy: FingerprintPolicy;
   proxyId: string | null;
+  archivedAt: string | null;
   createdAt: string;
   updatedAt: string;
 }
@@ -638,6 +641,8 @@ export interface AppApi {
     bulkCreate: (inputs: CreateProfileInput[]) => Promise<ProfileDetails[]>;
     duplicate: (input: DuplicateProfileInput) => Promise<ProfileDetails>;
     update: (input: UpdateProfileInput) => Promise<ProfileDetails>;
+    archive: (profileId: string) => Promise<ProfileDetails>;
+    restore: (profileId: string) => Promise<ProfileDetails>;
     export: () => Promise<ExportResult>;
     launch: (profileId: string) => Promise<LaunchResult>;
     stop: (profileId: string) => Promise<StopResult>;

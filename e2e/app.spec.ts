@@ -366,6 +366,20 @@ test('中文 UI 完成激活 license、新建环境、代理测试、导出审�
     await expect(page.getByText('PROFILE_CREATED_FROM_TEMPLATE')).toBeVisible();
     await expect(page.getByText('proxy-password')).toHaveCount(0);
     await page.getByRole('tab', { name: '配置' }).click();
+    await page.getByRole('button', { name: '归档环境' }).click();
+    await expect(page.getByText(/已归档环境：E2E 客服模板 环境 3/)).toBeVisible();
+    await expect(page.getByLabel('环境列表').getByText('E2E 客服模板 环境 3')).toHaveCount(0);
+    await page.getByLabel('筛选归档').selectOption('archived');
+    await expect(page.getByLabel('环境列表').getByText('E2E 客服模板 环境 3')).toBeVisible();
+    await page.getByRole('button', { name: '恢复环境' }).click();
+    await expect(page.getByText(/已恢复环境：E2E 客服模板 环境 3/)).toBeVisible();
+    await expect(page.getByLabel('环境列表').getByText('E2E 客服模板 环境 3')).toHaveCount(0);
+    await page.getByLabel('筛选归档').selectOption('active');
+    await expect(page.getByLabel('环境列表').getByText('E2E 客服模板 环境 3')).toBeVisible();
+    await page.getByRole('tab', { name: '审计' }).click();
+    await expect(page.getByText('PROFILE_ARCHIVED')).toBeVisible();
+    await expect(page.getByText('PROFILE_RESTORED')).toBeVisible();
+    await page.getByRole('tab', { name: '配置' }).click();
 
     await page.getByRole('button', { name: '新建环境' }).click();
     await page.getByLabel('环境名称').fill('E2E 自研内核环境');

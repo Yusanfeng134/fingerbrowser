@@ -3,6 +3,7 @@ import type { ProfileDetails, ProfileStatus, ProxyTestStatus, RuntimeChannel } f
 export type WorkbenchStatusFilter = 'all' | ProfileStatus;
 export type WorkbenchRuntimeFilter = 'all' | RuntimeChannel;
 export type WorkbenchProxyFilter = 'all' | 'configured' | 'missing' | ProxyTestStatus;
+export type WorkbenchArchiveFilter = 'active' | 'archived' | 'all';
 
 export interface ProfileWorkbenchFilters {
   query?: string;
@@ -10,6 +11,7 @@ export interface ProfileWorkbenchFilters {
   status?: WorkbenchStatusFilter;
   runtimeChannel?: WorkbenchRuntimeFilter;
   proxy?: WorkbenchProxyFilter;
+  archive?: WorkbenchArchiveFilter;
 }
 
 export function splitWorkbenchCsv(value: string): string[] {
@@ -33,6 +35,9 @@ export function filterWorkbenchProfiles(
 ): ProfileDetails[] {
   const query = filters.query?.trim().toLowerCase() ?? '';
   return profiles.filter((profile) => {
+    if (!matchesArchiveFilter(profile, filters.archive ?? 'active')) {
+      return false;
+    }
     if (filters.groupName && profile.groupName !== filters.groupName) {
       return false;
     }
@@ -55,12 +60,21 @@ export function filterWorkbenchProfiles(
       profile.proxy?.host ?? '',
       profile.proxy?.scheme ?? '',
       profile.status,
+      profile.archivedAt ? 'archived 归档' : 'active',
       profile.runtimeChannel
     ]
       .join(' ')
       .toLowerCase()
       .includes(query);
   });
+}
+
+function matchesArchiveFilter(profile: ProfileDetails, filter: WorkbenchArchiveFilter): boolean {
+  if (filter === 'all') {
+    return true;
+  }
+  const archived = Boolean(profile.archivedAt);
+  return filter === 'archived' ? archived : !archived;
 }
 
 function matchesProxyFilter(profile: ProfileDetails, filter: WorkbenchProxyFilter): boolean {

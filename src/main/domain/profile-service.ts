@@ -42,6 +42,7 @@ interface ProfileRow {
   runtime_channel: RuntimeChannel;
   fingerprint_policy_json: string;
   proxy_id: string | null;
+  archived_at: string | null;
   created_at: string;
   updated_at: string;
 }
@@ -88,6 +89,8 @@ export interface ProfileService {
   createProfileFromTemplate(input: CreateProfileFromTemplateInput): ProfileDetails;
   deleteProfileTemplate(id: string): void;
   updateProfile(input: UpdateProfileInput): ProfileDetails;
+  archiveProfile(id: string): ProfileDetails;
+  restoreProfile(id: string): ProfileDetails;
   getProfile(id: string): ProfileDetails;
   setProfileStatus(id: string, status: BrowserProfile['status']): ProfileDetails;
   setProxyTestStatus(proxyId: string, result: ProxyTestResult): void;
@@ -158,6 +161,7 @@ export function createProfileService(options: ProfileServiceOptions): ProfileSer
       runtimeChannel: normalizeRuntimeChannel(row.runtime_channel),
       fingerprintPolicy: JSON.parse(row.fingerprint_policy_json) as FingerprintPolicy,
       proxyId: row.proxy_id,
+      archivedAt: row.archived_at ?? null,
       createdAt: row.created_at,
       updatedAt: row.updated_at
     };
@@ -286,8 +290,8 @@ export function createProfileService(options: ProfileServiceOptions): ProfileSer
 
     db.prepare(
       `insert into profiles (
-        id, name, group_name, tags_json, status, user_data_dir, chromium_version, runtime_channel, fingerprint_policy_json, proxy_id, created_at, updated_at
-      ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        id, name, group_name, tags_json, status, user_data_dir, chromium_version, runtime_channel, fingerprint_policy_json, proxy_id, archived_at, created_at, updated_at
+      ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     ).run(
       id,
       input.name.trim(),
@@ -299,6 +303,7 @@ export function createProfileService(options: ProfileServiceOptions): ProfileSer
       normalizeRuntimeChannel(input.runtimeChannel),
       JSON.stringify(normalizeFingerprintPolicy(input.fingerprintPolicy)),
       input.proxyId,
+      null,
       now,
       now
     );
@@ -376,8 +381,8 @@ export function createProfileService(options: ProfileServiceOptions): ProfileSer
 
       db.prepare(
         `insert into profiles (
-          id, name, group_name, tags_json, status, user_data_dir, chromium_version, runtime_channel, fingerprint_policy_json, proxy_id, created_at, updated_at
-        ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          id, name, group_name, tags_json, status, user_data_dir, chromium_version, runtime_channel, fingerprint_policy_json, proxy_id, archived_at, created_at, updated_at
+        ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       ).run(
         id,
         input.name.trim(),
@@ -389,6 +394,7 @@ export function createProfileService(options: ProfileServiceOptions): ProfileSer
         normalizeRuntimeChannel(input.runtimeChannel),
         JSON.stringify(normalizeFingerprintPolicy(input.fingerprintPolicy)),
         proxy?.id ?? null,
+        null,
         now,
         now
       );
@@ -545,6 +551,31 @@ export function createProfileService(options: ProfileServiceOptions): ProfileSer
         recordAudit(input.id, existing.proxyId ? 'PROXY_UPDATED' : 'PROXY_CREATED', { proxyId });
       }
       return getProfile(input.id);
+    },
+    archiveProfile(id: string): ProfileDetails {
+      const profile = getProfile(id);
+      if (profile.status === 'running') {
+        throw new Error('请先关闭环境再归档');
+      }
+      const archivedAt = new Date().toISOString();
+      db.prepare('update profiles set archived_at = ?, updated_at = ? where id = ?').run(archivedAt, archivedAt, id);
+      recordAudit(id, 'PROFILE_ARCHIVED', {
+        name: profile.name,
+        groupName: profile.groupName,
+        runtimeChannel: profile.runtimeChannel
+      });
+      return getProfile(id);
+    },
+    restoreProfile(id: string): ProfileDetails {
+      const profile = getProfile(id);
+      const now = new Date().toISOString();
+      db.prepare('update profiles set archived_at = null, updated_at = ? where id = ?').run(now, id);
+      recordAudit(id, 'PROFILE_RESTORED', {
+        name: profile.name,
+        groupName: profile.groupName,
+        runtimeChannel: profile.runtimeChannel
+      });
+      return getProfile(id);
     },
     getProfile,
     setProfileStatus(id: string, status: BrowserProfile['status']): ProfileDetails {
