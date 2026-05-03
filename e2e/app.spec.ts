@@ -111,6 +111,11 @@ test('中文 UI 完成激活 license、新建环境、代理测试、导出审�
     await expect(page.getByLabel('环境健康概览')).toContainText('待补全');
     await expect(page.getByLabel('环境健康详情')).toContainText('待补全');
     await expect(page.locator('.profile-row-content').filter({ hasText: 'E2E 运营环境' }).getByText('待补全')).toBeVisible();
+    await page.getByLabel('筛选健康').selectOption('attention');
+    await expect(page.getByLabel('环境列表').getByText('E2E 运营环境')).toBeVisible();
+    await page.getByLabel('筛选健康').selectOption('ready');
+    await expect(page.getByLabel('环境列表').getByText('E2E 运营环境')).toHaveCount(0);
+    await page.getByLabel('筛选健康').selectOption('all');
     await page.getByLabel('搜索环境').fill('客户试卖备注');
     await expect(page.getByLabel('环境列表').getByText('E2E 运营环境')).toBeVisible();
     await page.getByLabel('搜索环境').fill('');
@@ -317,6 +322,9 @@ test('中文 UI 完成激活 license、新建环境、代理测试、导出审�
       page.locator('.profile-row-content').filter({ hasText: 'E2E 运营环境', hasNotText: '副本' }).getByText('已就绪')
     ).toBeVisible();
     await expect(page.getByLabel('环境健康详情')).toContainText('已就绪');
+    await page.getByLabel('筛选健康').selectOption('ready');
+    await expect(page.getByLabel('环境列表').getByText('E2E 运营环境')).toBeVisible();
+    await page.getByLabel('筛选健康').selectOption('all');
     await expect(page.getByLabel('本地代理状态')).toContainText('运行中');
     await expect(page.getByLabel('本地代理状态')).toContainText('HTTP');
     const checkPagePath = path.join(dataDir, 'environment-check', 'environment-check.html');

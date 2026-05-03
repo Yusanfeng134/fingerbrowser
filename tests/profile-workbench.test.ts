@@ -39,10 +39,13 @@ describe('profile workbench helpers', () => {
     profile({
       id: 'p1',
       name: '洛杉矶广告环境',
+      owner: 'Alice',
+      notes: '投放项目主环境',
       groupName: '广告项目',
       tags: ['US', '核心'],
       status: 'running',
       runtimeChannel: 'custom-kernel',
+      lastLaunchedAt: '2026-05-03T08:00:00.000Z',
       proxyId: 'proxy-1',
       proxy: {
         id: 'proxy-1',
@@ -108,6 +111,14 @@ describe('profile workbench helpers', () => {
     expect(filterWorkbenchProfiles(profiles, { proxy: 'missing' }).map((item) => item.id)).toEqual(['p3']);
     expect(filterWorkbenchProfiles(profiles, { proxy: 'failed' }).map((item) => item.id)).toEqual(['p2']);
     expect(filterWorkbenchProfiles(profiles, { query: 'crm' }).map((item) => item.id)).toEqual(['p2']);
+  });
+
+  it('filters by derived health status', () => {
+    const now = new Date('2026-05-03T12:00:00.000Z');
+
+    expect(filterWorkbenchProfiles(profiles, { health: 'ready' }, now).map((item) => item.id)).toEqual(['p1']);
+    expect(filterWorkbenchProfiles(profiles, { health: 'attention' }, now).map((item) => item.id)).toEqual(['p2', 'p3']);
+    expect(filterWorkbenchProfiles(profiles, { health: 'archived' }, now).map((item) => item.id)).toEqual(['p4']);
   });
 
   it('hides archived profiles by default and can show archived or all profiles', () => {

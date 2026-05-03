@@ -96,6 +96,7 @@ import {
 import { getProfileHealth, getProfileHealthStats } from './profile-health';
 import type {
   WorkbenchArchiveFilter,
+  WorkbenchHealthFilter,
   WorkbenchProxyFilter,
   WorkbenchRuntimeFilter,
   WorkbenchStatusFilter
@@ -494,6 +495,7 @@ export function App(): JSX.Element {
   const [selectedProfileIds, setSelectedProfileIds] = useState<string[]>([]);
   const [profileGroupFilter, setProfileGroupFilter] = useState('');
   const [profileStatusFilter, setProfileStatusFilter] = useState<WorkbenchStatusFilter>('all');
+  const [profileHealthFilter, setProfileHealthFilter] = useState<WorkbenchHealthFilter>('all');
   const [profileRuntimeFilter, setProfileRuntimeFilter] = useState<WorkbenchRuntimeFilter>('all');
   const [profileProxyFilter, setProfileProxyFilter] = useState<WorkbenchProxyFilter>('all');
   const [profileArchiveFilter, setProfileArchiveFilter] = useState<WorkbenchArchiveFilter>('active');
@@ -551,11 +553,21 @@ export function App(): JSX.Element {
       query,
       groupName: profileGroupFilter,
       status: profileStatusFilter,
+      health: profileHealthFilter,
       runtimeChannel: profileRuntimeFilter,
       proxy: profileProxyFilter,
       archive: profileArchiveFilter
     });
-  }, [profileArchiveFilter, profileGroupFilter, profileProxyFilter, profileRuntimeFilter, profileStatusFilter, profiles, query]);
+  }, [
+    profileArchiveFilter,
+    profileGroupFilter,
+    profileHealthFilter,
+    profileProxyFilter,
+    profileRuntimeFilter,
+    profileStatusFilter,
+    profiles,
+    query
+  ]);
 
   const profileGroupOptions = useMemo(() => getProfileGroupOptions(profiles), [profiles]);
 
@@ -927,6 +939,7 @@ export function App(): JSX.Element {
     setSelectedProfileIds([]);
     setProfileGroupFilter('');
     setProfileStatusFilter('all');
+    setProfileHealthFilter('all');
     setProfileRuntimeFilter('all');
     setProfileProxyFilter('all');
     setProfileArchiveFilter('active');
@@ -2538,6 +2551,19 @@ export function App(): JSX.Element {
               <option value="running">运行中</option>
               <option value="closed">已关闭</option>
               <option value="error">异常</option>
+            </select>
+          </label>
+          <label>
+            健康
+            <select
+              aria-label="筛选健康"
+              value={profileHealthFilter}
+              onChange={(event) => setProfileHealthFilter(event.target.value as WorkbenchHealthFilter)}
+            >
+              <option value="all">全部健康</option>
+              <option value="ready">已就绪</option>
+              <option value="attention">待补全</option>
+              <option value="archived">已归档</option>
             </select>
           </label>
           <label>
