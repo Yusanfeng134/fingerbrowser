@@ -86,6 +86,13 @@ import {
   normalizePasswordGeneratorOptions
 } from './password-generator';
 import type { PasswordGeneratorOptions } from './password-generator';
+import {
+  filterWorkbenchProfiles,
+  getProfileGroupOptions,
+  reconcileSelectedProfileIds,
+  splitWorkbenchCsv
+} from './profile-workbench';
+import type { WorkbenchProxyFilter, WorkbenchRuntimeFilter, WorkbenchStatusFilter } from './profile-workbench';
 
 interface DraftState {
   id: string | null;
@@ -164,6 +171,13 @@ interface ProxyPoolDraftState {
   bypassList: string;
 }
 
+interface ProfileBatchDraftState {
+  groupName: string;
+  tags: string;
+  proxyPoolEntryId: string;
+  matchTimezone: boolean;
+}
+
 const emptyDraft: DraftState = {
   id: null,
   name: '',
@@ -230,6 +244,13 @@ const emptyProxyPoolDraft: ProxyPoolDraftState = {
   region: '',
   timezone: '',
   bypassList: 'localhost,127.0.0.1'
+};
+
+const emptyProfileBatchDraft: ProfileBatchDraftState = {
+  groupName: '',
+  tags: '',
+  proxyPoolEntryId: '',
+  matchTimezone: true
 };
 
 const statusText: Record<BrowserProfile['status'], string> = {
@@ -438,6 +459,12 @@ export function App(): JSX.Element {
   const [proxyPoolDraft, setProxyPoolDraft] = useState<ProxyPoolDraftState>(emptyProxyPoolDraft);
   const [proxyPoolQuery, setProxyPoolQuery] = useState('');
   const [proxyPoolMatchTimezone, setProxyPoolMatchTimezone] = useState(true);
+  const [selectedProfileIds, setSelectedProfileIds] = useState<string[]>([]);
+  const [profileGroupFilter, setProfileGroupFilter] = useState('');
+  const [profileStatusFilter, setProfileStatusFilter] = useState<WorkbenchStatusFilter>('all');
+  const [profileRuntimeFilter, setProfileRuntimeFilter] = useState<WorkbenchRuntimeFilter>('all');
+  const [profileProxyFilter, setProfileProxyFilter] = useState<WorkbenchProxyFilter>('all');
+  const [profileBatchDraft, setProfileBatchDraft] = useState<ProfileBatchDraftState>(emptyProfileBatchDraft);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [draft, setDraft] = useState<DraftState>(emptyDraft);
   const [audits, setAudits] = useState<AuditEvent[]>([]);
@@ -487,17 +514,31 @@ export function App(): JSX.Element {
   );
 
   const filteredProfiles = useMemo(() => {
-    const keyword = query.trim().toLowerCase();
-    if (!keyword) {
-      return profiles;
-    }
-    return profiles.filter((profile) => {
-      const haystack = [profile.name, profile.groupName, profile.tags.join(','), profile.proxy?.host ?? '', profile.status]
-        .join(' ')
-        .toLowerCase();
-      return haystack.includes(keyword);
+    return filterWorkbenchProfiles(profiles, {
+      query,
+      groupName: profileGroupFilter,
+      status: profileStatusFilter,
+      runtimeChannel: profileRuntimeFilter,
+      proxy: profileProxyFilter
     });
-  }, [profiles, query]);
+  }, [profileGroupFilter, profileProxyFilter, profileRuntimeFilter, profileStatusFilter, profiles, query]);
+
+  const profileGroupOptions = useMemo(() => getProfileGroupOptions(profiles), [profiles]);
+
+  const visibleSelectedProfileIds = useMemo(
+    () => reconcileSelectedProfileIds(selectedProfileIds, filteredProfiles),
+    [filteredProfiles, selectedProfileIds]
+  );
+
+  const selectedProfilesForBatch = useMemo(
+    () => profiles.filter((profile) => visibleSelectedProfileIds.includes(profile.id)),
+    [profiles, visibleSelectedProfileIds]
+  );
+
+  const allFilteredProfilesSelected = useMemo(
+    () => filteredProfiles.length > 0 && visibleSelectedProfileIds.length === filteredProfiles.length,
+    [filteredProfiles.length, visibleSelectedProfileIds.length]
+  );
 
   const selectedProxyPoolEntry = useMemo(
     () => proxyPoolEntries.find((entry) => entry.id === selectedProxyPoolEntryId) ?? null,
@@ -795,6 +836,10 @@ export function App(): JSX.Element {
     setRevealedCredential(null);
   }, [activeTab, selectedVaultCredentialId, vaultMenuId, workspaceView]);
 
+  useEffect(() => {
+    setSelectedProfileIds((current) => reconcileSelectedProfileIds(current, filteredProfiles));
+  }, [filteredProfiles]);
+
   const run = useCallback(async (label: string, task: () => Promise<string | void>) => {
     setBusy(true);
     setNotice(`${label}中...`);
@@ -816,6 +861,12 @@ export function App(): JSX.Element {
     setProxyPoolDraft(emptyProxyPoolDraft);
     setProxyPoolQuery('');
     setProxyPoolMatchTimezone(true);
+    setSelectedProfileIds([]);
+    setProfileGroupFilter('');
+    setProfileStatusFilter('all');
+    setProfileRuntimeFilter('all');
+    setProfileProxyFilter('all');
+    setProfileBatchDraft(emptyProfileBatchDraft);
     setSelectedId(null);
     setDraft(emptyDraft);
     setAudits([]);
@@ -1017,6 +1068,127 @@ export function App(): JSX.Element {
       await loadAudits(updated.id);
       setSelectedId(updated.id);
       return `已应用代理到环境：${updated.name}`;
+    });
+  };
+
+  const handleToggleProfileSelection = (profileId: string): void => {
+    setSelectedProfileIds((current) =>
+      current.includes(profileId) ? current.filter((id) => id !== profileId) : [...current, profileId]
+    );
+  };
+
+  const handleToggleAllFilteredProfiles = (): void => {
+    setSelectedProfileIds((current) => {
+      const filteredIds = filteredProfiles.map((profile) => profile.id);
+      if (filteredIds.length > 0 && filteredIds.every((id) => current.includes(id))) {
+        return current.filter((id) => !filteredIds.includes(id));
+      }
+      return [...new Set([...current, ...filteredIds])];
+    });
+  };
+
+  const handleBatchUpdateGroup = (): void => {
+    if (selectedProfilesForBatch.length === 0) {
+      setNotice('请先选择环境');
+      return;
+    }
+    void run('批量修改分组', async () => {
+      for (const profile of selectedProfilesForBatch) {
+        await window.fingerBrowser.profiles.update({
+          id: profile.id,
+          name: profile.name,
+          groupName: profileBatchDraft.groupName,
+          tags: profile.tags,
+          fingerprintPolicy: profile.fingerprintPolicy,
+          runtimeChannel: profile.runtimeChannel,
+          proxy: profile.proxy
+            ? {
+                scheme: profile.proxy.scheme,
+                host: profile.proxy.host,
+                port: profile.proxy.port,
+                username: profile.proxy.username,
+                bypassList: profile.proxy.bypassList
+              }
+            : null
+        });
+      }
+      await loadProfiles();
+      await loadAudits();
+      return `已更新 ${selectedProfilesForBatch.length} 个环境分组`;
+    });
+  };
+
+  const handleBatchUpdateTags = (): void => {
+    if (selectedProfilesForBatch.length === 0) {
+      setNotice('请先选择环境');
+      return;
+    }
+    const tags = splitWorkbenchCsv(profileBatchDraft.tags);
+    void run('批量修改标签', async () => {
+      for (const profile of selectedProfilesForBatch) {
+        await window.fingerBrowser.profiles.update({
+          id: profile.id,
+          name: profile.name,
+          groupName: profile.groupName,
+          tags,
+          fingerprintPolicy: profile.fingerprintPolicy,
+          runtimeChannel: profile.runtimeChannel,
+          proxy: profile.proxy
+            ? {
+                scheme: profile.proxy.scheme,
+                host: profile.proxy.host,
+                port: profile.proxy.port,
+                username: profile.proxy.username,
+                bypassList: profile.proxy.bypassList
+              }
+            : null
+        });
+      }
+      await loadProfiles();
+      await loadAudits();
+      return `已更新 ${selectedProfilesForBatch.length} 个环境标签`;
+    });
+  };
+
+  const handleBatchApplyProxy = (): void => {
+    if (selectedProfilesForBatch.length === 0) {
+      setNotice('请先选择环境');
+      return;
+    }
+    if (!profileBatchDraft.proxyPoolEntryId) {
+      setNotice('请选择代理池条目');
+      return;
+    }
+    void run('批量应用代理', async () => {
+      for (const profile of selectedProfilesForBatch) {
+        await window.fingerBrowser.proxyPool.applyToProfile({
+          entryId: profileBatchDraft.proxyPoolEntryId,
+          profileId: profile.id,
+          matchTimezone: profileBatchDraft.matchTimezone
+        });
+      }
+      await loadProfiles();
+      await loadProxyRuntimeStatus();
+      await loadAudits();
+      return `已应用代理到 ${selectedProfilesForBatch.length} 个环境`;
+    });
+  };
+
+  const handleBatchStopProfiles = (): void => {
+    const runningProfiles = selectedProfilesForBatch.filter((profile) => profile.status === 'running');
+    if (runningProfiles.length === 0) {
+      setNotice('已选环境中没有运行中的环境');
+      return;
+    }
+    void run('批量关闭环境', async () => {
+      for (const profile of runningProfiles) {
+        await window.fingerBrowser.profiles.stop(profile.id);
+      }
+      await loadProfiles();
+      await loadDesktopShortcuts();
+      await loadProxyRuntimeStatus();
+      await loadAudits();
+      return `已关闭 ${runningProfiles.length} 个环境`;
     });
   };
 
@@ -2137,7 +2309,139 @@ export function App(): JSX.Element {
           />
         </div>
 
+        <div className="profile-filter-bar" aria-label="环境筛选">
+          <label>
+            分组
+            <select
+              aria-label="筛选分组"
+              value={profileGroupFilter}
+              onChange={(event) => setProfileGroupFilter(event.target.value)}
+            >
+              <option value="">全部分组</option>
+              {profileGroupOptions.map((groupName) => (
+                <option value={groupName} key={groupName}>
+                  {groupName}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label>
+            状态
+            <select
+              aria-label="筛选状态"
+              value={profileStatusFilter}
+              onChange={(event) => setProfileStatusFilter(event.target.value as WorkbenchStatusFilter)}
+            >
+              <option value="all">全部状态</option>
+              <option value="running">运行中</option>
+              <option value="closed">已关闭</option>
+              <option value="error">异常</option>
+            </select>
+          </label>
+          <label>
+            内核
+            <select
+              aria-label="筛选内核"
+              value={profileRuntimeFilter}
+              onChange={(event) => setProfileRuntimeFilter(event.target.value as WorkbenchRuntimeFilter)}
+            >
+              <option value="all">全部内核</option>
+              <option value="official">官方稳定版</option>
+              <option value="custom-kernel">自研内核</option>
+            </select>
+          </label>
+          <label>
+            代理
+            <select
+              aria-label="筛选代理"
+              value={profileProxyFilter}
+              onChange={(event) => setProfileProxyFilter(event.target.value as WorkbenchProxyFilter)}
+            >
+              <option value="all">全部代理</option>
+              <option value="configured">已配置</option>
+              <option value="missing">未配置</option>
+              <option value="passed">代理可用</option>
+              <option value="failed">代理失败</option>
+              <option value="untested">未检测</option>
+            </select>
+          </label>
+        </div>
+
+        <section className="batch-toolbar" aria-label="批量操作">
+          <div className="batch-toolbar-title">
+            <strong>已选 {visibleSelectedProfileIds.length} 个环境</strong>
+            <span>当前筛选 {filteredProfiles.length} 个</span>
+          </div>
+          <div className="batch-grid">
+            <label>
+              批量分组
+              <input
+                aria-label="批量分组"
+                value={profileBatchDraft.groupName}
+                onChange={(event) => setProfileBatchDraft({ ...profileBatchDraft, groupName: event.target.value })}
+                placeholder="项目、客户或团队"
+              />
+            </label>
+            <button className="secondary-button" type="button" onClick={handleBatchUpdateGroup} disabled={busy || visibleSelectedProfileIds.length === 0}>
+              修改分组
+            </button>
+            <label>
+              批量标签
+              <input
+                aria-label="批量标签"
+                value={profileBatchDraft.tags}
+                onChange={(event) => setProfileBatchDraft({ ...profileBatchDraft, tags: event.target.value })}
+                placeholder="合规,测试"
+              />
+            </label>
+            <button className="secondary-button" type="button" onClick={handleBatchUpdateTags} disabled={busy || visibleSelectedProfileIds.length === 0}>
+              修改标签
+            </button>
+            <label>
+              代理池
+              <select
+                aria-label="批量代理池"
+                value={profileBatchDraft.proxyPoolEntryId}
+                onChange={(event) => setProfileBatchDraft({ ...profileBatchDraft, proxyPoolEntryId: event.target.value })}
+              >
+                <option value="">选择代理</option>
+                {proxyPoolEntries.map((entry) => (
+                  <option value={entry.id} key={entry.id}>
+                    {entry.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button className="secondary-button" type="button" onClick={handleBatchApplyProxy} disabled={busy || visibleSelectedProfileIds.length === 0}>
+              应用代理
+            </button>
+          </div>
+          <div className="batch-actions">
+            <label className="check-row">
+              <input
+                aria-label="批量同步代理时区"
+                type="checkbox"
+                checked={profileBatchDraft.matchTimezone}
+                onChange={(event) => setProfileBatchDraft({ ...profileBatchDraft, matchTimezone: event.target.checked })}
+              />
+              同步代理时区
+            </label>
+            <button className="secondary-button" type="button" onClick={handleBatchStopProfiles} disabled={busy || visibleSelectedProfileIds.length === 0}>
+              <Power size={15} />
+              批量关闭
+            </button>
+          </div>
+        </section>
+
         <div className="table-header">
+          <label className="profile-check-cell">
+            <input
+              aria-label="选择当前筛选环境"
+              type="checkbox"
+              checked={allFilteredProfilesSelected}
+              onChange={handleToggleAllFilteredProfiles}
+            />
+          </label>
           <span>环境</span>
           <span>状态</span>
           <span>代理</span>
@@ -2146,30 +2450,42 @@ export function App(): JSX.Element {
 
         <div className="profile-rows" role="list" aria-label="环境列表">
           {filteredProfiles.map((profile) => (
-            <button
+            <article
               className={`profile-row ${profile.id === selectedId ? 'selected' : ''}`}
               key={profile.id}
-              onClick={() => {
-                setSelectedId(profile.id);
-                setActiveTab('config');
-                setActiveNavKey('profiles');
-              }}
-              type="button"
             >
-              <span className="profile-name-cell">
-                <strong>{profile.name}</strong>
-                <small>
-                  {profile.groupName ? `${profile.groupName} · ` : ''}
-                  {profile.tags.length > 0 ? profile.tags.join(' / ') : '未设置标签'}
-                </small>
-              </span>
-              <span className={`status-pill ${statusTone[profile.status]}`}>
-                <Circle size={9} fill="currentColor" />
-                {statusText[profile.status]}
-              </span>
-              <span>{profile.proxy ? `${profile.proxy.scheme}://${profile.proxy.host}:${profile.proxy.port}` : '未配置'}</span>
-              <span>{runtimeChannelText[profile.runtimeChannel]}</span>
-            </button>
+              <label className="profile-check-cell">
+                <input
+                  aria-label={`选择环境 ${profile.name}`}
+                  type="checkbox"
+                  checked={visibleSelectedProfileIds.includes(profile.id)}
+                  onChange={() => handleToggleProfileSelection(profile.id)}
+                />
+              </label>
+              <button
+                className="profile-row-content"
+                onClick={() => {
+                  setSelectedId(profile.id);
+                  setActiveTab('config');
+                  setActiveNavKey('profiles');
+                }}
+                type="button"
+              >
+                <span className="profile-name-cell">
+                  <strong>{profile.name}</strong>
+                  <small>
+                    {profile.groupName ? `${profile.groupName} · ` : ''}
+                    {profile.tags.length > 0 ? profile.tags.join(' / ') : '未设置标签'}
+                  </small>
+                </span>
+                <span className={`status-pill ${statusTone[profile.status]}`}>
+                  <Circle size={9} fill="currentColor" />
+                  {statusText[profile.status]}
+                </span>
+                <span>{profile.proxy ? `${profile.proxy.scheme}://${profile.proxy.host}:${profile.proxy.port}` : '未配置'}</span>
+                <span>{runtimeChannelText[profile.runtimeChannel]}</span>
+              </button>
+            </article>
           ))}
           {filteredProfiles.length === 0 ? (
             <div className="empty-state">

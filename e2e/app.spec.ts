@@ -89,16 +89,16 @@ test('中文 UI 完成激活 license、新建环境、代理测试、导出审�
     await page.getByRole('button', { name: '新建环境' }).click();
     await page.getByLabel('环境名称').fill('E2E 运营环境');
     await page.getByLabel('环境分组').fill('E2E 项目组');
-    await page.getByLabel('标签').fill('合规,测试');
+    await page.getByLabel('标签', { exact: true }).fill('合规,测试');
     await page.getByLabel('代理主机').fill('127.0.0.1');
     await page.getByLabel('代理端口').fill(String(address.port));
     await page.getByLabel('代理账号').fill('operator');
     await page.getByLabel('代理密码').fill('proxy-password');
     await expect(page.getByRole('button', { name: '读取系统代理' })).toBeVisible();
     await expect(page.getByRole('button', { name: '扫描本机端口' })).toBeVisible();
-    await page.getByLabel('时区').selectOption('America/Chicago');
+    await page.getByLabel('时区', { exact: true }).selectOption('America/Chicago');
     await page.getByRole('button', { name: '根据代理匹配时区' }).click();
-    await expect(page.getByLabel('时区')).toHaveValue('America/Los_Angeles');
+    await expect(page.getByLabel('时区', { exact: true })).toHaveValue('America/Los_Angeles');
     await expect(page.getByText(/已匹配代理 IP 时区 America\/Los_Angeles/)).toBeVisible();
     await expect(page.getByLabel('内核通道')).toHaveValue('official');
     await page.getByRole('button', { name: '保存环境' }).click();
@@ -151,7 +151,7 @@ test('中文 UI 完成激活 license、新建环境、代理测试、导出审�
     await page.getByRole('button', { name: '应用到当前环境' }).click();
     await expect(page.getByText(/已应用代理到环境：E2E 运营环境/)).toBeVisible();
     await sideNav.getByRole('link', { name: '环境' }).click();
-    await expect(page.getByText('E2E 项目组')).toBeVisible();
+    await expect(page.getByLabel('环境列表').getByText('E2E 项目组')).toBeVisible();
 
     await page.evaluate(async (manifestPath) => window.fingerBrowser.kernel.importManifest(manifestPath), importedManifestPath);
     await page.reload();
@@ -278,17 +278,32 @@ test('中文 UI 完成激活 license、新建环境、代理测试、导出审�
     await page.getByRole('button', { name: '打开 新建文件夹' }).click();
     await expect(openedEmptyFolder).toBeVisible();
     await page.getByRole('button', { name: '关闭文件夹 新建文件夹' }).click();
-    await page
-      .locator('.desktop-shortcut')
-      .filter({ hasText: 'E2E 运营环境' })
-      .dragTo(page.locator('.desktop-folder-shortcut').filter({ hasText: '新建文件夹' }));
+    await expect(page.locator('.desktop-shortcut').filter({ hasText: 'E2E 运营环境' })).toBeVisible();
+    await expect(page.locator('.desktop-folder-shortcut').filter({ hasText: '新建文件夹' })).toBeVisible();
+    await page.evaluate(() => {
+      const source = [...document.querySelectorAll<HTMLElement>('.desktop-shortcut:not(.desktop-folder-shortcut)')].find(
+        (element) => element.textContent?.includes('E2E 运营环境')
+      );
+      const target = [...document.querySelectorAll<HTMLElement>('.desktop-folder-shortcut')].find((element) =>
+        element.textContent?.includes('新建文件夹')
+      );
+      if (!source || !target) {
+        throw new Error('Desktop drag source or target missing');
+      }
+      const dataTransfer = new DataTransfer();
+      source.dispatchEvent(new DragEvent('dragstart', { bubbles: true, cancelable: true, dataTransfer }));
+      target.dispatchEvent(new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer }));
+      target.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer }));
+      source.dispatchEvent(new DragEvent('dragend', { bubbles: true, cancelable: true, dataTransfer }));
+    });
+    await expect(page.getByText(/桌面已整理/)).toBeVisible();
     const desktopFolderPanel = page.getByRole('dialog', { name: '桌面文件夹 新建文件夹' });
     await expect(desktopFolderPanel).toBeVisible();
     await expect(desktopFolderPanel.getByText('E2E 运营环境')).toBeVisible();
     await page.getByRole('button', { name: '启动文件夹快捷方式 E2E 运营环境' }).click();
     await expect(page.getByText(/已启动：E2E 运营环境/)).toBeVisible();
     await sideNav.getByRole('link', { name: '环境' }).click();
-    await expect(page.getByText('运行中').first()).toBeVisible();
+    await expect(page.getByLabel('环境列表').getByText('运行中').first()).toBeVisible();
     await expect(page.getByLabel('本地代理状态')).toContainText('运行中');
     await expect(page.getByLabel('本地代理状态')).toContainText('HTTP');
     const checkPagePath = path.join(dataDir, 'environment-check', 'environment-check.html');
@@ -303,7 +318,7 @@ test('中文 UI 完成激活 license、新建环境、代理测试、导出审�
     expect(checkPageHtml).toContain('主进程代理预检通过');
     expect(checkPageHtml).not.toContain('proxy-password');
     await page.getByRole('button', { name: '关闭环境' }).click();
-    await expect(page.getByText('已关闭').first()).toBeVisible();
+    await expect(page.getByLabel('环境列表').getByText('已关闭').first()).toBeVisible();
     await expect(page.getByLabel('本地代理状态')).toContainText('未启动');
     await sideNav.getByRole('link', { name: '我的桌面' }).click();
     await page.getByRole('button', { name: '移出' }).click();
@@ -325,15 +340,16 @@ test('中文 UI 完成激活 license、新建环境、代理测试、导出审�
     await expect(page.getByLabel('Google 账号登录配置')).toContainText('已启用');
     await expect(page.getByText('e2e-google-client-secret')).toHaveCount(0);
     await page.getByRole('button', { name: '启动 Chromium' }).click();
-    await expect(page.getByText('运行中').first()).toBeVisible();
+    await expect(page.getByLabel('环境列表').getByText('运行中').first()).toBeVisible();
     await page.getByRole('button', { name: '关闭环境' }).click();
-    await expect(page.getByText('已关闭').first()).toBeVisible();
+    await expect(page.getByLabel('环境列表').getByText('已关闭').first()).toBeVisible();
     await page.getByRole('tab', { name: '审计' }).click();
     await expect(page.getByText('KERNEL_LAUNCHED')).toBeVisible();
     await page.getByRole('tab', { name: '配置' }).click();
 
     await page.getByRole('button', { name: '新建环境' }).click();
     await page.getByLabel('环境名称').fill('E2E 自研内核环境');
+    await page.getByLabel('环境分组').fill('E2E 项目组');
     await page.getByLabel('内核通道').selectOption('custom-kernel');
     await page.getByRole('button', { name: '保存环境' }).click();
     await expect(page.getByRole('heading', { name: 'E2E 自研内核环境' })).toBeVisible();
@@ -342,9 +358,25 @@ test('中文 UI 完成激活 license、新建环境、代理测试、导出审�
     await page.getByRole('button', { name: '检查自研内核' }).click();
     await expect(page.getByText(/自研内核 e2e-imported-kernel 已就绪/)).toBeVisible();
     await page.getByRole('button', { name: '启动 Chromium' }).click();
-    await expect(page.getByText('运行中').first()).toBeVisible();
-    await page.getByRole('button', { name: '关闭环境' }).click();
-    await expect(page.getByText('已关闭').first()).toBeVisible();
+    await expect(page.getByLabel('环境列表').getByText('运行中').first()).toBeVisible();
+    await page.getByLabel('筛选状态').selectOption('running');
+    await page.getByLabel('选择当前筛选环境').check();
+    await expect(page.getByText(/已选 1 个环境/)).toBeVisible();
+    await page.getByRole('button', { name: '批量关闭' }).click();
+    await expect(page.getByText(/已关闭 1 个环境/)).toBeVisible();
+    await page.getByLabel('筛选状态').selectOption('all');
+    await expect(page.getByLabel('环境列表').getByText('已关闭').first()).toBeVisible();
+    await page.getByLabel('筛选分组').selectOption('E2E 项目组');
+    await expect(page.getByText(/当前筛选 2 个/)).toBeVisible();
+    await page.getByLabel('选择当前筛选环境').check();
+    await page.getByLabel('批量标签').fill('批量,商业化');
+    await page.getByRole('button', { name: '修改标签' }).click();
+    await expect(page.getByText(/已更新 2 个环境标签/)).toBeVisible();
+    await expect(page.getByText('批量 / 商业化').first()).toBeVisible();
+    await page.getByLabel('批量代理池').selectOption({ label: 'E2E 洛杉矶代理' });
+    await page.getByRole('button', { name: '应用代理' }).click();
+    await expect(page.getByText(/已应用代理到 2 个环境/)).toBeVisible();
+    await page.getByLabel('筛选分组').selectOption('');
 
     await page.getByRole('button', { name: '新建环境' }).click();
     await expect(page.getByText('当前套餐环境数已达上限')).toBeVisible();
