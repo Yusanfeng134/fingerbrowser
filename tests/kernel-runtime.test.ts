@@ -35,6 +35,8 @@ function createProfile(runtimeChannel: BrowserProfile['runtimeChannel'] = 'custo
   return {
     id: 'profile-1',
     name: '内核环境',
+    owner: '',
+    notes: '',
     groupName: '',
     tags: ['合规'],
     status: 'closed',
@@ -49,6 +51,7 @@ function createProfile(runtimeChannel: BrowserProfile['runtimeChannel'] = 'custo
       webrtcIpPolicy: 'disable_non_proxied_udp'
     },
     proxyId: null,
+    lastLaunchedAt: null,
     archivedAt: null,
     createdAt: '2026-04-29T00:00:00.000Z',
     updatedAt: '2026-04-29T00:00:00.000Z'

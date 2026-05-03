@@ -412,6 +412,8 @@ export function registerIpcHandlers(services: ApplicationServices): void {
     const updated = services.profileService.updateProfile({
       id: profile.id,
       name: profile.name,
+      owner: profile.owner,
+      notes: profile.notes,
       groupName: profile.groupName,
       tags: profile.tags,
       fingerprintPolicy:

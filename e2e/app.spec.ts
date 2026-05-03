@@ -88,6 +88,8 @@ test('中文 UI 完成激活 license、新建环境、代理测试、导出审�
 
     await page.getByRole('button', { name: '新建环境' }).click();
     await page.getByLabel('环境名称').fill('E2E 运营环境');
+    await page.getByLabel('负责人').fill('E2E 负责人');
+    await page.getByLabel('环境备注').fill('E2E 客户试卖备注');
     await page.getByLabel('环境分组').fill('E2E 项目组');
     await page.getByLabel('标签', { exact: true }).fill('合规,测试');
     await page.getByLabel('代理主机').fill('127.0.0.1');
@@ -105,6 +107,10 @@ test('中文 UI 完成激活 license、新建环境、代理测试、导出审�
 
     await expect(page.getByRole('heading', { name: 'E2E 运营环境' })).toBeVisible();
     await expect(page.getByText(/环境 1\/4/)).toBeVisible();
+    await expect(page.getByLabel('环境列表').getByText('E2E 负责人')).toBeVisible();
+    await page.getByLabel('搜索环境').fill('客户试卖备注');
+    await expect(page.getByLabel('环境列表').getByText('E2E 运营环境')).toBeVisible();
+    await page.getByLabel('搜索环境').fill('');
 
     const sideNav = page.getByRole('navigation', { name: '主导航' });
     await expect(sideNav.getByRole('link', { name: '环境' })).toBeVisible();
@@ -341,6 +347,7 @@ test('中文 UI 完成激活 license、新建环境、代理测试、导出审�
     await expect(page.getByText('e2e-google-client-secret')).toHaveCount(0);
     await page.getByRole('button', { name: '启动 Chromium' }).click();
     await expect(page.getByLabel('环境列表').getByText('运行中').first()).toBeVisible();
+    await expect(page.getByLabel('最后启动时间')).not.toHaveValue('尚未启动');
     await page.getByRole('button', { name: '关闭环境' }).click();
     await expect(page.getByLabel('环境列表').getByText('已关闭').first()).toBeVisible();
     await page.getByRole('tab', { name: '审计' }).click();

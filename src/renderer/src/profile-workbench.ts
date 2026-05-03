@@ -55,11 +55,14 @@ export function filterWorkbenchProfiles(
     }
     return [
       profile.name,
+      profile.owner,
+      profile.notes,
       profile.groupName,
       profile.tags.join(','),
       profile.proxy?.host ?? '',
       profile.proxy?.scheme ?? '',
       profile.status,
+      profile.lastLaunchedAt ?? '',
       profile.archivedAt ? 'archived 归档' : 'active',
       profile.runtimeChannel
     ]

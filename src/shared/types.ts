@@ -223,6 +223,8 @@ export interface SystemProxyDetectionResult {
 export interface BrowserProfile {
   id: string;
   name: string;
+  owner: string;
+  notes: string;
   groupName: string;
   tags: string[];
   status: ProfileStatus;
@@ -231,6 +233,7 @@ export interface BrowserProfile {
   runtimeChannel: RuntimeChannel;
   fingerprintPolicy: FingerprintPolicy;
   proxyId: string | null;
+  lastLaunchedAt: string | null;
   archivedAt: string | null;
   createdAt: string;
   updatedAt: string;
@@ -243,6 +246,8 @@ export interface ProfileDetails extends BrowserProfile {
 export interface ProfileTemplate {
   id: string;
   name: string;
+  owner: string;
+  notes: string;
   sourceProfileId: string | null;
   groupName: string;
   tags: string[];
@@ -531,6 +536,8 @@ export interface CreateProxyInput {
 
 export interface CreateProfileInput {
   name: string;
+  owner?: string;
+  notes?: string;
   groupName?: string;
   tags?: string[];
   fingerprintPolicy?: Partial<FingerprintPolicy>;
@@ -541,6 +548,8 @@ export interface CreateProfileInput {
 export interface DuplicateProfileInput {
   profileId: string;
   name?: string;
+  owner?: string;
+  notes?: string;
   groupName?: string;
   tags?: string[];
   includeProxy?: boolean;
@@ -555,6 +564,8 @@ export interface CreateProfileTemplateFromProfileInput {
 export interface CreateProfileFromTemplateInput {
   templateId: string;
   name?: string;
+  owner?: string;
+  notes?: string;
   groupName?: string;
   tags?: string[];
   includeProxy?: boolean;
@@ -563,6 +574,8 @@ export interface CreateProfileFromTemplateInput {
 export interface UpdateProfileInput {
   id: string;
   name: string;
+  owner: string;
+  notes: string;
   groupName: string;
   tags: string[];
   fingerprintPolicy: FingerprintPolicy;

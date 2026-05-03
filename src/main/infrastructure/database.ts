@@ -9,6 +9,8 @@ export function openApplicationDatabase(filePath: string): ApplicationDatabase {
     create table if not exists profiles (
       id text primary key,
       name text not null,
+      owner text not null default '',
+      notes text not null default '',
       group_name text not null default '',
       tags_json text not null,
       status text not null,
@@ -17,6 +19,7 @@ export function openApplicationDatabase(filePath: string): ApplicationDatabase {
       runtime_channel text not null default 'official',
       fingerprint_policy_json text not null,
       proxy_id text,
+      last_launched_at text,
       archived_at text,
       created_at text not null,
       updated_at text not null
@@ -61,6 +64,8 @@ export function openApplicationDatabase(filePath: string): ApplicationDatabase {
     create table if not exists profile_templates (
       id text primary key,
       name text not null,
+      owner text not null default '',
+      notes text not null default '',
       source_profile_id text,
       group_name text not null,
       tags_json text not null,
@@ -179,11 +184,27 @@ export function openApplicationDatabase(filePath: string): ApplicationDatabase {
   if (!profileColumns.some((column) => column.name === 'group_name')) {
     db.exec("alter table profiles add column group_name text not null default '';");
   }
+  if (!profileColumns.some((column) => column.name === 'owner')) {
+    db.exec("alter table profiles add column owner text not null default '';");
+  }
+  if (!profileColumns.some((column) => column.name === 'notes')) {
+    db.exec("alter table profiles add column notes text not null default '';");
+  }
   if (!profileColumns.some((column) => column.name === 'runtime_channel')) {
     db.exec("alter table profiles add column runtime_channel text not null default 'official';");
   }
+  if (!profileColumns.some((column) => column.name === 'last_launched_at')) {
+    db.exec('alter table profiles add column last_launched_at text;');
+  }
   if (!profileColumns.some((column) => column.name === 'archived_at')) {
     db.exec('alter table profiles add column archived_at text;');
+  }
+  const profileTemplateColumns = db.pragma('table_info(profile_templates)') as Array<{ name: string }>;
+  if (!profileTemplateColumns.some((column) => column.name === 'owner')) {
+    db.exec("alter table profile_templates add column owner text not null default '';");
+  }
+  if (!profileTemplateColumns.some((column) => column.name === 'notes')) {
+    db.exec("alter table profile_templates add column notes text not null default '';");
   }
   const desktopShortcutColumns = db.pragma('table_info(desktop_shortcuts)') as Array<{ name: string }>;
   if (!desktopShortcutColumns.some((column) => column.name === 'folder_id')) {

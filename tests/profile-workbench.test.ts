@@ -24,6 +24,9 @@ function profile(input: Partial<ProfileDetails> & Pick<ProfileDetails, 'id' | 'n
     },
     proxyId: null,
     proxy: null,
+    owner: '',
+    notes: '',
+    lastLaunchedAt: null,
     archivedAt: null,
     createdAt: '2026-05-03T00:00:00.000Z',
     updatedAt: '2026-05-03T00:00:00.000Z',
@@ -116,5 +119,19 @@ describe('profile workbench helpers', () => {
   it('reconciles selected ids to visible profiles only and parses CSV values', () => {
     expect(reconcileSelectedProfileIds(['p1', 'p3', 'unknown'], [profiles[0], profiles[1]])).toEqual(['p1']);
     expect(splitWorkbenchCsv(' US, 核心,US ,, 销售 ')).toEqual(['US', '核心', '销售']);
+  });
+
+  it('searches owner, notes, and launch metadata', () => {
+    const assetProfile = profile({
+      id: 'asset',
+      name: '销售资产环境',
+      owner: 'Alice Ops',
+      notes: '试卖客户跟进',
+      lastLaunchedAt: '2026-05-03T08:00:00.000Z'
+    });
+
+    expect(filterWorkbenchProfiles([assetProfile], { query: 'alice' }).map((item) => item.id)).toEqual(['asset']);
+    expect(filterWorkbenchProfiles([assetProfile], { query: '客户跟进' }).map((item) => item.id)).toEqual(['asset']);
+    expect(filterWorkbenchProfiles([assetProfile], { query: '2026-05-03' }).map((item) => item.id)).toEqual(['asset']);
   });
 });

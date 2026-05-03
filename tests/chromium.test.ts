@@ -6,6 +6,8 @@ function createTestProfile(runtimeChannel: BrowserProfile['runtimeChannel'] = 'o
   return {
     id: 'profile-1',
     name: '运营环境 1',
+    owner: '',
+    notes: '',
     groupName: '',
     tags: ['合规'],
     status: 'closed',
@@ -20,6 +22,7 @@ function createTestProfile(runtimeChannel: BrowserProfile['runtimeChannel'] = 'o
       webrtcIpPolicy: 'disable_non_proxied_udp'
     },
     proxyId: 'proxy-1',
+    lastLaunchedAt: null,
     archivedAt: null,
     createdAt: '2026-04-29T00:00:00.000Z',
     updatedAt: '2026-04-29T00:00:00.000Z'

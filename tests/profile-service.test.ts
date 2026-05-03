@@ -125,6 +125,8 @@ describe('profile service', () => {
     const updated = service.updateProfile({
       id: migrated.id,
       name: migrated.name,
+      owner: migrated.owner,
+      notes: migrated.notes,
       tags: migrated.tags,
       groupName: '迁移组',
       fingerprintPolicy: migrated.fingerprintPolicy,
@@ -163,6 +165,8 @@ describe('profile service', () => {
       service.updateProfile({
         id: profile.id,
         name: profile.name,
+        owner: profile.owner,
+        notes: profile.notes,
         groupName: profile.groupName,
         tags: profile.tags,
         fingerprintPolicy: {
@@ -362,5 +366,50 @@ describe('profile service', () => {
     service.setProfileStatus(profile.id, 'running');
 
     expect(() => service.archiveProfile(profile.id)).toThrow('请先关闭环境');
+  });
+
+  it('persists owner and notes and tracks the latest launch time', () => {
+    const dataDir = mkdtempSync(path.join(tmpdir(), 'fingerbrowser-profile-asset-fields-test-'));
+    tempDirs.push(dataDir);
+    const db = openApplicationDatabase(path.join(dataDir, 'app.sqlite'));
+    const service = createProfileService({
+      db,
+      dataDir,
+      secretBox: createNodeSecretBox('test-master-key')
+    });
+
+    const profile = service.createProfile({
+      name: '资产环境',
+      owner: 'Alice Ops',
+      notes: '用于客服试卖演示'
+    });
+
+    expect(profile.owner).toBe('Alice Ops');
+    expect(profile.notes).toBe('用于客服试卖演示');
+    expect(profile.lastLaunchedAt).toBeNull();
+
+    const updated = service.updateProfile({
+      id: profile.id,
+      name: profile.name,
+      owner: 'Bob Sales',
+      notes: '已交接给销售验证',
+      groupName: profile.groupName,
+      tags: profile.tags,
+      fingerprintPolicy: profile.fingerprintPolicy,
+      runtimeChannel: profile.runtimeChannel,
+      proxy: null
+    });
+
+    expect(updated.owner).toBe('Bob Sales');
+    expect(updated.notes).toBe('已交接给销售验证');
+
+    const launched = service.setProfileStatus(profile.id, 'running');
+
+    expect(launched.lastLaunchedAt).toMatch(/T/);
+    expect(service.getProfile(profile.id).lastLaunchedAt).toBe(launched.lastLaunchedAt);
+    expect(service.listAuditEvents().find((event) => event.action === 'PROFILE_UPDATED')?.metadata).toMatchObject({
+      owner: 'Bob Sales',
+      hasNotes: true
+    });
   });
 });

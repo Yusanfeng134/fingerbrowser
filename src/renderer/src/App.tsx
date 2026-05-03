@@ -103,6 +103,8 @@ import type {
 interface DraftState {
   id: string | null;
   name: string;
+  owner: string;
+  notes: string;
   groupName: string;
   tags: string;
   proxyEnabled: boolean;
@@ -187,6 +189,8 @@ interface ProfileBatchDraftState {
 const emptyDraft: DraftState = {
   id: null,
   name: '',
+  owner: '',
+  notes: '',
   groupName: '',
   tags: '',
   proxyEnabled: true,
@@ -384,6 +388,8 @@ function profileToDraft(profile: ProfileDetails): DraftState {
   return {
     id: profile.id,
     name: profile.name,
+    owner: profile.owner,
+    notes: profile.notes,
     groupName: profile.groupName,
     tags: profile.tags.join(','),
     proxyEnabled: Boolean(profile.proxy),
@@ -401,6 +407,8 @@ function profileToDraft(profile: ProfileDetails): DraftState {
 function draftToCreateInput(draft: DraftState): CreateProfileInput {
   return {
     name: draft.name,
+    owner: draft.owner,
+    notes: draft.notes,
     groupName: draft.groupName,
     tags: splitCsv(draft.tags),
     fingerprintPolicy: draft.fingerprintPolicy,
@@ -426,6 +434,8 @@ function draftToUpdateInput(draft: DraftState): UpdateProfileInput {
   return {
     id: draft.id,
     name: draft.name,
+    owner: draft.owner,
+    notes: draft.notes,
     groupName: draft.groupName,
     tags: splitCsv(draft.tags),
     fingerprintPolicy: draft.fingerprintPolicy,
@@ -1133,6 +1143,8 @@ export function App(): JSX.Element {
         await window.fingerBrowser.profiles.update({
           id: profile.id,
           name: profile.name,
+          owner: profile.owner,
+          notes: profile.notes,
           groupName: profileBatchDraft.groupName,
           tags: profile.tags,
           fingerprintPolicy: profile.fingerprintPolicy,
@@ -1165,6 +1177,8 @@ export function App(): JSX.Element {
         await window.fingerBrowser.profiles.update({
           id: profile.id,
           name: profile.name,
+          owner: profile.owner,
+          notes: profile.notes,
           groupName: profile.groupName,
           tags,
           fingerprintPolicy: profile.fingerprintPolicy,
@@ -2457,7 +2471,7 @@ export function App(): JSX.Element {
             aria-label="搜索环境"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
-            placeholder="搜索名称、标签、代理或状态"
+            placeholder="搜索名称、负责人、备注、标签、代理或状态"
           />
         </div>
 
@@ -2694,7 +2708,9 @@ export function App(): JSX.Element {
                   <small>
                     {profile.archivedAt ? '已归档 · ' : ''}
                     {profile.groupName ? `${profile.groupName} · ` : ''}
+                    {profile.owner ? `${profile.owner} · ` : ''}
                     {profile.tags.length > 0 ? profile.tags.join(' / ') : '未设置标签'}
+                    {profile.lastLaunchedAt ? ` · 最近 ${formatDate(profile.lastLaunchedAt)}` : ''}
                   </small>
                 </span>
                 <span className={`status-pill ${statusTone[profile.status]}`}>
@@ -3704,6 +3720,25 @@ export function App(): JSX.Element {
                 环境名称
                 <input value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} />
               </label>
+              <div className="inline-grid">
+                <label>
+                  负责人
+                  <input
+                    aria-label="负责人"
+                    value={draft.owner}
+                    onChange={(event) => setDraft({ ...draft, owner: event.target.value })}
+                    placeholder="销售、运营或客户负责人"
+                  />
+                </label>
+                <label>
+                  最后启动
+                  <input
+                    aria-label="最后启动时间"
+                    value={selectedProfile?.lastLaunchedAt ? formatDate(selectedProfile.lastLaunchedAt) : '尚未启动'}
+                    readOnly
+                  />
+                </label>
+              </div>
               <label>
                 环境分组
                 <input
@@ -3719,6 +3754,15 @@ export function App(): JSX.Element {
                   value={draft.tags}
                   onChange={(event) => setDraft({ ...draft, tags: event.target.value })}
                   placeholder="合规,华东,测试"
+                />
+              </label>
+              <label>
+                备注
+                <textarea
+                  aria-label="环境备注"
+                  value={draft.notes}
+                  onChange={(event) => setDraft({ ...draft, notes: event.target.value })}
+                  placeholder="用途、客户背景、交接说明"
                 />
               </label>
             </section>

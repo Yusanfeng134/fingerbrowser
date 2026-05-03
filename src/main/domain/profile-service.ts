@@ -34,6 +34,8 @@ interface ProfileServiceOptions {
 interface ProfileRow {
   id: string;
   name: string;
+  owner: string;
+  notes: string;
   group_name: string;
   tags_json: string;
   status: BrowserProfile['status'];
@@ -42,6 +44,7 @@ interface ProfileRow {
   runtime_channel: RuntimeChannel;
   fingerprint_policy_json: string;
   proxy_id: string | null;
+  last_launched_at: string | null;
   archived_at: string | null;
   created_at: string;
   updated_at: string;
@@ -70,6 +73,8 @@ interface AuditRow {
 interface ProfileTemplateRow {
   id: string;
   name: string;
+  owner: string;
+  notes: string;
   source_profile_id: string | null;
   group_name: string;
   tags_json: string;
@@ -127,6 +132,14 @@ export function createProfileService(options: ProfileServiceOptions): ProfileSer
     return groupName?.trim() ?? '';
   }
 
+  function normalizeOwner(owner?: string): string {
+    return owner?.trim() ?? '';
+  }
+
+  function normalizeNotes(notes?: string): string {
+    return notes?.trim() ?? '';
+  }
+
   function assertValidProfileName(name: string): void {
     if (!name.trim()) {
       throw new Error('环境名称不能为空');
@@ -153,6 +166,8 @@ export function createProfileService(options: ProfileServiceOptions): ProfileSer
     return {
       id: row.id,
       name: row.name,
+      owner: row.owner ?? '',
+      notes: row.notes ?? '',
       groupName: row.group_name ?? '',
       tags: JSON.parse(row.tags_json) as string[],
       status: row.status,
@@ -161,6 +176,7 @@ export function createProfileService(options: ProfileServiceOptions): ProfileSer
       runtimeChannel: normalizeRuntimeChannel(row.runtime_channel),
       fingerprintPolicy: JSON.parse(row.fingerprint_policy_json) as FingerprintPolicy,
       proxyId: row.proxy_id,
+      lastLaunchedAt: row.last_launched_at ?? null,
       archivedAt: row.archived_at ?? null,
       createdAt: row.created_at,
       updatedAt: row.updated_at
@@ -181,6 +197,8 @@ export function createProfileService(options: ProfileServiceOptions): ProfileSer
     return {
       id: row.id,
       name: row.name,
+      owner: row.owner ?? '',
+      notes: row.notes ?? '',
       sourceProfileId: row.source_profile_id,
       groupName: row.group_name ?? '',
       tags: JSON.parse(row.tags_json) as string[],
@@ -276,6 +294,8 @@ export function createProfileService(options: ProfileServiceOptions): ProfileSer
 
   function insertProfileFromTemplate(input: {
     name: string;
+    owner: string;
+    notes: string;
     groupName: string;
     tags: string[];
     fingerprintPolicy: FingerprintPolicy;
@@ -290,11 +310,13 @@ export function createProfileService(options: ProfileServiceOptions): ProfileSer
 
     db.prepare(
       `insert into profiles (
-        id, name, group_name, tags_json, status, user_data_dir, chromium_version, runtime_channel, fingerprint_policy_json, proxy_id, archived_at, created_at, updated_at
-      ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        id, name, owner, notes, group_name, tags_json, status, user_data_dir, chromium_version, runtime_channel, fingerprint_policy_json, proxy_id, last_launched_at, archived_at, created_at, updated_at
+      ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     ).run(
       id,
       input.name.trim(),
+      normalizeOwner(input.owner),
+      normalizeNotes(input.notes),
       normalizeGroupName(input.groupName),
       JSON.stringify(normalizeTags(input.tags)),
       'closed',
@@ -303,6 +325,7 @@ export function createProfileService(options: ProfileServiceOptions): ProfileSer
       normalizeRuntimeChannel(input.runtimeChannel),
       JSON.stringify(normalizeFingerprintPolicy(input.fingerprintPolicy)),
       input.proxyId,
+      null,
       null,
       now,
       now
@@ -381,11 +404,13 @@ export function createProfileService(options: ProfileServiceOptions): ProfileSer
 
       db.prepare(
         `insert into profiles (
-          id, name, group_name, tags_json, status, user_data_dir, chromium_version, runtime_channel, fingerprint_policy_json, proxy_id, archived_at, created_at, updated_at
-        ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          id, name, owner, notes, group_name, tags_json, status, user_data_dir, chromium_version, runtime_channel, fingerprint_policy_json, proxy_id, last_launched_at, archived_at, created_at, updated_at
+        ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       ).run(
         id,
         input.name.trim(),
+        normalizeOwner(input.owner),
+        normalizeNotes(input.notes),
         normalizeGroupName(input.groupName),
         JSON.stringify(normalizeTags(input.tags)),
         'closed',
@@ -395,12 +420,15 @@ export function createProfileService(options: ProfileServiceOptions): ProfileSer
         JSON.stringify(normalizeFingerprintPolicy(input.fingerprintPolicy)),
         proxy?.id ?? null,
         null,
+        null,
         now,
         now
       );
 
       recordAudit(id, 'PROFILE_CREATED', {
         name: input.name.trim(),
+        owner: normalizeOwner(input.owner),
+        hasNotes: Boolean(normalizeNotes(input.notes)),
         groupName: normalizeGroupName(input.groupName),
         tags: normalizeTags(input.tags)
       });
@@ -417,6 +445,8 @@ export function createProfileService(options: ProfileServiceOptions): ProfileSer
       const proxy = shouldIncludeProxy && source.proxyId ? duplicateProxy(source.proxyId) : null;
       const duplicated = insertProfileFromTemplate({
         name,
+        owner: input.owner ?? source.owner,
+        notes: input.notes ?? source.notes,
         groupName: input.groupName ?? source.groupName,
         tags: input.tags ?? source.tags,
         fingerprintPolicy: source.fingerprintPolicy,
@@ -428,6 +458,8 @@ export function createProfileService(options: ProfileServiceOptions): ProfileSer
       recordAudit(duplicated.id, 'PROFILE_DUPLICATED', {
         sourceProfileId: source.id,
         name,
+        owner: normalizeOwner(input.owner ?? source.owner),
+        hasNotes: Boolean(normalizeNotes(input.notes ?? source.notes)),
         groupName: normalizeGroupName(input.groupName ?? source.groupName),
         tags: normalizeTags(input.tags ?? source.tags),
         runtimeChannel: normalizeRuntimeChannel(source.runtimeChannel),
@@ -453,11 +485,13 @@ export function createProfileService(options: ProfileServiceOptions): ProfileSer
 
       db.prepare(
         `insert into profile_templates (
-          id, name, source_profile_id, group_name, tags_json, runtime_channel, fingerprint_policy_json, proxy_id, created_at, updated_at
-        ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          id, name, owner, notes, source_profile_id, group_name, tags_json, runtime_channel, fingerprint_policy_json, proxy_id, created_at, updated_at
+        ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       ).run(
         id,
         name,
+        normalizeOwner(source.owner),
+        normalizeNotes(source.notes),
         source.id,
         normalizeGroupName(source.groupName),
         JSON.stringify(normalizeTags(source.tags)),
@@ -486,6 +520,8 @@ export function createProfileService(options: ProfileServiceOptions): ProfileSer
       const proxy = shouldIncludeProxy && template.proxyId ? duplicateProxy(template.proxyId) : null;
       const profile = insertProfileFromTemplate({
         name,
+        owner: input.owner ?? template.owner,
+        notes: input.notes ?? template.notes,
         groupName: input.groupName ?? template.groupName,
         tags: input.tags ?? template.tags,
         fingerprintPolicy: template.fingerprintPolicy,
@@ -497,6 +533,8 @@ export function createProfileService(options: ProfileServiceOptions): ProfileSer
         templateId: template.id,
         templateName: template.name,
         name,
+        owner: normalizeOwner(input.owner ?? template.owner),
+        hasNotes: Boolean(normalizeNotes(input.notes ?? template.notes)),
         groupName: normalizeGroupName(input.groupName ?? template.groupName),
         tags: normalizeTags(input.tags ?? template.tags),
         runtimeChannel: normalizeRuntimeChannel(template.runtimeChannel),
@@ -527,10 +565,12 @@ export function createProfileService(options: ProfileServiceOptions): ProfileSer
 
       db.prepare(
         `update profiles
-         set name = ?, group_name = ?, tags_json = ?, fingerprint_policy_json = ?, runtime_channel = ?, proxy_id = ?, updated_at = ?
+         set name = ?, owner = ?, notes = ?, group_name = ?, tags_json = ?, fingerprint_policy_json = ?, runtime_channel = ?, proxy_id = ?, updated_at = ?
          where id = ?`
       ).run(
         input.name.trim(),
+        normalizeOwner(input.owner),
+        normalizeNotes(input.notes),
         normalizeGroupName(input.groupName),
         JSON.stringify(normalizeTags(input.tags)),
         JSON.stringify(normalizeFingerprintPolicy(input.fingerprintPolicy)),
@@ -542,6 +582,8 @@ export function createProfileService(options: ProfileServiceOptions): ProfileSer
 
       recordAudit(input.id, 'PROFILE_UPDATED', {
         name: input.name.trim(),
+        owner: normalizeOwner(input.owner),
+        hasNotes: Boolean(normalizeNotes(input.notes)),
         groupName: normalizeGroupName(input.groupName),
         tags: normalizeTags(input.tags),
         runtimeChannel: normalizeRuntimeChannel(input.runtimeChannel),
@@ -579,7 +621,12 @@ export function createProfileService(options: ProfileServiceOptions): ProfileSer
     },
     getProfile,
     setProfileStatus(id: string, status: BrowserProfile['status']): ProfileDetails {
-      db.prepare('update profiles set status = ?, updated_at = ? where id = ?').run(status, new Date().toISOString(), id);
+      const now = new Date().toISOString();
+      db.prepare(
+        `update profiles
+         set status = ?, last_launched_at = case when ? = 'running' then ? else last_launched_at end, updated_at = ?
+         where id = ?`
+      ).run(status, status, now, now, id);
       return getProfile(id);
     },
     setProxyTestStatus(proxyId: string, result: ProxyTestResult): void {

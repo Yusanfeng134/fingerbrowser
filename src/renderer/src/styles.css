@@ -405,6 +405,7 @@ p {
 .search-row input,
 .detail-form input,
 .detail-form select,
+.detail-form textarea,
 .credential-panel input,
 .credential-panel select,
 .trial-panel input,
@@ -808,6 +809,7 @@ p {
 
 .detail-form input,
 .detail-form select,
+.detail-form textarea,
 .credential-panel input,
 .credential-panel select,
 .trial-panel input,
@@ -822,6 +824,12 @@ p {
   padding: 0 10px;
   font-size: 13px;
   font-weight: 560;
+}
+
+.detail-form textarea {
+  min-height: 72px;
+  padding: 9px 10px;
+  resize: vertical;
 }
 
 .field-toolbar {
