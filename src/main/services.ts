@@ -1,4 +1,4 @@
-import { mkdirSync } from 'node:fs';
+import { chmodSync, existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { hostname, userInfo } from 'node:os';
 import path from 'node:path';
 import { app, clipboard, safeStorage } from 'electron';
@@ -28,9 +28,12 @@ import {
 import { createBrowserController } from './infrastructure/browser-runtime';
 import type { BrowserController } from './domain/chromium';
 import { LocalProxyManager } from './domain/local-proxy';
+import { createLocalApiServer, createLocalApiToken, type LocalApiServer } from './domain/local-api';
+import { launchProfileRuntime, stopProfileRuntime } from './domain/profile-runtime';
 
 export interface ApplicationServices {
   dataDir: string;
+  localApiTokenPath: string | null;
   secretBox: SecretBox;
   appSettingsService: AppSettingsService;
   userService: UserService;
@@ -44,6 +47,7 @@ export interface ApplicationServices {
   chromiumInstaller: ChromiumInstaller;
   kernelRuntimeManager: KernelRuntimeManager;
   localProxyManager: LocalProxyManager;
+  localApiServer: LocalApiServer;
   browserController: BrowserController;
 }
 
@@ -111,9 +115,43 @@ export function createApplicationServices(): ApplicationServices {
     secretBox,
     isE2E
   });
+  const localApiToken = resolveLocalApiToken(dataDir);
+  const localApiPort = normalizeLocalApiPort(process.env.FINGERBROWSER_LOCAL_API_PORT, isE2E);
+  const localApiServer = createLocalApiServer({
+    host: '127.0.0.1',
+    port: localApiPort,
+    token: localApiToken.token,
+    version: () => trialService.version(),
+    authStatus: () => userService.status(),
+    listProfiles: () => {
+      userService.requireAuthenticated();
+      return profileService.listProfiles();
+    },
+    getProfile: (profileId) => {
+      userService.requireAuthenticated();
+      return profileService.getProfile(profileId);
+    },
+    launchProfile: async (profileId) => {
+      userService.requireAuthenticated();
+      return launchProfileRuntime(services, profileId);
+    },
+    stopProfile: async (profileId) => {
+      userService.requireAuthenticated();
+      return stopProfileRuntime(services, profileId);
+    },
+    listAuditEvents: (profileId) => {
+      userService.requireAuthenticated();
+      return profileService.listAuditEvents(profileId);
+    },
+    localProxyStatus: (profileId) => {
+      userService.requireAuthenticated();
+      return profileId ? [localProxyManager.statusOrStopped(profileId)] : localProxyManager.listStatuses();
+    }
+  });
 
-  return {
+  const services: ApplicationServices = {
     dataDir,
+    localApiTokenPath: localApiToken.filePath,
     secretBox,
     appSettingsService,
     userService,
@@ -127,6 +165,44 @@ export function createApplicationServices(): ApplicationServices {
     chromiumInstaller,
     kernelRuntimeManager,
     localProxyManager,
+    localApiServer,
     browserController
   };
+
+  return services;
+}
+
+function resolveLocalApiToken(dataDir: string): { token: string; filePath: string | null } {
+  const environmentToken = process.env.FINGERBROWSER_LOCAL_API_TOKEN?.trim();
+  if (environmentToken) {
+    return { token: environmentToken, filePath: null };
+  }
+
+  const filePath = path.join(dataDir, 'local-api.key');
+  if (existsSync(filePath)) {
+    const token = readFileSync(filePath, 'utf8').trim();
+    if (token) {
+      return { token, filePath };
+    }
+  }
+
+  const token = createLocalApiToken();
+  writeFileSync(filePath, `${token}\n`, { mode: 0o600 });
+  try {
+    chmodSync(filePath, 0o600);
+  } catch {
+    // Best effort on filesystems that do not support POSIX modes.
+  }
+  return { token, filePath };
+}
+
+function normalizeLocalApiPort(value: string | undefined, isE2E: boolean): number {
+  if (!value && isE2E) {
+    return 0;
+  }
+  const parsed = Number(value ?? '17345');
+  if (!Number.isInteger(parsed) || parsed < 0 || parsed > 65535) {
+    return 17345;
+  }
+  return parsed;
 }

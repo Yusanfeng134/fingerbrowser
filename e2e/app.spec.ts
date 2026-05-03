@@ -54,13 +54,15 @@ test('中文 UI 完成激活 license、新建环境、代理测试、导出审�
   if (!address || typeof address === 'string') {
     throw new Error('Expected TCP address');
   }
+  const localApiPort = await reservePort();
 
   const app = await electron.launch({
     args: ['.'],
     env: {
       ...process.env,
       FINGERBROWSER_E2E: '1',
-      FINGERBROWSER_DATA_DIR: dataDir
+      FINGERBROWSER_DATA_DIR: dataDir,
+      FINGERBROWSER_LOCAL_API_PORT: String(localApiPort)
     }
   });
 
@@ -115,6 +117,25 @@ test('中文 UI 完成激活 license、新建环境、代理测试、导出审�
     await expect(page.getByLabel('健康问题分布')).toContainText('启动记录1');
     await expect(page.getByLabel('交付检查结论')).toContainText('交付前需补全');
     await expect(page.getByLabel('交付检查结论')).toContainText('优先处理代理 1 项、启动记录 1 项');
+    const localApiToken = readFileSync(path.join(dataDir, 'local-api.key'), 'utf8').trim();
+    const localApiResponse = await fetch(`http://127.0.0.1:${localApiPort}/v1/profiles`, {
+      headers: { authorization: `Bearer ${localApiToken}` }
+    });
+    const localApiBody = await localApiResponse.json();
+    expect(localApiResponse.status).toBe(200);
+    expect(localApiBody).toMatchObject({
+      data: [
+        {
+          name: 'E2E 运营环境',
+          proxy: {
+            configured: true
+          }
+        }
+      ]
+    });
+    expect(JSON.stringify(localApiBody)).not.toContain('proxy-password');
+    expect(JSON.stringify(localApiBody)).not.toContain('encryptedPassword');
+    expect(JSON.stringify(localApiBody)).not.toContain(dataDir);
     await page.getByRole('button', { name: '复制健康摘要' }).click();
     await expect(page.locator('.notice-bar').getByText('健康摘要已复制到剪贴板')).toBeVisible();
     await expect(page.getByLabel('环境健康详情')).toContainText('待补全');
@@ -495,3 +516,14 @@ test('中文 UI 完成激活 license、新建环境、代理测试、导出审�
     await new Promise<void>((resolve) => proxyServer.close(() => resolve()));
   }
 });
+
+async function reservePort(): Promise<number> {
+  const server = net.createServer();
+  await new Promise<void>((resolve) => server.listen(0, '127.0.0.1', resolve));
+  const address = server.address();
+  if (!address || typeof address === 'string') {
+    throw new Error('Expected TCP address');
+  }
+  await new Promise<void>((resolve, reject) => server.close((error) => (error ? reject(error) : resolve())));
+  return address.port;
+}

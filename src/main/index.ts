@@ -2,8 +2,10 @@ import { BrowserWindow, app, shell } from 'electron';
 import path from 'node:path';
 import { createApplicationServices } from './services';
 import { registerIpcHandlers } from './ipc';
+import type { ApplicationServices } from './services';
 
 let mainWindow: BrowserWindow | null = null;
+let applicationServices: ApplicationServices | null = null;
 
 function createMainWindow(): void {
   mainWindow = new BrowserWindow({
@@ -35,7 +37,11 @@ function createMainWindow(): void {
 
 void app.whenReady().then(() => {
   const services = createApplicationServices();
+  applicationServices = services;
   registerIpcHandlers(services);
+  void services.localApiServer.start().catch((error) => {
+    console.error('Local API 启动失败', error);
+  });
   createMainWindow();
 
   app.on('activate', () => {
@@ -43,6 +49,10 @@ void app.whenReady().then(() => {
       createMainWindow();
     }
   });
+});
+
+app.on('before-quit', () => {
+  void applicationServices?.localApiServer.stop();
 });
 
 app.on('window-all-closed', () => {
