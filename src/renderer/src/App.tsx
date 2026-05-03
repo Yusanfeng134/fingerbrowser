@@ -2551,99 +2551,101 @@ export function App(): JSX.Element {
           ) : null}
         </section>
 
-        <section className="profile-health-strip" aria-label="环境健康概览">
-          <div className="profile-health-summary readiness" aria-label="环境就绪率">
-            <BadgeCheck size={16} />
-            <span>就绪率</span>
-            <strong>{profileHealthReadiness.label}</strong>
-            <small>
-              {profileHealthReadiness.ready}/{profileHealthReadiness.activeTotal}
-            </small>
-          </div>
-          <button
-            className={`profile-health-summary all ${profileHealthFilter === 'all' ? 'active' : ''}`}
-            type="button"
-            aria-label="筛选全部健康环境"
-            aria-pressed={profileHealthFilter === 'all'}
-            onClick={() => handleProfileHealthFilterChange('all')}
-          >
-            <Globe2 size={16} />
-            <span>全部</span>
-            <strong>{profiles.length}</strong>
-          </button>
-          <button
-            className={`profile-health-summary ready ${profileHealthFilter === 'ready' ? 'active' : ''}`}
-            type="button"
-            aria-label="筛选已就绪环境"
-            aria-pressed={profileHealthFilter === 'ready'}
-            onClick={() => handleProfileHealthFilterChange('ready')}
-          >
-            <CheckCircle2 size={16} />
-            <span>已就绪</span>
-            <strong>{profileHealthStats.ready}</strong>
-          </button>
-          <button
-            className={`profile-health-summary attention ${profileHealthFilter === 'attention' ? 'active' : ''}`}
-            type="button"
-            aria-label="筛选待补全环境"
-            aria-pressed={profileHealthFilter === 'attention'}
-            onClick={() => handleProfileHealthFilterChange('attention')}
-          >
-            <Activity size={16} />
-            <span>待补全</span>
-            <strong>{profileHealthStats.attention}</strong>
-          </button>
-          <button
-            className={`profile-health-summary archived ${profileHealthFilter === 'archived' ? 'active' : ''}`}
-            type="button"
-            aria-label="筛选已归档环境"
-            aria-pressed={profileHealthFilter === 'archived'}
-            onClick={() => handleProfileHealthFilterChange('archived')}
-          >
-            <PackageCheck size={16} />
-            <span>已归档</span>
-            <strong>{profileHealthStats.archived}</strong>
-          </button>
-        </section>
-
-        <section className="profile-issue-strip" aria-label="健康问题分布">
-          <span className="profile-issue-title">问题分布</span>
-          {profileHealthIssueStats.map((stat) => (
+        <section className="profile-ops-summary" aria-label="环境运营摘要">
+          <section className="profile-health-strip" aria-label="环境健康概览">
+            <div className="profile-health-summary readiness" aria-label="环境就绪率">
+              <BadgeCheck size={16} />
+              <span>就绪率</span>
+              <strong>{profileHealthReadiness.label}</strong>
+              <small>
+                {profileHealthReadiness.ready}/{profileHealthReadiness.activeTotal}
+              </small>
+            </div>
             <button
-              className={`profile-issue-chip ${stat.count > 0 ? 'issue-hot' : 'issue-clear'} ${
-                profileHealthIssueFilter === stat.key ? 'active' : ''
-              }`}
+              className={`profile-health-summary all ${profileHealthFilter === 'all' ? 'active' : ''}`}
               type="button"
-              aria-label={`筛选${stat.key}问题环境`}
-              aria-pressed={profileHealthIssueFilter === stat.key}
-              onClick={() => handleProfileHealthIssueFilterChange(stat.key)}
-              key={stat.key}
+              aria-label="筛选全部健康环境"
+              aria-pressed={profileHealthFilter === 'all'}
+              onClick={() => handleProfileHealthFilterChange('all')}
             >
-              {stat.label}
-              <strong>{stat.count}</strong>
+              <Globe2 size={16} />
+              <span>全部</span>
+              <strong>{profiles.length}</strong>
             </button>
-          ))}
-          <button
-            className="secondary-button compact-button profile-health-copy-button"
-            type="button"
-            onClick={handleCopyProfileHealthReport}
-            disabled={busy}
-          >
-            <ClipboardCheck size={14} />
-            复制健康摘要
-          </button>
-        </section>
+            <button
+              className={`profile-health-summary ready ${profileHealthFilter === 'ready' ? 'active' : ''}`}
+              type="button"
+              aria-label="筛选已就绪环境"
+              aria-pressed={profileHealthFilter === 'ready'}
+              onClick={() => handleProfileHealthFilterChange('ready')}
+            >
+              <CheckCircle2 size={16} />
+              <span>已就绪</span>
+              <strong>{profileHealthStats.ready}</strong>
+            </button>
+            <button
+              className={`profile-health-summary attention ${profileHealthFilter === 'attention' ? 'active' : ''}`}
+              type="button"
+              aria-label="筛选待补全环境"
+              aria-pressed={profileHealthFilter === 'attention'}
+              onClick={() => handleProfileHealthFilterChange('attention')}
+            >
+              <Activity size={16} />
+              <span>待补全</span>
+              <strong>{profileHealthStats.attention}</strong>
+            </button>
+            <button
+              className={`profile-health-summary archived ${profileHealthFilter === 'archived' ? 'active' : ''}`}
+              type="button"
+              aria-label="筛选已归档环境"
+              aria-pressed={profileHealthFilter === 'archived'}
+              onClick={() => handleProfileHealthFilterChange('archived')}
+            >
+              <PackageCheck size={16} />
+              <span>已归档</span>
+              <strong>{profileHealthStats.archived}</strong>
+            </button>
+          </section>
 
-        <section
-          className={`profile-delivery-guidance ${profileDeliveryGuidance.tone}`}
-          aria-label="交付检查结论"
-        >
-          <div>
-            <PackageCheck size={16} />
-            <span>交付结论</span>
-            <strong>{profileDeliveryGuidance.conclusion}</strong>
-          </div>
-          <p>{profileDeliveryGuidance.nextStep}</p>
+          <section
+            className={`profile-delivery-guidance ${profileDeliveryGuidance.tone}`}
+            aria-label="交付检查结论"
+          >
+            <div>
+              <PackageCheck size={16} />
+              <span>交付结论</span>
+              <strong>{profileDeliveryGuidance.conclusion}</strong>
+            </div>
+            <p>{profileDeliveryGuidance.nextStep}</p>
+          </section>
+
+          <section className="profile-issue-strip" aria-label="健康问题分布">
+            <span className="profile-issue-title">问题分布</span>
+            {profileHealthIssueStats.map((stat) => (
+              <button
+                className={`profile-issue-chip ${stat.count > 0 ? 'issue-hot' : 'issue-clear'} ${
+                  profileHealthIssueFilter === stat.key ? 'active' : ''
+                }`}
+                type="button"
+                aria-label={`筛选${stat.key}问题环境`}
+                aria-pressed={profileHealthIssueFilter === stat.key}
+                onClick={() => handleProfileHealthIssueFilterChange(stat.key)}
+                key={stat.key}
+              >
+                {stat.label}
+                <strong>{stat.count}</strong>
+              </button>
+            ))}
+            <button
+              className="secondary-button compact-button profile-health-copy-button"
+              type="button"
+              onClick={handleCopyProfileHealthReport}
+              disabled={busy}
+            >
+              <ClipboardCheck size={14} />
+              复制健康摘要
+            </button>
+          </section>
         </section>
 
         <div className="search-row">
@@ -2753,11 +2755,20 @@ export function App(): JSX.Element {
           </label>
         </div>
 
-        <section className="template-toolbar" aria-label="环境模板">
-          <div className="template-toolbar-title">
-            <strong>环境模板</strong>
-            <span>{profileTemplates.length} 个模板</span>
-          </div>
+        <details className="profile-tool-panel" aria-label="环境模板工具">
+          <summary>
+            <span>
+              <PackageCheck size={15} />
+              <strong>环境模板</strong>
+              <small>{profileTemplates.length} 个模板</small>
+            </span>
+            <span className="profile-tool-panel-hint">展开</span>
+          </summary>
+          <section className="template-toolbar" aria-label="环境模板">
+            <div className="template-toolbar-title">
+              <strong>模板</strong>
+              <span>{profileTemplates.length} 个模板</span>
+            </div>
           <label>
             模板名称
             <input
@@ -2805,13 +2816,25 @@ export function App(): JSX.Element {
           >
             <Trash2 size={15} />
           </button>
-        </section>
+          </section>
+        </details>
 
-        <section className="batch-toolbar" aria-label="批量操作">
-          <div className="batch-toolbar-title">
-            <strong>已选 {visibleSelectedProfileIds.length} 个环境</strong>
-            <span>当前筛选 {filteredProfiles.length} 个</span>
-          </div>
+        <details className="profile-tool-panel" aria-label="批量操作工具">
+          <summary>
+            <span>
+              <SlidersHorizontal size={15} />
+              <strong>批量操作</strong>
+              <small>
+                已选 {visibleSelectedProfileIds.length} 个环境 · 当前筛选 {filteredProfiles.length} 个
+              </small>
+            </span>
+            <span className="profile-tool-panel-hint">展开</span>
+          </summary>
+          <section className="batch-toolbar" aria-label="批量操作">
+            <div className="batch-toolbar-title">
+              <strong>已选 {visibleSelectedProfileIds.length} 个环境</strong>
+              <span>当前筛选 {filteredProfiles.length} 个</span>
+            </div>
           <div className="batch-grid">
             <label>
               批量分组
@@ -2871,7 +2894,8 @@ export function App(): JSX.Element {
               批量关闭
             </button>
           </div>
-        </section>
+          </section>
+        </details>
 
         <div className="table-header">
           <label className="profile-check-cell">

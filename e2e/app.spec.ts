@@ -110,6 +110,7 @@ test('中文 UI 完成激活 license、新建环境、代理测试、导出审�
     await expect(page.getByRole('heading', { name: 'E2E 运营环境' })).toBeVisible();
     await expect(page.getByText(/环境 1\/4/)).toBeVisible();
     await expect(page.getByLabel('环境列表').getByText('E2E 负责人')).toBeVisible();
+    await expect(page.getByLabel('环境运营摘要')).toBeVisible();
     await expect(page.getByLabel('环境健康概览')).toContainText('待补全');
     await expect(page.getByLabel('环境就绪率')).toContainText('0%');
     await expect(page.getByLabel('环境就绪率')).toContainText('0/1');
@@ -428,6 +429,7 @@ test('中文 UI 完成激活 license、新建环境、代理测试、导出审�
     await expect(page.getByText('PROFILE_DUPLICATED')).toBeVisible();
     await expect(page.getByText('proxy-password')).toHaveCount(0);
     await page.getByRole('tab', { name: '配置' }).click();
+    await page.locator('details[aria-label="环境模板工具"] summary').click();
     await page.getByLabel('模板名称').fill('E2E 客服模板');
     await page.getByRole('button', { name: '保存为模板' }).click();
     await expect(page.getByText(/已保存模板：E2E 客服模板/)).toBeVisible();
@@ -469,13 +471,14 @@ test('中文 UI 完成激活 license、新建环境、代理测试、导出审�
     await expect(page.getByLabel('环境列表').getByText('运行中').first()).toBeVisible();
     await page.getByLabel('筛选状态').selectOption('running');
     await page.getByLabel('选择当前筛选环境').check();
-    await expect(page.getByText(/已选 1 个环境/)).toBeVisible();
+    await expect(page.locator('details[aria-label="批量操作工具"] summary')).toContainText('已选 1 个环境');
+    await page.locator('details[aria-label="批量操作工具"] summary').click();
     await page.getByRole('button', { name: '批量关闭' }).click();
     await expect(page.getByText(/已关闭 1 个环境/)).toBeVisible();
     await page.getByLabel('筛选状态').selectOption('all');
     await expect(page.getByLabel('环境列表').getByText('已关闭').first()).toBeVisible();
     await page.getByLabel('筛选分组').selectOption('E2E 项目组');
-    await expect(page.getByText(/当前筛选 4 个/)).toBeVisible();
+    await expect(page.locator('.batch-toolbar-title').getByText('当前筛选 4 个')).toBeVisible();
     await page.getByLabel('选择当前筛选环境').check();
     await page.getByLabel('批量标签').fill('批量,商业化');
     await page.getByRole('button', { name: '修改标签' }).click();
