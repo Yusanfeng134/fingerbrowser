@@ -8,6 +8,8 @@ import type {
   CreateDesktopFolderInput,
   CreateDesktopShortcutInput,
   CreateCredentialInput,
+  CreateProfileFromTemplateInput,
+  CreateProfileTemplateFromProfileInput,
   CreateProxyPoolEntryInput,
   MoveDesktopShortcutInput,
   CreateProfileInput,
@@ -48,6 +50,14 @@ const api: AppApi = {
     export: () => ipcRenderer.invoke('profiles.export') as ReturnType<AppApi['profiles']['export']>,
     launch: (profileId: string) => ipcRenderer.invoke('profiles.launch', profileId) as ReturnType<AppApi['profiles']['launch']>,
     stop: (profileId: string) => ipcRenderer.invoke('profiles.stop', profileId) as ReturnType<AppApi['profiles']['stop']>
+  },
+  profileTemplates: {
+    list: () => ipcRenderer.invoke('profileTemplates.list') as ReturnType<AppApi['profileTemplates']['list']>,
+    createFromProfile: (input: CreateProfileTemplateFromProfileInput) =>
+      ipcRenderer.invoke('profileTemplates.createFromProfile', input) as ReturnType<AppApi['profileTemplates']['createFromProfile']>,
+    createProfile: (input: CreateProfileFromTemplateInput) =>
+      ipcRenderer.invoke('profileTemplates.createProfile', input) as ReturnType<AppApi['profileTemplates']['createProfile']>,
+    delete: (id: string) => ipcRenderer.invoke('profileTemplates.delete', id) as ReturnType<AppApi['profileTemplates']['delete']>
   },
   desktop: {
     list: () => ipcRenderer.invoke('desktop.list') as ReturnType<AppApi['desktop']['list']>,

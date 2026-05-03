@@ -8,7 +8,9 @@ import type {
   CreateUserInput,
   CreateCredentialInput,
   FeedbackPackageInput,
+  CreateProfileFromTemplateInput,
   CreateProfileInput,
+  CreateProfileTemplateFromProfileInput,
   DuplicateProfileInput,
   CreateDesktopFolderFromShortcutsInput,
   CreateDesktopFolderInput,
@@ -119,6 +121,24 @@ export function registerIpcHandlers(services: ApplicationServices): void {
   });
 
   handleAuthenticated('profiles.update', (_event, input: UpdateProfileInput) => services.profileService.updateProfile(input));
+
+  handleAuthenticated('profileTemplates.list', () => services.profileService.listProfileTemplates());
+
+  handleAuthenticated('profileTemplates.createFromProfile', (_event, input: CreateProfileTemplateFromProfileInput) => {
+    return services.profileService.createTemplateFromProfile(input);
+  });
+
+  handleAuthenticated('profileTemplates.createProfile', (_event, input: CreateProfileFromTemplateInput) => {
+    services.licenseService.assertCanCreateProfiles(services.profileService.listProfiles().length, 1);
+    const profile = services.profileService.createProfileFromTemplate(input);
+    services.trialService.incrementMetric('profileCreateCount');
+    return profile;
+  });
+
+  handleAuthenticated('profileTemplates.delete', (_event, id: string) => {
+    services.profileService.deleteProfileTemplate(id);
+    return { id };
+  });
 
   handleAuthenticated('profiles.export', async () => {
     const filePath = exportProfiles(services.profileService.listProfiles(), path.join(services.dataDir, 'exports'));

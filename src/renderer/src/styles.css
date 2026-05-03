@@ -445,6 +445,8 @@ p {
 }
 
 .profile-filter-bar select,
+.template-toolbar input,
+.template-toolbar select,
 .batch-grid input,
 .batch-grid select {
   width: 100%;
@@ -455,6 +457,43 @@ p {
   color: #202522;
   background: rgba(255, 255, 255, 0.76);
   outline: none;
+}
+
+.template-toolbar {
+  display: grid;
+  grid-template-columns: minmax(120px, 0.8fr) minmax(180px, 1fr) auto minmax(180px, 1fr) auto 38px;
+  gap: 8px;
+  align-items: end;
+  margin: 0 0 14px;
+  padding: 12px;
+  border: 1px solid #d9e0d8;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.66);
+}
+
+.template-toolbar-title {
+  display: grid;
+  gap: 4px;
+  align-self: center;
+}
+
+.template-toolbar-title strong {
+  color: #29312c;
+  font-size: 13px;
+}
+
+.template-toolbar-title span {
+  color: #73776f;
+  font-size: 12px;
+  font-weight: 680;
+}
+
+.template-toolbar label {
+  display: grid;
+  gap: 6px;
+  color: #6d726b;
+  font-size: 12px;
+  font-weight: 680;
 }
 
 .batch-toolbar {
@@ -1889,6 +1928,22 @@ p {
 @media (max-width: 1180px) {
   .app-shell {
     grid-template-columns: 210px minmax(480px, 1fr) 430px;
+  }
+
+  .profile-filter-bar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .template-toolbar {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .template-toolbar-title {
+    grid-column: 1 / -1;
+  }
+
+  .batch-grid {
+    grid-template-columns: minmax(0, 1fr) auto;
   }
 
   .profile-list,

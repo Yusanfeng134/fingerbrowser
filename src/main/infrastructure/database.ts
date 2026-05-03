@@ -57,6 +57,21 @@ export function openApplicationDatabase(filePath: string): ApplicationDatabase {
 
     create index if not exists idx_proxy_pool_entries_status on proxy_pool_entries(last_test_status, updated_at);
 
+    create table if not exists profile_templates (
+      id text primary key,
+      name text not null,
+      source_profile_id text,
+      group_name text not null,
+      tags_json text not null,
+      runtime_channel text not null,
+      fingerprint_policy_json text not null,
+      proxy_id text,
+      created_at text not null,
+      updated_at text not null
+    );
+
+    create index if not exists idx_profile_templates_updated_at on profile_templates(updated_at);
+
     create table if not exists audit_events (
       id text primary key,
       profile_id text,

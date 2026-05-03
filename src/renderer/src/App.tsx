@@ -55,6 +55,7 @@ import type {
   GoogleAccountConfigStatus,
   CreateProfileInput,
   FingerprintPolicy,
+  ProfileTemplate,
   ProfileDetails,
   ProxyPoolEntry,
   ProxyRuntimeStatus,
@@ -292,6 +293,9 @@ const kernelManifestSourceText: Record<KernelManifestSource, string> = {
 const actionLabel: Record<string, string> = {
   PROFILE_CREATED: '创建环境',
   PROFILE_DUPLICATED: '复制环境',
+  PROFILE_CREATED_FROM_TEMPLATE: '模板创建环境',
+  PROFILE_TEMPLATE_CREATED: '保存环境模板',
+  PROFILE_TEMPLATE_DELETED: '删除环境模板',
   PROFILE_UPDATED: '更新环境',
   PROFILE_LAUNCHED: '启动 Chromium',
   PROFILE_STOPPED: '关闭环境',
@@ -455,6 +459,9 @@ export function App(): JSX.Element {
   const [userDraft, setUserDraft] = useState<UserDraftState>(emptyUserDraft);
   const [users, setUsers] = useState<AppUser[]>([]);
   const [profiles, setProfiles] = useState<ProfileDetails[]>([]);
+  const [profileTemplates, setProfileTemplates] = useState<ProfileTemplate[]>([]);
+  const [selectedProfileTemplateId, setSelectedProfileTemplateId] = useState('');
+  const [profileTemplateDraftName, setProfileTemplateDraftName] = useState('');
   const [proxyPoolEntries, setProxyPoolEntries] = useState<ProxyPoolEntry[]>([]);
   const [selectedProxyPoolEntryId, setSelectedProxyPoolEntryId] = useState<string | null>(null);
   const [proxyPoolDraft, setProxyPoolDraft] = useState<ProxyPoolDraftState>(emptyProxyPoolDraft);
@@ -544,6 +551,11 @@ export function App(): JSX.Element {
   const selectedProxyPoolEntry = useMemo(
     () => proxyPoolEntries.find((entry) => entry.id === selectedProxyPoolEntryId) ?? null,
     [proxyPoolEntries, selectedProxyPoolEntryId]
+  );
+
+  const selectedProfileTemplate = useMemo(
+    () => profileTemplates.find((template) => template.id === selectedProfileTemplateId) ?? null,
+    [profileTemplates, selectedProfileTemplateId]
   );
 
   const filteredProxyPoolEntries = useMemo(() => {
@@ -640,6 +652,14 @@ export function App(): JSX.Element {
     if (nextProfiles.length > 0) {
       setSelectedId((current) => current ?? nextProfiles[0].id);
     }
+  }, []);
+
+  const loadProfileTemplates = useCallback(async () => {
+    const templates = await window.fingerBrowser.profileTemplates.list();
+    setProfileTemplates(templates);
+    setSelectedProfileTemplateId((current) =>
+      current && templates.some((template) => template.id === current) ? current : templates[0]?.id ?? ''
+    );
   }, []);
 
   const loadDesktopShortcuts = useCallback(async () => {
@@ -763,6 +783,7 @@ export function App(): JSX.Element {
     }
     const tasks: Array<Promise<unknown>> = [
       loadProfiles(),
+      loadProfileTemplates(),
       loadDesktopShortcuts(),
       loadCommercialState(),
       loadTrialState(),
@@ -782,6 +803,7 @@ export function App(): JSX.Element {
     loadDesktopShortcuts,
     loadGoogleAccountState,
     loadKernelState,
+    loadProfileTemplates,
     loadProfiles,
     loadProxyPoolEntries,
     loadProxyRuntimeStatus,
@@ -857,6 +879,9 @@ export function App(): JSX.Element {
   const resetWorkspaceState = (): void => {
     setUsers([]);
     setProfiles([]);
+    setProfileTemplates([]);
+    setSelectedProfileTemplateId('');
+    setProfileTemplateDraftName('');
     setProxyPoolEntries([]);
     setSelectedProxyPoolEntryId(null);
     setProxyPoolDraft(emptyProxyPoolDraft);
@@ -1471,6 +1496,66 @@ export function App(): JSX.Element {
       setActiveTab('config');
       await loadAudits(duplicated.id);
       return `已复制环境：${duplicated.name}`;
+    });
+  };
+
+  const handleSaveProfileTemplate = (): void => {
+    const source = selectedProfile;
+    if (!source) {
+      setNotice('请先选择环境');
+      return;
+    }
+    void run('保存环境模板', async () => {
+      const template = await window.fingerBrowser.profileTemplates.createFromProfile({
+        profileId: source.id,
+        name: profileTemplateDraftName.trim() || `${source.name} 模板`
+      });
+      await loadProfileTemplates();
+      setSelectedProfileTemplateId(template.id);
+      setProfileTemplateDraftName('');
+      await loadAudits();
+      return `已保存模板：${template.name}`;
+    });
+  };
+
+  const handleCreateProfileFromTemplate = (): void => {
+    const template = selectedProfileTemplate;
+    if (!template) {
+      setNotice('请选择环境模板');
+      return;
+    }
+    if (!canCreateProfile) {
+      setActiveTab('license');
+      setNotice(license?.status === 'inactive' ? '请先激活许可证' : '当前套餐环境数已达上限');
+      return;
+    }
+    void run('从模板创建环境', async () => {
+      const profile = await window.fingerBrowser.profileTemplates.createProfile({
+        templateId: template.id,
+        name: `${template.name} 环境 ${profiles.length + 1}`
+      });
+      await loadProfiles();
+      await loadCommercialState();
+      await loadTrialState();
+      setSelectedId(profile.id);
+      setDraft(profileToDraft(profile));
+      setActiveTab('config');
+      await loadAudits(profile.id);
+      return `已从模板创建环境：${profile.name}`;
+    });
+  };
+
+  const handleDeleteProfileTemplate = (): void => {
+    const template = selectedProfileTemplate;
+    if (!template) {
+      setNotice('请选择环境模板');
+      return;
+    }
+    void run('删除环境模板', async () => {
+      await window.fingerBrowser.profileTemplates.delete(template.id);
+      await loadProfileTemplates();
+      await loadAudits();
+      return `已删除模板：${template.name}`;
     });
   };
 
@@ -2391,6 +2476,60 @@ export function App(): JSX.Element {
             </select>
           </label>
         </div>
+
+        <section className="template-toolbar" aria-label="环境模板">
+          <div className="template-toolbar-title">
+            <strong>环境模板</strong>
+            <span>{profileTemplates.length} 个模板</span>
+          </div>
+          <label>
+            模板名称
+            <input
+              aria-label="模板名称"
+              value={profileTemplateDraftName}
+              onChange={(event) => setProfileTemplateDraftName(event.target.value)}
+              placeholder={selectedProfile ? `${selectedProfile.name} 模板` : '选择环境后保存'}
+            />
+          </label>
+          <button className="secondary-button" type="button" onClick={handleSaveProfileTemplate} disabled={!selectedProfile || busy}>
+            <PackageCheck size={15} />
+            保存为模板
+          </button>
+          <label>
+            选择模板
+            <select
+              aria-label="选择环境模板"
+              value={selectedProfileTemplateId}
+              onChange={(event) => setSelectedProfileTemplateId(event.target.value)}
+            >
+              <option value="">未选择模板</option>
+              {profileTemplates.map((template) => (
+                <option value={template.id} key={template.id}>
+                  {template.name}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button
+            className="secondary-button"
+            type="button"
+            onClick={handleCreateProfileFromTemplate}
+            disabled={!selectedProfileTemplate || busy}
+          >
+            <FolderPlus size={15} />
+            从模板创建
+          </button>
+          <button
+            className="icon-button"
+            type="button"
+            onClick={handleDeleteProfileTemplate}
+            disabled={!selectedProfileTemplate || busy}
+            aria-label="删除环境模板"
+            title="删除模板"
+          >
+            <Trash2 size={15} />
+          </button>
+        </section>
 
         <section className="batch-toolbar" aria-label="批量操作">
           <div className="batch-toolbar-title">

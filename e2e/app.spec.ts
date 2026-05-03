@@ -31,7 +31,7 @@ test('中文 UI 完成激活 license、新建环境、代理测试、导出审�
     teamName: 'E2E 试卖团队',
     issuedAt: new Date('2026-04-29T08:00:00.000Z'),
     expiresAt: new Date(Date.now() + 86_400_000),
-    overrides: { profileLimit: 3 }
+    overrides: { profileLimit: 4 }
   });
   const proxySockets = new Set<net.Socket>();
   const proxyServer = net.createServer((socket) => {
@@ -84,7 +84,7 @@ test('中文 UI 完成激活 license、新建环境、代理测试、导出审�
     await page.getByLabel('激活码').fill(activationCode);
     await page.getByRole('button', { name: '激活许可证' }).last().click();
     await expect(page.getByText('E2E 试卖团队 试用版 已激活')).toBeVisible();
-    await expect(page.getByText(/环境用量 0\/3/)).toBeVisible();
+    await expect(page.getByText(/环境用量 0\/4/)).toBeVisible();
 
     await page.getByRole('button', { name: '新建环境' }).click();
     await page.getByLabel('环境名称').fill('E2E 运营环境');
@@ -104,7 +104,7 @@ test('中文 UI 完成激活 license、新建环境、代理测试、导出审�
     await page.getByRole('button', { name: '保存环境' }).click();
 
     await expect(page.getByRole('heading', { name: 'E2E 运营环境' })).toBeVisible();
-    await expect(page.getByText(/环境 1\/3/)).toBeVisible();
+    await expect(page.getByText(/环境 1\/4/)).toBeVisible();
 
     const sideNav = page.getByRole('navigation', { name: '主导航' });
     await expect(sideNav.getByRole('link', { name: '环境' })).toBeVisible();
@@ -349,9 +349,21 @@ test('中文 UI 完成激活 license、新建环境、代理测试、导出审�
     await page.getByRole('button', { name: '复制环境' }).click();
     await expect(page.getByText(/已复制环境：E2E 运营环境 副本/)).toBeVisible();
     await expect(page.getByRole('heading', { name: 'E2E 运营环境 副本' })).toBeVisible();
-    await expect(page.getByText(/环境 2\/3/)).toBeVisible();
+    await expect(page.getByText(/环境 2\/4/)).toBeVisible();
     await page.getByRole('tab', { name: '审计' }).click();
     await expect(page.getByText('PROFILE_DUPLICATED')).toBeVisible();
+    await expect(page.getByText('proxy-password')).toHaveCount(0);
+    await page.getByRole('tab', { name: '配置' }).click();
+    await page.getByLabel('模板名称').fill('E2E 客服模板');
+    await page.getByRole('button', { name: '保存为模板' }).click();
+    await expect(page.getByText(/已保存模板：E2E 客服模板/)).toBeVisible();
+    await expect(page.getByLabel('选择环境模板')).toHaveValue(/.+/);
+    await page.getByRole('button', { name: '从模板创建' }).click();
+    await expect(page.getByText(/已从模板创建环境：E2E 客服模板 环境 3/)).toBeVisible();
+    await expect(page.getByRole('heading', { name: 'E2E 客服模板 环境 3' })).toBeVisible();
+    await expect(page.getByText(/环境 3\/4/)).toBeVisible();
+    await page.getByRole('tab', { name: '审计' }).click();
+    await expect(page.getByText('PROFILE_CREATED_FROM_TEMPLATE')).toBeVisible();
     await expect(page.getByText('proxy-password')).toHaveCount(0);
     await page.getByRole('tab', { name: '配置' }).click();
 
@@ -361,7 +373,7 @@ test('中文 UI 完成激活 license、新建环境、代理测试、导出审�
     await page.getByLabel('内核通道').selectOption('custom-kernel');
     await page.getByRole('button', { name: '保存环境' }).click();
     await expect(page.getByRole('heading', { name: 'E2E 自研内核环境' })).toBeVisible();
-    await expect(page.getByText(/环境 3\/3/)).toBeVisible();
+    await expect(page.getByText(/环境 4\/4/)).toBeVisible();
     await expect(page.getByText('自研内核：已安装')).toBeVisible();
     await page.getByRole('button', { name: '检查自研内核' }).click();
     await expect(page.getByText(/自研内核 e2e-imported-kernel 已就绪/)).toBeVisible();
@@ -375,15 +387,15 @@ test('中文 UI 完成激活 license、新建环境、代理测试、导出审�
     await page.getByLabel('筛选状态').selectOption('all');
     await expect(page.getByLabel('环境列表').getByText('已关闭').first()).toBeVisible();
     await page.getByLabel('筛选分组').selectOption('E2E 项目组');
-    await expect(page.getByText(/当前筛选 3 个/)).toBeVisible();
+    await expect(page.getByText(/当前筛选 4 个/)).toBeVisible();
     await page.getByLabel('选择当前筛选环境').check();
     await page.getByLabel('批量标签').fill('批量,商业化');
     await page.getByRole('button', { name: '修改标签' }).click();
-    await expect(page.getByText(/已更新 3 个环境标签/)).toBeVisible();
+    await expect(page.getByText(/已更新 4 个环境标签/)).toBeVisible();
     await expect(page.getByText('批量 / 商业化').first()).toBeVisible();
     await page.getByLabel('批量代理池').selectOption({ label: 'E2E 洛杉矶代理' });
     await page.getByRole('button', { name: '应用代理' }).click();
-    await expect(page.getByText(/已应用代理到 3 个环境/)).toBeVisible();
+    await expect(page.getByText(/已应用代理到 4 个环境/)).toBeVisible();
     await page.getByLabel('筛选分组').selectOption('');
 
     await page.getByRole('button', { name: '新建环境' }).click();

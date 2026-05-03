@@ -25,6 +25,9 @@ export type TrialMetricKey =
 export type AuditAction =
   | 'PROFILE_CREATED'
   | 'PROFILE_DUPLICATED'
+  | 'PROFILE_CREATED_FROM_TEMPLATE'
+  | 'PROFILE_TEMPLATE_CREATED'
+  | 'PROFILE_TEMPLATE_DELETED'
   | 'PROFILE_UPDATED'
   | 'PROFILE_LAUNCHED'
   | 'PROFILE_STOPPED'
@@ -232,6 +235,20 @@ export interface BrowserProfile {
 
 export interface ProfileDetails extends BrowserProfile {
   proxy: ProxyConfig | null;
+}
+
+export interface ProfileTemplate {
+  id: string;
+  name: string;
+  sourceProfileId: string | null;
+  groupName: string;
+  tags: string[];
+  runtimeChannel: RuntimeChannel;
+  fingerprintPolicy: FingerprintPolicy;
+  proxyId: string | null;
+  hasProxy: boolean;
+  createdAt: string;
+  updatedAt: string;
 }
 
 export interface DesktopShortcut {
@@ -526,6 +543,20 @@ export interface DuplicateProfileInput {
   includeProxy?: boolean;
 }
 
+export interface CreateProfileTemplateFromProfileInput {
+  profileId: string;
+  name?: string;
+  includeProxy?: boolean;
+}
+
+export interface CreateProfileFromTemplateInput {
+  templateId: string;
+  name?: string;
+  groupName?: string;
+  tags?: string[];
+  includeProxy?: boolean;
+}
+
 export interface UpdateProfileInput {
   id: string;
   name: string;
@@ -610,6 +641,12 @@ export interface AppApi {
     export: () => Promise<ExportResult>;
     launch: (profileId: string) => Promise<LaunchResult>;
     stop: (profileId: string) => Promise<StopResult>;
+  };
+  profileTemplates: {
+    list: () => Promise<ProfileTemplate[]>;
+    createFromProfile: (input: CreateProfileTemplateFromProfileInput) => Promise<ProfileTemplate>;
+    createProfile: (input: CreateProfileFromTemplateInput) => Promise<ProfileDetails>;
+    delete: (id: string) => Promise<{ id: string }>;
   };
   desktop: {
     list: () => Promise<DesktopShortcut[]>;

@@ -7,11 +7,14 @@ import type {
   AuditAction,
   AuditEvent,
   BrowserProfile,
+  CreateProfileFromTemplateInput,
   CreateProfileInput,
+  CreateProfileTemplateFromProfileInput,
   CreateProxyInput,
   DuplicateProfileInput,
   FingerprintPolicy,
   ProfileDetails,
+  ProfileTemplate,
   ProxyConfig,
   ProxyTestResult,
   RuntimeChannel,
@@ -63,10 +66,27 @@ interface AuditRow {
   created_at: string;
 }
 
+interface ProfileTemplateRow {
+  id: string;
+  name: string;
+  source_profile_id: string | null;
+  group_name: string;
+  tags_json: string;
+  runtime_channel: RuntimeChannel;
+  fingerprint_policy_json: string;
+  proxy_id: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
 export interface ProfileService {
   listProfiles(): ProfileDetails[];
   createProfile(input: CreateProfileInput): ProfileDetails;
   duplicateProfile(input: DuplicateProfileInput): ProfileDetails;
+  listProfileTemplates(): ProfileTemplate[];
+  createTemplateFromProfile(input: CreateProfileTemplateFromProfileInput): ProfileTemplate;
+  createProfileFromTemplate(input: CreateProfileFromTemplateInput): ProfileDetails;
+  deleteProfileTemplate(id: string): void;
   updateProfile(input: UpdateProfileInput): ProfileDetails;
   getProfile(id: string): ProfileDetails;
   setProfileStatus(id: string, status: BrowserProfile['status']): ProfileDetails;
@@ -153,6 +173,30 @@ export function createProfileService(options: ProfileServiceOptions): ProfileSer
     };
   }
 
+  function mapTemplate(row: ProfileTemplateRow): ProfileTemplate {
+    return {
+      id: row.id,
+      name: row.name,
+      sourceProfileId: row.source_profile_id,
+      groupName: row.group_name ?? '',
+      tags: JSON.parse(row.tags_json) as string[],
+      runtimeChannel: normalizeRuntimeChannel(row.runtime_channel),
+      fingerprintPolicy: JSON.parse(row.fingerprint_policy_json) as FingerprintPolicy,
+      proxyId: row.proxy_id,
+      hasProxy: Boolean(row.proxy_id),
+      createdAt: row.created_at,
+      updatedAt: row.updated_at
+    };
+  }
+
+  function getTemplate(id: string): ProfileTemplateRow {
+    const row = db.prepare('select * from profile_templates where id = ?').get(id) as ProfileTemplateRow | undefined;
+    if (!row) {
+      throw new Error('环境模板不存在');
+    }
+    return row;
+  }
+
   function createProxy(input: CreateProxyInput): ProxyConfig {
     assertValidProxyEndpoint({
       scheme: input.scheme,
@@ -224,6 +268,41 @@ export function createProfileService(options: ProfileServiceOptions): ProfileSer
       now
     );
     return duplicated;
+  }
+
+  function insertProfileFromTemplate(input: {
+    name: string;
+    groupName: string;
+    tags: string[];
+    fingerprintPolicy: FingerprintPolicy;
+    runtimeChannel: RuntimeChannel;
+    chromiumVersion?: string;
+    proxyId: string | null;
+  }): ProfileDetails {
+    const id = randomUUID();
+    const now = new Date().toISOString();
+    const userDataDir = path.join(profilesRoot, id);
+    mkdirSync(userDataDir, { recursive: true });
+
+    db.prepare(
+      `insert into profiles (
+        id, name, group_name, tags_json, status, user_data_dir, chromium_version, runtime_channel, fingerprint_policy_json, proxy_id, created_at, updated_at
+      ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ).run(
+      id,
+      input.name.trim(),
+      normalizeGroupName(input.groupName),
+      JSON.stringify(normalizeTags(input.tags)),
+      'closed',
+      userDataDir,
+      input.chromiumVersion ?? CHROMIUM_VERSION,
+      normalizeRuntimeChannel(input.runtimeChannel),
+      JSON.stringify(normalizeFingerprintPolicy(input.fingerprintPolicy)),
+      input.proxyId,
+      now,
+      now
+    );
+    return getProfile(id);
   }
 
   function updateOrCreateProxy(input: CreateProxyInput | null | undefined, existingProxyId: string | null): string | null {
@@ -328,33 +407,19 @@ export function createProfileService(options: ProfileServiceOptions): ProfileSer
       const source = getProfile(input.profileId);
       const name = input.name?.trim() || `${source.name} 副本`;
       assertValidProfileName(name);
-      const id = randomUUID();
-      const now = new Date().toISOString();
       const shouldIncludeProxy = input.includeProxy !== false && Boolean(source.proxyId);
       const proxy = shouldIncludeProxy && source.proxyId ? duplicateProxy(source.proxyId) : null;
-      const userDataDir = path.join(profilesRoot, id);
-      mkdirSync(userDataDir, { recursive: true });
-
-      db.prepare(
-        `insert into profiles (
-          id, name, group_name, tags_json, status, user_data_dir, chromium_version, runtime_channel, fingerprint_policy_json, proxy_id, created_at, updated_at
-        ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
-      ).run(
-        id,
+      const duplicated = insertProfileFromTemplate({
         name,
-        normalizeGroupName(input.groupName ?? source.groupName),
-        JSON.stringify(normalizeTags(input.tags ?? source.tags)),
-        'closed',
-        userDataDir,
-        source.chromiumVersion,
-        normalizeRuntimeChannel(source.runtimeChannel),
-        JSON.stringify(normalizeFingerprintPolicy(source.fingerprintPolicy)),
-        proxy?.id ?? null,
-        now,
-        now
-      );
+        groupName: input.groupName ?? source.groupName,
+        tags: input.tags ?? source.tags,
+        fingerprintPolicy: source.fingerprintPolicy,
+        runtimeChannel: source.runtimeChannel,
+        chromiumVersion: source.chromiumVersion,
+        proxyId: proxy?.id ?? null
+      });
 
-      recordAudit(id, 'PROFILE_DUPLICATED', {
+      recordAudit(duplicated.id, 'PROFILE_DUPLICATED', {
         sourceProfileId: source.id,
         name,
         groupName: normalizeGroupName(input.groupName ?? source.groupName),
@@ -363,9 +428,90 @@ export function createProfileService(options: ProfileServiceOptions): ProfileSer
         hasProxy: Boolean(proxy)
       });
       if (proxy) {
-        recordAudit(id, 'PROXY_CREATED', redactProxyConfig(proxy));
+        recordAudit(duplicated.id, 'PROXY_CREATED', redactProxyConfig(proxy));
       }
-      return getProfile(id);
+      return duplicated;
+    },
+    listProfileTemplates(): ProfileTemplate[] {
+      const rows = db.prepare('select * from profile_templates order by updated_at desc').all() as ProfileTemplateRow[];
+      return rows.map(mapTemplate);
+    },
+    createTemplateFromProfile(input: CreateProfileTemplateFromProfileInput): ProfileTemplate {
+      const source = getProfile(input.profileId);
+      const name = input.name?.trim() || `${source.name} 模板`;
+      assertValidProfileName(name);
+      const shouldIncludeProxy = input.includeProxy !== false && Boolean(source.proxyId);
+      const proxy = shouldIncludeProxy && source.proxyId ? duplicateProxy(source.proxyId) : null;
+      const now = new Date().toISOString();
+      const id = randomUUID();
+
+      db.prepare(
+        `insert into profile_templates (
+          id, name, source_profile_id, group_name, tags_json, runtime_channel, fingerprint_policy_json, proxy_id, created_at, updated_at
+        ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      ).run(
+        id,
+        name,
+        source.id,
+        normalizeGroupName(source.groupName),
+        JSON.stringify(normalizeTags(source.tags)),
+        normalizeRuntimeChannel(source.runtimeChannel),
+        JSON.stringify(normalizeFingerprintPolicy(source.fingerprintPolicy)),
+        proxy?.id ?? null,
+        now,
+        now
+      );
+
+      recordAudit(null, 'PROFILE_TEMPLATE_CREATED', {
+        templateId: id,
+        sourceProfileId: source.id,
+        name,
+        runtimeChannel: normalizeRuntimeChannel(source.runtimeChannel),
+        hasProxy: Boolean(proxy)
+      });
+      return mapTemplate(getTemplate(id));
+    },
+    createProfileFromTemplate(input: CreateProfileFromTemplateInput): ProfileDetails {
+      const templateRow = getTemplate(input.templateId);
+      const template = mapTemplate(templateRow);
+      const name = input.name?.trim() || `${template.name} 环境`;
+      assertValidProfileName(name);
+      const shouldIncludeProxy = input.includeProxy !== false && Boolean(template.proxyId);
+      const proxy = shouldIncludeProxy && template.proxyId ? duplicateProxy(template.proxyId) : null;
+      const profile = insertProfileFromTemplate({
+        name,
+        groupName: input.groupName ?? template.groupName,
+        tags: input.tags ?? template.tags,
+        fingerprintPolicy: template.fingerprintPolicy,
+        runtimeChannel: template.runtimeChannel,
+        proxyId: proxy?.id ?? null
+      });
+
+      recordAudit(profile.id, 'PROFILE_CREATED_FROM_TEMPLATE', {
+        templateId: template.id,
+        templateName: template.name,
+        name,
+        groupName: normalizeGroupName(input.groupName ?? template.groupName),
+        tags: normalizeTags(input.tags ?? template.tags),
+        runtimeChannel: normalizeRuntimeChannel(template.runtimeChannel),
+        hasProxy: Boolean(proxy)
+      });
+      if (proxy) {
+        recordAudit(profile.id, 'PROXY_CREATED', redactProxyConfig(proxy));
+      }
+      return profile;
+    },
+    deleteProfileTemplate(id: string): void {
+      const template = mapTemplate(getTemplate(id));
+      db.prepare('delete from profile_templates where id = ?').run(id);
+      if (template.proxyId) {
+        db.prepare('delete from proxies where id = ?').run(template.proxyId);
+      }
+      recordAudit(null, 'PROFILE_TEMPLATE_DELETED', {
+        templateId: template.id,
+        name: template.name,
+        hasProxy: template.hasProxy
+      });
     },
     updateProfile(input: UpdateProfileInput): ProfileDetails {
       assertValidProfileName(input.name);

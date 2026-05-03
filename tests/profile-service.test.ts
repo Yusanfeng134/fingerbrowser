@@ -233,4 +233,83 @@ describe('profile service', () => {
     expect(JSON.stringify(audits)).toContain(source.id);
     expect(JSON.stringify(audits)).not.toContain('copied-proxy-password');
   });
+
+  it('saves reusable profile templates and creates clean profiles from templates', () => {
+    const dataDir = mkdtempSync(path.join(tmpdir(), 'fingerbrowser-profile-template-test-'));
+    tempDirs.push(dataDir);
+    const db = openApplicationDatabase(path.join(dataDir, 'app.sqlite'));
+    const secretBox = createNodeSecretBox('test-master-key');
+    const service = createProfileService({
+      db,
+      dataDir,
+      secretBox
+    });
+
+    const source = service.createProfile({
+      name: '芝加哥客服环境',
+      groupName: '客服项目',
+      tags: ['US', '客服'],
+      runtimeChannel: 'custom-kernel',
+      fingerprintPolicy: {
+        locale: 'en-US',
+        timezone: 'America/Chicago',
+        windowSize: { width: 1360, height: 900 }
+      },
+      proxy: {
+        scheme: 'http',
+        host: 'chicago-proxy.example.test',
+        port: 8080,
+        username: 'agent',
+        password: 'template-proxy-password',
+        bypassList: ['localhost']
+      }
+    });
+
+    const template = service.createTemplateFromProfile({
+      profileId: source.id,
+      name: '芝加哥客服模板'
+    });
+    const created = service.createProfileFromTemplate({
+      templateId: template.id,
+      name: '芝加哥客服环境 02'
+    });
+
+    expect(service.listProfileTemplates()).toHaveLength(1);
+    expect(template).toMatchObject({
+      name: '芝加哥客服模板',
+      sourceProfileId: source.id,
+      groupName: source.groupName,
+      tags: source.tags,
+      runtimeChannel: source.runtimeChannel,
+      fingerprintPolicy: source.fingerprintPolicy,
+      hasProxy: true
+    });
+    expect(created.id).not.toBe(source.id);
+    expect(created.name).toBe('芝加哥客服环境 02');
+    expect(created.groupName).toBe(source.groupName);
+    expect(created.tags).toEqual(source.tags);
+    expect(created.runtimeChannel).toBe(source.runtimeChannel);
+    expect(created.fingerprintPolicy).toEqual(source.fingerprintPolicy);
+    expect(created.status).toBe('closed');
+    expect(created.userDataDir).toContain(created.id);
+    expect(created.userDataDir).not.toBe(source.userDataDir);
+    expect(created.proxyId).not.toBe(source.proxyId);
+    expect(created.proxy).toMatchObject({
+      scheme: 'http',
+      host: 'chicago-proxy.example.test',
+      port: 8080,
+      username: 'agent',
+      lastTestStatus: 'untested'
+    });
+    expect(secretBox.decrypt(created.proxy?.encryptedPassword ?? '')).toBe('template-proxy-password');
+
+    const audits = service.listAuditEvents();
+    expect(audits.map((event) => event.action)).toEqual(
+      expect.arrayContaining(['PROFILE_TEMPLATE_CREATED', 'PROFILE_CREATED_FROM_TEMPLATE'])
+    );
+    expect(JSON.stringify(audits)).not.toContain('template-proxy-password');
+
+    service.deleteProfileTemplate(template.id);
+    expect(service.listProfileTemplates()).toHaveLength(0);
+  });
 });
