@@ -1054,6 +1054,17 @@ export function App(): JSX.Element {
     setRevealedCredential(null);
   };
 
+  const handleProfileHealthFilterChange = (filter: WorkbenchHealthFilter): void => {
+    setProfileHealthFilter(filter);
+    if (filter === 'archived') {
+      setProfileArchiveFilter('archived');
+      return;
+    }
+    if (filter !== 'all' && profileArchiveFilter === 'archived') {
+      setProfileArchiveFilter('active');
+    }
+  };
+
   const proxyPoolDraftToInput = (draftState: ProxyPoolDraftState) => ({
     name: draftState.name,
     scheme: draftState.scheme,
@@ -2497,21 +2508,50 @@ export function App(): JSX.Element {
         </section>
 
         <section className="profile-health-strip" aria-label="环境健康概览">
-          <div className="profile-health-summary ready">
+          <button
+            className={`profile-health-summary all ${profileHealthFilter === 'all' ? 'active' : ''}`}
+            type="button"
+            aria-label="筛选全部健康环境"
+            aria-pressed={profileHealthFilter === 'all'}
+            onClick={() => handleProfileHealthFilterChange('all')}
+          >
+            <Globe2 size={16} />
+            <span>全部</span>
+            <strong>{profiles.length}</strong>
+          </button>
+          <button
+            className={`profile-health-summary ready ${profileHealthFilter === 'ready' ? 'active' : ''}`}
+            type="button"
+            aria-label="筛选已就绪环境"
+            aria-pressed={profileHealthFilter === 'ready'}
+            onClick={() => handleProfileHealthFilterChange('ready')}
+          >
             <CheckCircle2 size={16} />
             <span>已就绪</span>
             <strong>{profileHealthStats.ready}</strong>
-          </div>
-          <div className="profile-health-summary attention">
+          </button>
+          <button
+            className={`profile-health-summary attention ${profileHealthFilter === 'attention' ? 'active' : ''}`}
+            type="button"
+            aria-label="筛选待补全环境"
+            aria-pressed={profileHealthFilter === 'attention'}
+            onClick={() => handleProfileHealthFilterChange('attention')}
+          >
             <Activity size={16} />
             <span>待补全</span>
             <strong>{profileHealthStats.attention}</strong>
-          </div>
-          <div className="profile-health-summary archived">
+          </button>
+          <button
+            className={`profile-health-summary archived ${profileHealthFilter === 'archived' ? 'active' : ''}`}
+            type="button"
+            aria-label="筛选已归档环境"
+            aria-pressed={profileHealthFilter === 'archived'}
+            onClick={() => handleProfileHealthFilterChange('archived')}
+          >
             <PackageCheck size={16} />
             <span>已归档</span>
             <strong>{profileHealthStats.archived}</strong>
-          </div>
+          </button>
         </section>
 
         <div className="search-row">
@@ -2558,7 +2598,7 @@ export function App(): JSX.Element {
             <select
               aria-label="筛选健康"
               value={profileHealthFilter}
-              onChange={(event) => setProfileHealthFilter(event.target.value as WorkbenchHealthFilter)}
+              onChange={(event) => handleProfileHealthFilterChange(event.target.value as WorkbenchHealthFilter)}
             >
               <option value="all">全部健康</option>
               <option value="ready">已就绪</option>

@@ -111,6 +111,13 @@ test('中文 UI 完成激活 license、新建环境、代理测试、导出审�
     await expect(page.getByLabel('环境健康概览')).toContainText('待补全');
     await expect(page.getByLabel('环境健康详情')).toContainText('待补全');
     await expect(page.locator('.profile-row-content').filter({ hasText: 'E2E 运营环境' }).getByText('待补全')).toBeVisible();
+    await page.getByRole('button', { name: /筛选待补全环境/ }).click();
+    await expect(page.getByLabel('筛选健康')).toHaveValue('attention');
+    await expect(page.getByLabel('环境列表').getByText('E2E 运营环境')).toBeVisible();
+    await page.getByRole('button', { name: /筛选已就绪环境/ }).click();
+    await expect(page.getByLabel('筛选健康')).toHaveValue('ready');
+    await expect(page.getByLabel('环境列表').getByText('E2E 运营环境')).toHaveCount(0);
+    await page.getByLabel('筛选健康').selectOption('all');
     await page.getByLabel('筛选健康').selectOption('attention');
     await expect(page.getByLabel('环境列表').getByText('E2E 运营环境')).toBeVisible();
     await page.getByLabel('筛选健康').selectOption('ready');
@@ -322,6 +329,11 @@ test('中文 UI 完成激活 license、新建环境、代理测试、导出审�
       page.locator('.profile-row-content').filter({ hasText: 'E2E 运营环境', hasNotText: '副本' }).getByText('已就绪')
     ).toBeVisible();
     await expect(page.getByLabel('环境健康详情')).toContainText('已就绪');
+    await page.getByRole('button', { name: /筛选已就绪环境/ }).click();
+    await expect(page.getByLabel('筛选健康')).toHaveValue('ready');
+    await expect(page.getByLabel('环境列表').getByText('E2E 运营环境')).toBeVisible();
+    await page.getByRole('button', { name: /筛选全部健康环境/ }).click();
+    await expect(page.getByLabel('筛选健康')).toHaveValue('all');
     await page.getByLabel('筛选健康').selectOption('ready');
     await expect(page.getByLabel('环境列表').getByText('E2E 运营环境')).toBeVisible();
     await page.getByLabel('筛选健康').selectOption('all');
@@ -388,7 +400,7 @@ test('中文 UI 完成激活 license、新建环境、代理测试、导出审�
     await expect(page.getByText('PROFILE_CREATED_FROM_TEMPLATE')).toBeVisible();
     await expect(page.getByText('proxy-password')).toHaveCount(0);
     await page.getByRole('tab', { name: '配置' }).click();
-    await page.getByRole('button', { name: '归档环境' }).click();
+    await page.getByRole('button', { name: '归档环境', exact: true }).click();
     await expect(page.getByText(/已归档环境：E2E 客服模板 环境 3/)).toBeVisible();
     await expect(page.getByLabel('环境列表').getByText('E2E 客服模板 环境 3')).toHaveCount(0);
     await page.getByLabel('筛选归档').selectOption('archived');

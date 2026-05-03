@@ -404,7 +404,7 @@ p {
 
 .profile-health-strip {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
   gap: 10px;
   margin: 0 0 14px;
 }
@@ -422,6 +422,7 @@ p {
   background: rgba(255, 255, 255, 0.66);
   font-size: 12px;
   font-weight: 720;
+  text-align: left;
 }
 
 .profile-health-summary strong {
@@ -434,6 +435,10 @@ p {
   color: #176757;
 }
 
+.profile-health-summary.all {
+  color: #39534f;
+}
+
 .profile-health-summary.attention {
   border-color: rgba(200, 132, 37, 0.34);
   color: #875514;
@@ -442,6 +447,11 @@ p {
 .profile-health-summary.archived {
   color: #6a7068;
   background: #f0eee8;
+}
+
+.profile-health-summary.active {
+  background: #ffffff;
+  box-shadow: 0 10px 22px rgba(43, 56, 48, 0.08);
 }
 
 .search-row input,
