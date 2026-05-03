@@ -454,6 +454,49 @@ p {
   box-shadow: 0 10px 22px rgba(43, 56, 48, 0.08);
 }
 
+.profile-issue-strip {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin: 0 0 14px;
+  padding: 10px 12px;
+  border: 1px solid #d9e0d8;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.66);
+}
+
+.profile-issue-title {
+  color: #73776f;
+  font-size: 12px;
+  font-weight: 760;
+}
+
+.profile-issue-strip span:not(.profile-issue-title) {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 27px;
+  border-radius: 999px;
+  padding: 0 9px;
+  font-size: 12px;
+  font-weight: 720;
+}
+
+.profile-issue-strip strong {
+  font-size: 13px;
+}
+
+.profile-issue-strip .issue-hot {
+  color: #875514;
+  background: #fff0d3;
+}
+
+.profile-issue-strip .issue-clear {
+  color: #176757;
+  background: rgba(31, 122, 107, 0.1);
+}
+
 .search-row input,
 .detail-form input,
 .detail-form select,

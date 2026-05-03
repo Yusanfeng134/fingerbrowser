@@ -109,6 +109,8 @@ test('中文 UI 完成激活 license、新建环境、代理测试、导出审�
     await expect(page.getByText(/环境 1\/4/)).toBeVisible();
     await expect(page.getByLabel('环境列表').getByText('E2E 负责人')).toBeVisible();
     await expect(page.getByLabel('环境健康概览')).toContainText('待补全');
+    await expect(page.getByLabel('健康问题分布')).toContainText('代理1');
+    await expect(page.getByLabel('健康问题分布')).toContainText('启动记录1');
     await expect(page.getByLabel('环境健康详情')).toContainText('待补全');
     await expect(page.locator('.profile-row-content').filter({ hasText: 'E2E 运营环境' }).getByText('待补全')).toBeVisible();
     await page.getByRole('button', { name: /筛选待补全环境/ }).click();
@@ -329,6 +331,8 @@ test('中文 UI 完成激活 license、新建环境、代理测试、导出审�
       page.locator('.profile-row-content').filter({ hasText: 'E2E 运营环境', hasNotText: '副本' }).getByText('已就绪')
     ).toBeVisible();
     await expect(page.getByLabel('环境健康详情')).toContainText('已就绪');
+    await expect(page.getByLabel('健康问题分布')).toContainText('代理0');
+    await expect(page.getByLabel('健康问题分布')).toContainText('启动记录0');
     await page.getByRole('button', { name: /筛选已就绪环境/ }).click();
     await expect(page.getByLabel('筛选健康')).toHaveValue('ready');
     await expect(page.getByLabel('环境列表').getByText('E2E 运营环境')).toBeVisible();

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { ProfileDetails, ProxyTestStatus } from '../src/shared/types';
-import { getProfileHealth, getProfileHealthStats } from '../src/renderer/src/profile-health';
+import { getProfileHealth, getProfileHealthIssueStats, getProfileHealthStats } from '../src/renderer/src/profile-health';
 
 function profile(input: Partial<ProfileDetails> & Pick<ProfileDetails, 'id' | 'name'>): ProfileDetails {
   return {
@@ -128,5 +128,40 @@ describe('profile health helpers', () => {
     );
 
     expect(stats).toEqual({ ready: 1, attention: 1, archived: 1 });
+  });
+
+  it('counts active profile health issue distribution by check category', () => {
+    const issueStats = getProfileHealthIssueStats(
+      [
+        profile({
+          id: 'ready',
+          name: '完整环境',
+          owner: 'Alice',
+          notes: '试卖客户',
+          proxyId: 'proxy-passed',
+          proxy: proxy('passed'),
+          lastLaunchedAt: '2026-05-03T10:00:00.000Z'
+        }),
+        profile({ id: 'missing', name: '待补全环境' }),
+        profile({
+          id: 'stale',
+          name: '过期环境',
+          owner: 'Bob',
+          notes: '需要复测',
+          proxyId: 'proxy-failed',
+          proxy: proxy('failed'),
+          lastLaunchedAt: '2026-04-01T00:00:00.000Z'
+        }),
+        profile({ id: 'archived', name: '归档环境', archivedAt: '2026-05-01T00:00:00.000Z' })
+      ],
+      now
+    );
+
+    expect(issueStats).toEqual([
+      { key: 'owner', label: '负责人', count: 1 },
+      { key: 'notes', label: '备注', count: 1 },
+      { key: 'proxy', label: '代理', count: 2 },
+      { key: 'launch', label: '启动记录', count: 2 }
+    ]);
   });
 });

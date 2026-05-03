@@ -93,7 +93,7 @@ import {
   reconcileSelectedProfileIds,
   splitWorkbenchCsv
 } from './profile-workbench';
-import { getProfileHealth, getProfileHealthStats } from './profile-health';
+import { getProfileHealth, getProfileHealthIssueStats, getProfileHealthStats } from './profile-health';
 import type {
   WorkbenchArchiveFilter,
   WorkbenchHealthFilter,
@@ -576,6 +576,8 @@ export function App(): JSX.Element {
   }, [profiles]);
 
   const profileHealthStats = useMemo(() => getProfileHealthStats(profiles), [profiles]);
+
+  const profileHealthIssueStats = useMemo(() => getProfileHealthIssueStats(profiles), [profiles]);
 
   const selectedProfileHealth = useMemo(
     () => (selectedProfile ? (profileHealthById.get(selectedProfile.id) ?? getProfileHealth(selectedProfile)) : null),
@@ -2552,6 +2554,16 @@ export function App(): JSX.Element {
             <span>已归档</span>
             <strong>{profileHealthStats.archived}</strong>
           </button>
+        </section>
+
+        <section className="profile-issue-strip" aria-label="健康问题分布">
+          <span className="profile-issue-title">问题分布</span>
+          {profileHealthIssueStats.map((stat) => (
+            <span className={stat.count > 0 ? 'issue-hot' : 'issue-clear'} key={stat.key}>
+              {stat.label}
+              <strong>{stat.count}</strong>
+            </span>
+          ))}
         </section>
 
         <div className="search-row">

@@ -22,6 +22,21 @@ export interface ProfileHealthStats {
   archived: number;
 }
 
+export type ProfileHealthIssueKey = 'owner' | 'notes' | 'proxy' | 'launch';
+
+export interface ProfileHealthIssueStat {
+  key: ProfileHealthIssueKey;
+  label: string;
+  count: number;
+}
+
+const issueStatDefinitions: Array<Omit<ProfileHealthIssueStat, 'count'>> = [
+  { key: 'owner', label: '负责人' },
+  { key: 'notes', label: '备注' },
+  { key: 'proxy', label: '代理' },
+  { key: 'launch', label: '启动记录' }
+];
+
 const staleLaunchDays = 14;
 const dayMs = 24 * 60 * 60 * 1000;
 
@@ -117,4 +132,32 @@ export function getProfileHealthStats(profiles: ProfileDetails[], now: Date = ne
     },
     { ready: 0, attention: 0, archived: 0 }
   );
+}
+
+export function getProfileHealthIssueStats(
+  profiles: ProfileDetails[],
+  now: Date = new Date()
+): ProfileHealthIssueStat[] {
+  const counts = new Map<ProfileHealthIssueKey, number>(issueStatDefinitions.map((definition) => [definition.key, 0]));
+
+  for (const profile of profiles) {
+    const health = getProfileHealth(profile, now);
+    if (health.status === 'archived') {
+      continue;
+    }
+    for (const check of health.checks) {
+      if (!check.ok && isIssueStatKey(check.key)) {
+        counts.set(check.key, (counts.get(check.key) ?? 0) + 1);
+      }
+    }
+  }
+
+  return issueStatDefinitions.map((definition) => ({
+    ...definition,
+    count: counts.get(definition.key) ?? 0
+  }));
+}
+
+function isIssueStatKey(key: ProfileHealthCheck['key']): key is ProfileHealthIssueKey {
+  return key === 'owner' || key === 'notes' || key === 'proxy' || key === 'launch';
 }
