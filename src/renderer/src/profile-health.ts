@@ -37,6 +37,14 @@ export interface ProfileHealthIssueStat {
   count: number;
 }
 
+export type ProfileDeliveryTone = 'ready' | 'attention' | 'empty';
+
+export interface ProfileDeliveryGuidance {
+  conclusion: string;
+  nextStep: string;
+  tone: ProfileDeliveryTone;
+}
+
 const issueStatDefinitions: Array<Omit<ProfileHealthIssueStat, 'count'>> = [
   { key: 'owner', label: '负责人' },
   { key: 'notes', label: '备注' },
@@ -186,8 +194,7 @@ export function buildProfileHealthReport(profiles: ProfileDetails[], now: Date =
   const readiness = getProfileHealthReadiness(profiles, now);
   const issueStats = getProfileHealthIssueStats(profiles, now);
   const issueSummary = issueStats.map((stat) => `${stat.label} ${stat.count}`).join('，');
-  const deliveryConclusion = getDeliveryConclusion(readiness);
-  const nextStep = getNextStep(readiness, issueStats);
+  const guidance = getProfileDeliveryGuidance(profiles, now);
 
   return [
     '环境健康摘要',
@@ -196,16 +203,37 @@ export function buildProfileHealthReport(profiles: ProfileDetails[], now: Date =
     `待补全：${stats.attention}`,
     `已归档：${stats.archived}`,
     `问题分布：${issueSummary}`,
-    `交付结论：${deliveryConclusion}`,
-    `下一步建议：${nextStep}`
+    `交付结论：${guidance.conclusion}`,
+    `下一步建议：${guidance.nextStep}`
   ].join('\n');
 }
 
-function getDeliveryConclusion(readiness: ProfileHealthReadiness): string {
+export function getProfileDeliveryGuidance(
+  profiles: ProfileDetails[],
+  now: Date = new Date()
+): ProfileDeliveryGuidance {
+  const readiness = getProfileHealthReadiness(profiles, now);
+  const issueStats = getProfileHealthIssueStats(profiles, now);
+
+  return {
+    conclusion: getDeliveryConclusion(readiness),
+    nextStep: getNextStep(readiness, issueStats),
+    tone: getDeliveryTone(readiness)
+  };
+}
+
+function getDeliveryConclusion(readiness: ProfileHealthReadiness): ProfileDeliveryGuidance['conclusion'] {
   if (readiness.activeTotal === 0) {
     return '暂无活跃环境';
   }
   return readiness.ready === readiness.activeTotal ? '可进入客户演示' : '交付前需补全';
+}
+
+function getDeliveryTone(readiness: ProfileHealthReadiness): ProfileDeliveryTone {
+  if (readiness.activeTotal === 0) {
+    return 'empty';
+  }
+  return readiness.ready === readiness.activeTotal ? 'ready' : 'attention';
 }
 
 function getNextStep(readiness: ProfileHealthReadiness, issueStats: ProfileHealthIssueStat[]): string {

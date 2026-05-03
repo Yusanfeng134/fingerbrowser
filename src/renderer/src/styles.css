@@ -519,6 +519,51 @@ p {
   white-space: nowrap;
 }
 
+.profile-delivery-guidance {
+  display: grid;
+  gap: 6px;
+  margin: 0 0 14px;
+  padding: 11px 12px;
+  border: 1px solid #d9e0d8;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.72);
+}
+
+.profile-delivery-guidance div {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #59645d;
+  font-size: 12px;
+  font-weight: 760;
+}
+
+.profile-delivery-guidance strong {
+  color: #29312c;
+  font-size: 14px;
+}
+
+.profile-delivery-guidance p {
+  margin: 0;
+  color: #6d726b;
+  font-size: 12px;
+  line-height: 1.45;
+}
+
+.profile-delivery-guidance.ready {
+  border-color: rgba(31, 122, 107, 0.28);
+  background: rgba(232, 246, 241, 0.78);
+}
+
+.profile-delivery-guidance.attention {
+  border-color: rgba(200, 132, 37, 0.34);
+  background: rgba(255, 247, 231, 0.78);
+}
+
+.profile-delivery-guidance.empty {
+  background: #f0eee8;
+}
+
 .search-row input,
 .detail-form input,
 .detail-form select,

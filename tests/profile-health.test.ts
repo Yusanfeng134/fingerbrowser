@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { ProfileDetails, ProxyTestStatus } from '../src/shared/types';
 import {
   buildProfileHealthReport,
+  getProfileDeliveryGuidance,
   getProfileHealth,
   getProfileHealthIssueStats,
   getProfileHealthReadiness,
@@ -263,5 +264,40 @@ describe('profile health helpers', () => {
     expect(report).toContain('就绪率：100% (1/1)');
     expect(report).toContain('交付结论：可进入客户演示');
     expect(report).toContain('下一步建议：保持代理检测与启动记录更新');
+  });
+
+  it('returns reusable delivery guidance for the dashboard', () => {
+    const guidance = getProfileDeliveryGuidance(
+      [
+        profile({
+          id: 'ready',
+          name: '完整环境',
+          owner: 'Alice',
+          notes: '试卖客户',
+          proxyId: 'proxy-passed',
+          proxy: proxy('passed'),
+          lastLaunchedAt: '2026-05-03T10:00:00.000Z'
+        }),
+        profile({ id: 'missing', name: '待补全环境' })
+      ],
+      now
+    );
+
+    expect(guidance).toEqual({
+      conclusion: '交付前需补全',
+      nextStep: '优先处理代理 1 项、启动记录 1 项、负责人 1 项、备注 1 项',
+      tone: 'attention'
+    });
+
+    expect(
+      getProfileDeliveryGuidance(
+        [profile({ id: 'archived', name: '归档环境', archivedAt: '2026-05-01T00:00:00.000Z' })],
+        now
+      )
+    ).toEqual({
+      conclusion: '暂无活跃环境',
+      nextStep: '创建或恢复环境后再做交付检查',
+      tone: 'empty'
+    });
   });
 });

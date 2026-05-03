@@ -95,6 +95,7 @@ import {
 } from './profile-workbench';
 import {
   buildProfileHealthReport,
+  getProfileDeliveryGuidance,
   getProfileHealth,
   getProfileHealthIssueStats,
   getProfileHealthReadiness,
@@ -598,6 +599,8 @@ export function App(): JSX.Element {
   const profileHealthReadiness = useMemo(() => getProfileHealthReadiness(profiles), [profiles]);
 
   const profileHealthIssueStats = useMemo(() => getProfileHealthIssueStats(profiles), [profiles]);
+
+  const profileDeliveryGuidance = useMemo(() => getProfileDeliveryGuidance(profiles), [profiles]);
 
   const selectedProfileHealth = useMemo(
     () => (selectedProfile ? (profileHealthById.get(selectedProfile.id) ?? getProfileHealth(selectedProfile)) : null),
@@ -2629,6 +2632,18 @@ export function App(): JSX.Element {
             <ClipboardCheck size={14} />
             复制健康摘要
           </button>
+        </section>
+
+        <section
+          className={`profile-delivery-guidance ${profileDeliveryGuidance.tone}`}
+          aria-label="交付检查结论"
+        >
+          <div>
+            <PackageCheck size={16} />
+            <span>交付结论</span>
+            <strong>{profileDeliveryGuidance.conclusion}</strong>
+          </div>
+          <p>{profileDeliveryGuidance.nextStep}</p>
         </section>
 
         <div className="search-row">

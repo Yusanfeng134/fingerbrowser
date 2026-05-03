@@ -113,6 +113,8 @@ test('中文 UI 完成激活 license、新建环境、代理测试、导出审�
     await expect(page.getByLabel('环境就绪率')).toContainText('0/1');
     await expect(page.getByLabel('健康问题分布')).toContainText('代理1');
     await expect(page.getByLabel('健康问题分布')).toContainText('启动记录1');
+    await expect(page.getByLabel('交付检查结论')).toContainText('交付前需补全');
+    await expect(page.getByLabel('交付检查结论')).toContainText('优先处理代理 1 项、启动记录 1 项');
     await page.getByRole('button', { name: '复制健康摘要' }).click();
     await expect(page.locator('.notice-bar').getByText('健康摘要已复制到剪贴板')).toBeVisible();
     await expect(page.getByLabel('环境健康详情')).toContainText('待补全');
@@ -344,6 +346,8 @@ test('中文 UI 完成激活 license、新建环境、代理测试、导出审�
     await expect(page.getByLabel('环境就绪率')).toContainText('1/1');
     await expect(page.getByLabel('健康问题分布')).toContainText('代理0');
     await expect(page.getByLabel('健康问题分布')).toContainText('启动记录0');
+    await expect(page.getByLabel('交付检查结论')).toContainText('可进入客户演示');
+    await expect(page.getByLabel('交付检查结论')).toContainText('保持代理检测与启动记录更新');
     await page.getByRole('button', { name: /筛选已就绪环境/ }).click();
     await expect(page.getByLabel('筛选健康')).toHaveValue('ready');
     await expect(page.getByLabel('环境列表').getByText('E2E 运营环境')).toBeVisible();
