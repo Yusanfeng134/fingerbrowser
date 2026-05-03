@@ -94,6 +94,7 @@ import {
   splitWorkbenchCsv
 } from './profile-workbench';
 import {
+  buildProfileHealthReport,
   getProfileHealth,
   getProfileHealthIssueStats,
   getProfileHealthReadiness,
@@ -1096,6 +1097,13 @@ export function App(): JSX.Element {
         setProfileArchiveFilter('active');
       }
     }
+  };
+
+  const handleCopyProfileHealthReport = (): void => {
+    void run('复制健康摘要', async () => {
+      await navigator.clipboard.writeText(buildProfileHealthReport(profiles));
+      return '健康摘要已复制到剪贴板';
+    });
   };
 
   const proxyPoolDraftToInput = (draftState: ProxyPoolDraftState) => ({
@@ -2612,6 +2620,15 @@ export function App(): JSX.Element {
               <strong>{stat.count}</strong>
             </button>
           ))}
+          <button
+            className="secondary-button compact-button profile-health-copy-button"
+            type="button"
+            onClick={handleCopyProfileHealthReport}
+            disabled={busy}
+          >
+            <ClipboardCheck size={14} />
+            复制健康摘要
+          </button>
         </section>
 
         <div className="search-row">

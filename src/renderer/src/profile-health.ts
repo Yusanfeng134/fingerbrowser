@@ -181,6 +181,22 @@ export function getProfileHealthIssueStats(
   }));
 }
 
+export function buildProfileHealthReport(profiles: ProfileDetails[], now: Date = new Date()): string {
+  const stats = getProfileHealthStats(profiles, now);
+  const readiness = getProfileHealthReadiness(profiles, now);
+  const issueStats = getProfileHealthIssueStats(profiles, now);
+  const issueSummary = issueStats.map((stat) => `${stat.label} ${stat.count}`).join('，');
+
+  return [
+    '环境健康摘要',
+    `就绪率：${readiness.label} (${readiness.ready}/${readiness.activeTotal})`,
+    `已就绪：${stats.ready}`,
+    `待补全：${stats.attention}`,
+    `已归档：${stats.archived}`,
+    `问题分布：${issueSummary}`
+  ].join('\n');
+}
+
 function isIssueStatKey(key: ProfileHealthCheck['key']): key is ProfileHealthIssueKey {
   return key === 'owner' || key === 'notes' || key === 'proxy' || key === 'launch';
 }

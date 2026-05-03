@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import type { ProfileDetails, ProxyTestStatus } from '../src/shared/types';
 import {
+  buildProfileHealthReport,
   getProfileHealth,
   getProfileHealthIssueStats,
   getProfileHealthReadiness,
@@ -202,5 +203,42 @@ describe('profile health helpers', () => {
       rate: 0,
       label: '0%'
     });
+  });
+
+  it('builds a redacted aggregate health report', () => {
+    const report = buildProfileHealthReport(
+      [
+        profile({
+          id: 'ready',
+          name: '完整环境',
+          owner: 'Alice',
+          notes: '试卖客户',
+          proxyId: 'proxy-passed',
+          proxy: proxy('passed'),
+          lastLaunchedAt: '2026-05-03T10:00:00.000Z'
+        }),
+        profile({ id: 'missing', name: '待补全环境' }),
+        profile({
+          id: 'stale',
+          name: '过期环境',
+          owner: 'Bob',
+          notes: '需要复测',
+          proxyId: 'proxy-failed',
+          proxy: proxy('failed'),
+          lastLaunchedAt: '2026-04-01T00:00:00.000Z'
+        }),
+        profile({ id: 'archived', name: '归档环境', archivedAt: '2026-05-01T00:00:00.000Z' })
+      ],
+      now
+    );
+
+    expect(report).toContain('环境健康摘要');
+    expect(report).toContain('就绪率：33% (1/3)');
+    expect(report).toContain('已就绪：1');
+    expect(report).toContain('待补全：2');
+    expect(report).toContain('已归档：1');
+    expect(report).toContain('问题分布：负责人 1，备注 1，代理 2，启动记录 2');
+    expect(report).not.toContain('完整环境');
+    expect(report).not.toContain('proxy.example.test');
   });
 });
