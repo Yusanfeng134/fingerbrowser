@@ -35,6 +35,7 @@ function createProfile(runtimeChannel: BrowserProfile['runtimeChannel'] = 'custo
   return {
     id: 'profile-1',
     name: '内核环境',
+    groupName: '',
     tags: ['合规'],
     status: 'closed',
     userDataDir: '/tmp/fingerbrowser/profile-1',

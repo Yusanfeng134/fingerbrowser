@@ -88,6 +88,7 @@ test('中文 UI 完成激活 license、新建环境、代理测试、导出审�
 
     await page.getByRole('button', { name: '新建环境' }).click();
     await page.getByLabel('环境名称').fill('E2E 运营环境');
+    await page.getByLabel('环境分组').fill('E2E 项目组');
     await page.getByLabel('标签').fill('合规,测试');
     await page.getByLabel('代理主机').fill('127.0.0.1');
     await page.getByLabel('代理端口').fill(String(address.port));
@@ -108,6 +109,7 @@ test('中文 UI 完成激活 license、新建环境、代理测试、导出审�
     const sideNav = page.getByRole('navigation', { name: '主导航' });
     await expect(sideNav.getByRole('link', { name: '环境' })).toBeVisible();
     await expect(sideNav.getByRole('link', { name: '我的桌面' })).toBeVisible();
+    await expect(sideNav.getByRole('link', { name: '代理池' })).toBeVisible();
     await expect(sideNav.getByRole('link', { name: '密码库' })).toBeVisible();
     await expect(sideNav.getByRole('link', { name: '审计' })).toHaveCount(0);
     await expect(sideNav.getByRole('link', { name: '设置' })).toHaveCount(0);
@@ -128,6 +130,29 @@ test('中文 UI 完成激活 license、新建环境、代理测试、导出审�
     await expect(page.getByText('版本中心')).toBeVisible();
     await page.getByRole('tab', { name: '配置' }).click();
     await expect(page.getByRole('button', { name: '保存环境' })).toBeVisible();
+
+    await sideNav.getByRole('link', { name: '代理池' }).click();
+    await expect(page.getByRole('heading', { name: '代理池' })).toBeVisible();
+    await page.getByRole('button', { name: '新增代理' }).click();
+    await page.getByLabel('代理名称').fill('E2E 洛杉矶代理');
+    await page.getByLabel('代理池协议').selectOption('http');
+    await page.getByLabel('代理池主机').fill('127.0.0.1');
+    await page.getByLabel('代理池端口').fill(String(address.port));
+    await page.getByLabel('代理池账号').fill('pool-operator');
+    await page.getByLabel('代理池密码').fill('pool-proxy-password');
+    await page.getByLabel('代理地区').fill('US-CA');
+    await page.getByLabel('代理时区').selectOption('America/Los_Angeles');
+    await page.getByLabel('代理标签').fill('US,住宅');
+    await page.getByRole('button', { name: '保存代理' }).click();
+    await expect(page.getByLabel('代理池列表').getByText('E2E 洛杉矶代理')).toBeVisible();
+    await page.getByLabel('代理池列表').getByText('E2E 洛杉矶代理').click();
+    await page.getByRole('button', { name: '测试代理' }).click();
+    await expect(page.getByText(/代理连通/)).toBeVisible();
+    await page.getByRole('button', { name: '应用到当前环境' }).click();
+    await expect(page.getByText(/已应用代理到环境：E2E 运营环境/)).toBeVisible();
+    await sideNav.getByRole('link', { name: '环境' }).click();
+    await expect(page.getByText('E2E 项目组')).toBeVisible();
+
     await page.evaluate(async (manifestPath) => window.fingerBrowser.kernel.importManifest(manifestPath), importedManifestPath);
     await page.reload();
     await expect(page.getByText('来源：应用内导入')).toBeVisible();

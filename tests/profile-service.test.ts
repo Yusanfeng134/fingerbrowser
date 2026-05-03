@@ -28,6 +28,7 @@ describe('profile service', () => {
 
     const first = service.createProfile({
       name: '运营环境 A',
+      groupName: '项目一',
       tags: ['华东', '合规'],
       proxy: {
         scheme: 'http',
@@ -48,6 +49,7 @@ describe('profile service', () => {
     expect(second.userDataDir).toContain(second.id);
     expect(first.status).toBe('closed');
     expect(first.runtimeChannel).toBe('official');
+    expect(first.groupName).toBe('项目一');
 
     const storedProxy = db
       .prepare('select encrypted_password from proxies where id = ?')
@@ -124,12 +126,14 @@ describe('profile service', () => {
       id: migrated.id,
       name: migrated.name,
       tags: migrated.tags,
+      groupName: '迁移组',
       fingerprintPolicy: migrated.fingerprintPolicy,
       runtimeChannel: 'custom-kernel',
       proxy: null
     });
 
     expect(updated.runtimeChannel).toBe('custom-kernel');
+    expect(updated.groupName).toBe('迁移组');
     expect(service.getProfile('legacy-profile').runtimeChannel).toBe('custom-kernel');
   });
 
@@ -159,6 +163,7 @@ describe('profile service', () => {
       service.updateProfile({
         id: profile.id,
         name: profile.name,
+        groupName: profile.groupName,
         tags: profile.tags,
         fingerprintPolicy: {
           ...profile.fingerprintPolicy,

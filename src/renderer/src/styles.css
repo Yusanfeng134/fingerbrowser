@@ -448,6 +448,57 @@ p {
   gap: 8px;
 }
 
+.proxy-pool-list {
+  display: grid;
+  gap: 8px;
+}
+
+.proxy-pool-row {
+  display: grid;
+  grid-template-columns: minmax(190px, 1.45fr) 96px minmax(150px, 1fr) 92px;
+  gap: 12px;
+  align-items: center;
+  width: 100%;
+  min-height: 72px;
+  padding: 12px 14px;
+  border: 1px solid #d9e0d8;
+  border-radius: 8px;
+  color: #3a403b;
+  background: rgba(255, 255, 255, 0.6);
+  text-align: left;
+}
+
+.proxy-pool-row.selected {
+  border-color: rgba(31, 122, 107, 0.62);
+  background: #ffffff;
+  box-shadow: 0 12px 30px rgba(43, 56, 48, 0.08);
+}
+
+.proxy-pool-main {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.proxy-pool-main strong,
+.proxy-pool-main small,
+.proxy-pool-row > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.proxy-pool-main strong {
+  color: #29312c;
+  font-size: 14px;
+}
+
+.proxy-pool-main small,
+.proxy-pool-row > span {
+  color: #73776f;
+  font-size: 12px;
+}
+
 .profile-row {
   width: 100%;
   min-height: 66px;
@@ -583,7 +634,8 @@ p {
 .credential-panel label,
 .credential-panel .password-input-group,
 .trial-panel label,
-.user-panel label {
+.user-panel label,
+.proxy-pool-panel label {
   display: grid;
   gap: 6px;
   color: #6d726b;
@@ -612,6 +664,8 @@ p {
 .trial-panel select,
 .user-panel input,
 .user-panel select,
+.proxy-pool-panel input,
+.proxy-pool-panel select,
 .license-panel input,
 .license-panel select {
   height: 36px;

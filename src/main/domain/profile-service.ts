@@ -30,6 +30,7 @@ interface ProfileServiceOptions {
 interface ProfileRow {
   id: string;
   name: string;
+  group_name: string;
   tags_json: string;
   status: BrowserProfile['status'];
   user_data_dir: string;
@@ -97,6 +98,10 @@ export function createProfileService(options: ProfileServiceOptions): ProfileSer
     return [...new Set((tags ?? []).map((tag) => tag.trim()).filter(Boolean))];
   }
 
+  function normalizeGroupName(groupName?: string): string {
+    return groupName?.trim() ?? '';
+  }
+
   function assertValidProfileName(name: string): void {
     if (!name.trim()) {
       throw new Error('环境名称不能为空');
@@ -123,6 +128,7 @@ export function createProfileService(options: ProfileServiceOptions): ProfileSer
     return {
       id: row.id,
       name: row.name,
+      groupName: row.group_name ?? '',
       tags: JSON.parse(row.tags_json) as string[],
       status: row.status,
       userDataDir: row.user_data_dir,
@@ -253,11 +259,12 @@ export function createProfileService(options: ProfileServiceOptions): ProfileSer
 
       db.prepare(
         `insert into profiles (
-          id, name, tags_json, status, user_data_dir, chromium_version, runtime_channel, fingerprint_policy_json, proxy_id, created_at, updated_at
-        ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          id, name, group_name, tags_json, status, user_data_dir, chromium_version, runtime_channel, fingerprint_policy_json, proxy_id, created_at, updated_at
+        ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       ).run(
         id,
         input.name.trim(),
+        normalizeGroupName(input.groupName),
         JSON.stringify(normalizeTags(input.tags)),
         'closed',
         userDataDir,
@@ -271,6 +278,7 @@ export function createProfileService(options: ProfileServiceOptions): ProfileSer
 
       recordAudit(id, 'PROFILE_CREATED', {
         name: input.name.trim(),
+        groupName: normalizeGroupName(input.groupName),
         tags: normalizeTags(input.tags)
       });
       if (proxy) {
@@ -286,10 +294,11 @@ export function createProfileService(options: ProfileServiceOptions): ProfileSer
 
       db.prepare(
         `update profiles
-         set name = ?, tags_json = ?, fingerprint_policy_json = ?, runtime_channel = ?, proxy_id = ?, updated_at = ?
+         set name = ?, group_name = ?, tags_json = ?, fingerprint_policy_json = ?, runtime_channel = ?, proxy_id = ?, updated_at = ?
          where id = ?`
       ).run(
         input.name.trim(),
+        normalizeGroupName(input.groupName),
         JSON.stringify(normalizeTags(input.tags)),
         JSON.stringify(normalizeFingerprintPolicy(input.fingerprintPolicy)),
         normalizeRuntimeChannel(input.runtimeChannel),
@@ -300,6 +309,7 @@ export function createProfileService(options: ProfileServiceOptions): ProfileSer
 
       recordAudit(input.id, 'PROFILE_UPDATED', {
         name: input.name.trim(),
+        groupName: normalizeGroupName(input.groupName),
         tags: normalizeTags(input.tags),
         runtimeChannel: normalizeRuntimeChannel(input.runtimeChannel),
         hasProxy: Boolean(proxyId)

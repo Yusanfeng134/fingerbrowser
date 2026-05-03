@@ -56,6 +56,7 @@ import type {
   CreateProfileInput,
   FingerprintPolicy,
   ProfileDetails,
+  ProxyPoolEntry,
   ProxyRuntimeStatus,
   ProxyScheme,
   RedactedLicenseState,
@@ -89,6 +90,7 @@ import type { PasswordGeneratorOptions } from './password-generator';
 interface DraftState {
   id: string | null;
   name: string;
+  groupName: string;
   tags: string;
   proxyEnabled: boolean;
   proxyScheme: ProxyScheme;
@@ -111,9 +113,9 @@ interface CredentialDraftState {
 }
 
 type ActiveTab = 'config' | 'credentials' | 'audit' | 'users' | 'license' | 'trial';
-type WorkspaceView = 'profiles' | 'vault' | 'desktop';
+type WorkspaceView = 'profiles' | 'vault' | 'desktop' | 'proxies';
 type VaultEditorMode = 'view' | 'edit' | 'new';
-type SideNavKey = 'profiles' | 'vault' | 'desktop';
+type SideNavKey = 'profiles' | 'vault' | 'desktop' | 'proxies';
 type PasswordGeneratorTarget = 'vault' | 'profile' | null;
 type DesktopDragPayload =
   | { type: 'shortcut'; id: string; folderId: string | null }
@@ -148,9 +150,24 @@ interface UserDraftState {
   role: UserRole;
 }
 
+interface ProxyPoolDraftState {
+  id: string | null;
+  name: string;
+  scheme: ProxyScheme;
+  host: string;
+  port: string;
+  username: string;
+  password: string;
+  tags: string;
+  region: string;
+  timezone: string;
+  bypassList: string;
+}
+
 const emptyDraft: DraftState = {
   id: null,
   name: '',
+  groupName: '',
   tags: '',
   proxyEnabled: true,
   proxyScheme: 'http',
@@ -201,6 +218,20 @@ const emptyUserDraft: UserDraftState = {
   role: 'member'
 };
 
+const emptyProxyPoolDraft: ProxyPoolDraftState = {
+  id: null,
+  name: '',
+  scheme: 'http',
+  host: '',
+  port: '',
+  username: '',
+  password: '',
+  tags: '',
+  region: '',
+  timezone: '',
+  bypassList: 'localhost,127.0.0.1'
+};
+
 const statusText: Record<BrowserProfile['status'], string> = {
   running: '运行中',
   closed: '已关闭',
@@ -224,6 +255,13 @@ const proxyRuntimeStateText: Record<ProxyRuntimeStatus['state'], string> = {
   error: '错误'
 };
 
+const proxyTestStatusText: Record<ProxyPoolEntry['lastTestStatus'], string> = {
+  untested: '未检测',
+  testing: '检测中',
+  passed: '可用',
+  failed: '失败'
+};
+
 const kernelManifestSourceText: Record<KernelManifestSource, string> = {
   default: '内置默认',
   environment: '环境变量',
@@ -244,6 +282,11 @@ const actionLabel: Record<string, string> = {
   PROXY_CREATED: '创建代理',
   PROXY_UPDATED: '更新代理',
   PROXY_TESTED: '测试代理',
+  PROXY_POOL_CREATED: '创建代理池条目',
+  PROXY_POOL_UPDATED: '更新代理池条目',
+  PROXY_POOL_DELETED: '删除代理池条目',
+  PROXY_POOL_TESTED: '检测代理池条目',
+  PROXY_POOL_APPLIED: '应用代理池条目',
   LOCAL_PROXY_STARTED: '启动本地代理',
   LOCAL_PROXY_STOPPED: '关闭本地代理',
   LOCAL_PROXY_ERROR: '本地代理错误',
@@ -308,6 +351,7 @@ function profileToDraft(profile: ProfileDetails): DraftState {
   return {
     id: profile.id,
     name: profile.name,
+    groupName: profile.groupName,
     tags: profile.tags.join(','),
     proxyEnabled: Boolean(profile.proxy),
     proxyScheme: profile.proxy?.scheme ?? 'http',
@@ -324,6 +368,7 @@ function profileToDraft(profile: ProfileDetails): DraftState {
 function draftToCreateInput(draft: DraftState): CreateProfileInput {
   return {
     name: draft.name,
+    groupName: draft.groupName,
     tags: splitCsv(draft.tags),
     fingerprintPolicy: draft.fingerprintPolicy,
     runtimeChannel: draft.runtimeChannel,
@@ -348,6 +393,7 @@ function draftToUpdateInput(draft: DraftState): UpdateProfileInput {
   return {
     id: draft.id,
     name: draft.name,
+    groupName: draft.groupName,
     tags: splitCsv(draft.tags),
     fingerprintPolicy: draft.fingerprintPolicy,
     runtimeChannel: draft.runtimeChannel,
@@ -387,6 +433,11 @@ export function App(): JSX.Element {
   const [userDraft, setUserDraft] = useState<UserDraftState>(emptyUserDraft);
   const [users, setUsers] = useState<AppUser[]>([]);
   const [profiles, setProfiles] = useState<ProfileDetails[]>([]);
+  const [proxyPoolEntries, setProxyPoolEntries] = useState<ProxyPoolEntry[]>([]);
+  const [selectedProxyPoolEntryId, setSelectedProxyPoolEntryId] = useState<string | null>(null);
+  const [proxyPoolDraft, setProxyPoolDraft] = useState<ProxyPoolDraftState>(emptyProxyPoolDraft);
+  const [proxyPoolQuery, setProxyPoolQuery] = useState('');
+  const [proxyPoolMatchTimezone, setProxyPoolMatchTimezone] = useState(true);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [draft, setDraft] = useState<DraftState>(emptyDraft);
   const [audits, setAudits] = useState<AuditEvent[]>([]);
@@ -441,10 +492,30 @@ export function App(): JSX.Element {
       return profiles;
     }
     return profiles.filter((profile) => {
-      const haystack = [profile.name, profile.tags.join(','), profile.proxy?.host ?? '', profile.status].join(' ').toLowerCase();
+      const haystack = [profile.name, profile.groupName, profile.tags.join(','), profile.proxy?.host ?? '', profile.status]
+        .join(' ')
+        .toLowerCase();
       return haystack.includes(keyword);
     });
   }, [profiles, query]);
+
+  const selectedProxyPoolEntry = useMemo(
+    () => proxyPoolEntries.find((entry) => entry.id === selectedProxyPoolEntryId) ?? null,
+    [proxyPoolEntries, selectedProxyPoolEntryId]
+  );
+
+  const filteredProxyPoolEntries = useMemo(() => {
+    const keyword = proxyPoolQuery.trim().toLowerCase();
+    if (!keyword) {
+      return proxyPoolEntries;
+    }
+    return proxyPoolEntries.filter((entry) =>
+      [entry.name, entry.host, entry.scheme, entry.region, entry.timezone, entry.tags.join(',')]
+        .join(' ')
+        .toLowerCase()
+        .includes(keyword)
+    );
+  }, [proxyPoolEntries, proxyPoolQuery]);
 
   const canCreateProfile = useMemo(() => {
     if (!license || !usage) {
@@ -631,6 +702,12 @@ export function App(): JSX.Element {
     setUsers(nextUsers);
   }, []);
 
+  const loadProxyPoolEntries = useCallback(async () => {
+    const entries = await window.fingerBrowser.proxyPool.list();
+    setProxyPoolEntries(entries);
+    setSelectedProxyPoolEntryId((current) => (current && entries.some((entry) => entry.id === current) ? current : entries[0]?.id ?? null));
+  }, []);
+
   useEffect(() => {
     void window.fingerBrowser.auth
       .status()
@@ -649,7 +726,8 @@ export function App(): JSX.Element {
       loadTrialState(),
       loadKernelState(),
       loadGoogleAccountState(),
-      loadProxyRuntimeStatus()
+      loadProxyRuntimeStatus(),
+      loadProxyPoolEntries()
     ];
     if (authStatus.currentUser?.role === 'admin') {
       tasks.push(loadUsers());
@@ -663,6 +741,7 @@ export function App(): JSX.Element {
     loadGoogleAccountState,
     loadKernelState,
     loadProfiles,
+    loadProxyPoolEntries,
     loadProxyRuntimeStatus,
     loadTrialState,
     loadUsers
@@ -705,7 +784,12 @@ export function App(): JSX.Element {
         setNotice(error instanceof Error ? error.message : '加载我的桌面失败')
       );
     }
-  }, [authStatus?.authenticated, loadDesktopShortcuts, loadVaultCredentials, workspaceView]);
+    if (workspaceView === 'proxies') {
+      void loadProxyPoolEntries().catch((error) =>
+        setNotice(error instanceof Error ? error.message : '加载代理池失败')
+      );
+    }
+  }, [authStatus?.authenticated, loadDesktopShortcuts, loadProxyPoolEntries, loadVaultCredentials, workspaceView]);
 
   useEffect(() => {
     setRevealedCredential(null);
@@ -727,6 +811,11 @@ export function App(): JSX.Element {
   const resetWorkspaceState = (): void => {
     setUsers([]);
     setProfiles([]);
+    setProxyPoolEntries([]);
+    setSelectedProxyPoolEntryId(null);
+    setProxyPoolDraft(emptyProxyPoolDraft);
+    setProxyPoolQuery('');
+    setProxyPoolMatchTimezone(true);
     setSelectedId(null);
     setDraft(emptyDraft);
     setAudits([]);
@@ -827,6 +916,108 @@ export function App(): JSX.Element {
     setPasswordGeneratorTarget(null);
     setGeneratedPassword('');
     setRevealedCredential(null);
+  };
+
+  const handleOpenProxyPool = (): void => {
+    setWorkspaceView('proxies');
+    setActiveNavKey('proxies');
+    setPasswordGeneratorTarget(null);
+    setGeneratedPassword('');
+    setRevealedCredential(null);
+  };
+
+  const proxyPoolDraftToInput = (draftState: ProxyPoolDraftState) => ({
+    name: draftState.name,
+    scheme: draftState.scheme,
+    host: draftState.host,
+    port: Number(draftState.port),
+    username: draftState.username,
+    password: draftState.password || undefined,
+    tags: splitCsv(draftState.tags),
+    region: draftState.region,
+    timezone: draftState.timezone,
+    bypassList: splitCsv(draftState.bypassList)
+  });
+
+  const handleNewProxyPoolEntry = (): void => {
+    setProxyPoolDraft({
+      ...emptyProxyPoolDraft,
+      name: `代理 ${proxyPoolEntries.length + 1}`
+    });
+    setSelectedProxyPoolEntryId(null);
+    setNotice('正在新增代理池条目');
+  };
+
+  const handleEditProxyPoolEntry = (entry: ProxyPoolEntry): void => {
+    setSelectedProxyPoolEntryId(entry.id);
+    setProxyPoolDraft({
+      id: entry.id,
+      name: entry.name,
+      scheme: entry.scheme,
+      host: entry.host,
+      port: String(entry.port),
+      username: entry.username,
+      password: '',
+      tags: entry.tags.join(','),
+      region: entry.region,
+      timezone: entry.timezone,
+      bypassList: entry.bypassList.join(',')
+    });
+  };
+
+  const handleSaveProxyPoolEntry = (): void => {
+    void run('保存代理池', async () => {
+      const saved = proxyPoolDraft.id
+        ? await window.fingerBrowser.proxyPool.update({
+            id: proxyPoolDraft.id,
+            ...proxyPoolDraftToInput(proxyPoolDraft)
+          })
+        : await window.fingerBrowser.proxyPool.create(proxyPoolDraftToInput(proxyPoolDraft));
+      await loadProxyPoolEntries();
+      await loadAudits();
+      setSelectedProxyPoolEntryId(saved.id);
+      setProxyPoolDraft(emptyProxyPoolDraft);
+      return `已保存代理：${saved.name}`;
+    });
+  };
+
+  const handleDeleteProxyPoolEntry = (entry: ProxyPoolEntry): void => {
+    void run('删除代理池', async () => {
+      await window.fingerBrowser.proxyPool.delete(entry.id);
+      await loadProxyPoolEntries();
+      await loadAudits();
+      setProxyPoolDraft(emptyProxyPoolDraft);
+      return `已删除代理：${entry.name}`;
+    });
+  };
+
+  const handleTestProxyPoolEntry = (entry: ProxyPoolEntry): void => {
+    void run('检测代理池', async () => {
+      const result = await window.fingerBrowser.proxyPool.test(entry.id);
+      await loadProxyPoolEntries();
+      await loadTrialState();
+      await loadAudits();
+      return result.message;
+    });
+  };
+
+  const handleApplyProxyPoolEntry = (entry: ProxyPoolEntry): void => {
+    if (!selectedProfile) {
+      setNotice('请先选择一个环境');
+      return;
+    }
+    void run('应用代理池', async () => {
+      const updated = await window.fingerBrowser.proxyPool.applyToProfile({
+        entryId: entry.id,
+        profileId: selectedProfile.id,
+        matchTimezone: proxyPoolMatchTimezone
+      });
+      await loadProfiles();
+      await loadProxyRuntimeStatus(updated.id);
+      await loadAudits(updated.id);
+      setSelectedId(updated.id);
+      return `已应用代理到环境：${updated.name}`;
+    });
   };
 
   const handleCreateDesktopShortcut = (profileId?: string): void => {
@@ -1849,6 +2040,17 @@ export function App(): JSX.Element {
             我的桌面
           </a>
           <a
+            className={activeNavKey === 'proxies' ? 'active' : ''}
+            href="#proxy-pool"
+            onClick={(event) => {
+              event.preventDefault();
+              handleOpenProxyPool();
+            }}
+          >
+            <Wifi size={17} />
+            代理池
+          </a>
+          <a
             className={activeNavKey === 'vault' ? 'active' : ''}
             href="#password-vault"
             onClick={(event) => {
@@ -1956,7 +2158,10 @@ export function App(): JSX.Element {
             >
               <span className="profile-name-cell">
                 <strong>{profile.name}</strong>
-                <small>{profile.tags.length > 0 ? profile.tags.join(' / ') : '未设置标签'}</small>
+                <small>
+                  {profile.groupName ? `${profile.groupName} · ` : ''}
+                  {profile.tags.length > 0 ? profile.tags.join(' / ') : '未设置标签'}
+                </small>
               </span>
               <span className={`status-pill ${statusTone[profile.status]}`}>
                 <Circle size={9} fill="currentColor" />
@@ -1974,6 +2179,58 @@ export function App(): JSX.Element {
           ) : null}
         </div>
       </section>
+      ) : workspaceView === 'proxies' ? (
+        <section className="profile-list proxy-pool-workspace" id="proxy-pool">
+          <header className="topbar">
+            <div>
+              <p className="section-kicker">代理资产</p>
+              <h2>代理池</h2>
+            </div>
+            <button className="primary-button" type="button" onClick={handleNewProxyPoolEntry}>
+              <Wifi size={17} />
+              新增代理
+            </button>
+          </header>
+
+          <div className="search-row">
+            <Search size={16} />
+            <input
+              aria-label="搜索代理池"
+              value={proxyPoolQuery}
+              onChange={(event) => setProxyPoolQuery(event.target.value)}
+              placeholder="搜索名称、主机、标签、地区或时区"
+            />
+          </div>
+
+          <div className="proxy-pool-list" aria-label="代理池列表">
+            {filteredProxyPoolEntries.map((entry) => (
+              <button
+                className={`proxy-pool-row ${entry.id === selectedProxyPoolEntryId ? 'selected' : ''}`}
+                key={entry.id}
+                type="button"
+                onClick={() => handleEditProxyPoolEntry(entry)}
+              >
+                <span className="proxy-pool-main">
+                  <strong>{entry.name}</strong>
+                  <small>{entry.scheme.toUpperCase()} · {entry.host}:{entry.port}</small>
+                  <small>{entry.tags.length > 0 ? entry.tags.join(' / ') : '未设置标签'}</small>
+                </span>
+                <span className={`status-pill ${entry.lastTestStatus === 'passed' ? 'good' : entry.lastTestStatus === 'failed' ? 'bad' : 'muted'}`}>
+                  <Circle size={9} fill="currentColor" />
+                  {proxyTestStatusText[entry.lastTestStatus]}
+                </span>
+                <span>{entry.timezone || '未设置时区'}</span>
+                <span>{entry.assignedProfileCount} 个环境</span>
+              </button>
+            ))}
+            {filteredProxyPoolEntries.length === 0 ? (
+              <div className="empty-state">
+                <Wifi size={18} />
+                <span>暂无代理，点击“新增代理”建立代理池。</span>
+              </div>
+            ) : null}
+          </div>
+        </section>
       ) : workspaceView === 'vault' ? (
         <section className="profile-list vault-workspace" id="password-vault">
           <header className="topbar">
@@ -2574,6 +2831,209 @@ export function App(): JSX.Element {
               {notice}
             </footer>
           </>
+        ) : workspaceView === 'proxies' ? (
+          <>
+            <div className="drawer-header">
+              <div>
+                <p className="section-kicker">代理池</p>
+                <h2>{proxyPoolDraft.id ? '编辑代理' : '新增代理'}</h2>
+              </div>
+            </div>
+            <form className="detail-form proxy-pool-panel" onSubmit={(event) => event.preventDefault()}>
+              <section className="form-section">
+                <div className="form-title">
+                  <Wifi size={17} />
+                  代理配置
+                </div>
+                <label>
+                  代理名称
+                  <input
+                    aria-label="代理名称"
+                    value={proxyPoolDraft.name}
+                    onChange={(event) => setProxyPoolDraft({ ...proxyPoolDraft, name: event.target.value })}
+                    placeholder="洛杉矶住宅代理"
+                  />
+                </label>
+                <div className="inline-grid">
+                  <label>
+                    协议
+                    <select
+                      aria-label="代理池协议"
+                      value={proxyPoolDraft.scheme}
+                      onChange={(event) => setProxyPoolDraft({ ...proxyPoolDraft, scheme: event.target.value as ProxyScheme })}
+                    >
+                      <option value="http">HTTP</option>
+                      <option value="https">HTTPS</option>
+                      <option value="socks5">SOCKS5</option>
+                    </select>
+                  </label>
+                  <label>
+                    端口
+                    <input
+                      aria-label="代理池端口"
+                      inputMode="numeric"
+                      value={proxyPoolDraft.port}
+                      onChange={(event) => setProxyPoolDraft({ ...proxyPoolDraft, port: event.target.value })}
+                    />
+                  </label>
+                </div>
+                <label>
+                  主机
+                  <input
+                    aria-label="代理池主机"
+                    value={proxyPoolDraft.host}
+                    onChange={(event) => setProxyPoolDraft({ ...proxyPoolDraft, host: event.target.value })}
+                    placeholder="proxy.example.com"
+                  />
+                </label>
+                <div className="inline-grid">
+                  <label>
+                    账号
+                    <input
+                      aria-label="代理池账号"
+                      value={proxyPoolDraft.username}
+                      onChange={(event) => setProxyPoolDraft({ ...proxyPoolDraft, username: event.target.value })}
+                    />
+                  </label>
+                  <label>
+                    密码
+                    <input
+                      aria-label="代理池密码"
+                      type="password"
+                      value={proxyPoolDraft.password}
+                      onChange={(event) => setProxyPoolDraft({ ...proxyPoolDraft, password: event.target.value })}
+                      placeholder={proxyPoolDraft.id ? '留空则不修改' : ''}
+                    />
+                  </label>
+                </div>
+              </section>
+
+              <section className="form-section">
+                <div className="form-title">
+                  <Globe2 size={17} />
+                  出口属性
+                </div>
+                <div className="inline-grid">
+                  <label>
+                    地区
+                    <input
+                      aria-label="代理地区"
+                      value={proxyPoolDraft.region}
+                      onChange={(event) => setProxyPoolDraft({ ...proxyPoolDraft, region: event.target.value })}
+                      placeholder="US-CA"
+                    />
+                  </label>
+                  <label>
+                    时区
+                    <select
+                      aria-label="代理时区"
+                      value={proxyPoolDraft.timezone}
+                      onChange={(event) => setProxyPoolDraft({ ...proxyPoolDraft, timezone: event.target.value })}
+                    >
+                      <option value="">不指定</option>
+                      {TIMEZONE_OPTION_GROUPS.map(({ region, options }) => (
+                        <optgroup key={region} label={region}>
+                          {options.map((option) => (
+                            <option key={option.value} value={option.value}>
+                              {option.label} - {option.value}
+                            </option>
+                          ))}
+                        </optgroup>
+                      ))}
+                    </select>
+                  </label>
+                </div>
+                <label>
+                  标签
+                  <input
+                    aria-label="代理标签"
+                    value={proxyPoolDraft.tags}
+                    onChange={(event) => setProxyPoolDraft({ ...proxyPoolDraft, tags: event.target.value })}
+                    placeholder="US,住宅,静态"
+                  />
+                </label>
+                <label>
+                  绕过列表
+                  <input
+                    aria-label="代理池绕过列表"
+                    value={proxyPoolDraft.bypassList}
+                    onChange={(event) => setProxyPoolDraft({ ...proxyPoolDraft, bypassList: event.target.value })}
+                  />
+                </label>
+              </section>
+
+              {selectedProxyPoolEntry ? (
+                <section className="form-section proxy-pool-diagnostics">
+                  <div className="form-title">
+                    <CheckCircle2 size={17} />
+                    最近检测
+                  </div>
+                  <div className="metrics-grid">
+                    <span>状态 {proxyTestStatusText[selectedProxyPoolEntry.lastTestStatus]}</span>
+                    <span>出口 IP {selectedProxyPoolEntry.lastExitIp || '未检测'}</span>
+                    <span>出口时区 {selectedProxyPoolEntry.lastExitTimezone || '未检测'}</span>
+                    <span>
+                      时区一致性{' '}
+                      {selectedProxyPoolEntry.timezoneMatch === null
+                        ? '未知'
+                        : selectedProxyPoolEntry.timezoneMatch
+                          ? '一致'
+                          : '不一致'}
+                    </span>
+                  </div>
+                  <label className="check-row">
+                    <input
+                      aria-label="应用代理时同步时区"
+                      type="checkbox"
+                      checked={proxyPoolMatchTimezone}
+                      onChange={(event) => setProxyPoolMatchTimezone(event.target.checked)}
+                    />
+                    应用到环境时同步代理时区
+                  </label>
+                </section>
+              ) : null}
+
+              <div className="ops-row">
+                <button className="primary-button" type="button" onClick={handleSaveProxyPoolEntry} disabled={busy}>
+                  <Save size={16} />
+                  保存代理
+                </button>
+                <button
+                  className="secondary-button"
+                  type="button"
+                  onClick={() => selectedProxyPoolEntry && handleTestProxyPoolEntry(selectedProxyPoolEntry)}
+                  disabled={busy || !selectedProxyPoolEntry}
+                >
+                  <CheckCircle2 size={16} />
+                  测试代理
+                </button>
+              </div>
+              <div className="ops-row">
+                <button
+                  className="secondary-button"
+                  type="button"
+                  onClick={() => selectedProxyPoolEntry && handleApplyProxyPoolEntry(selectedProxyPoolEntry)}
+                  disabled={busy || !selectedProxyPoolEntry || !selectedProfile}
+                >
+                  <Globe2 size={16} />
+                  应用到当前环境
+                </button>
+                <button
+                  className="secondary-button"
+                  type="button"
+                  onClick={() => selectedProxyPoolEntry && handleDeleteProxyPoolEntry(selectedProxyPoolEntry)}
+                  disabled={busy || !selectedProxyPoolEntry}
+                >
+                  <Trash2 size={16} />
+                  删除代理
+                </button>
+              </div>
+            </form>
+            <footer className="notice-bar" aria-live="polite">
+              {busy ? <RefreshCw className="spin" size={15} /> : <CheckCircle2 size={15} />}
+              {notice}
+            </footer>
+          </>
         ) : (
           <>
         <div className="drawer-header">
@@ -2688,6 +3148,15 @@ export function App(): JSX.Element {
               <label>
                 环境名称
                 <input value={draft.name} onChange={(event) => setDraft({ ...draft, name: event.target.value })} />
+              </label>
+              <label>
+                环境分组
+                <input
+                  aria-label="环境分组"
+                  value={draft.groupName}
+                  onChange={(event) => setDraft({ ...draft, groupName: event.target.value })}
+                  placeholder="项目、客户或团队"
+                />
               </label>
               <label>
                 标签

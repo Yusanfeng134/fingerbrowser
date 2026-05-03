@@ -9,6 +9,7 @@ export function openApplicationDatabase(filePath: string): ApplicationDatabase {
     create table if not exists profiles (
       id text primary key,
       name text not null,
+      group_name text not null default '',
       tags_json text not null,
       status text not null,
       user_data_dir text not null unique,
@@ -32,6 +33,29 @@ export function openApplicationDatabase(filePath: string): ApplicationDatabase {
       created_at text not null,
       updated_at text not null
     );
+
+    create table if not exists proxy_pool_entries (
+      id text primary key,
+      name text not null,
+      scheme text not null,
+      host text not null,
+      port integer not null,
+      username text not null,
+      encrypted_password text not null,
+      tags_json text not null,
+      region text not null,
+      timezone text not null,
+      bypass_list_json text not null,
+      last_test_status text not null,
+      last_tested_at text,
+      last_exit_ip text,
+      last_exit_timezone text,
+      timezone_match integer,
+      created_at text not null,
+      updated_at text not null
+    );
+
+    create index if not exists idx_proxy_pool_entries_status on proxy_pool_entries(last_test_status, updated_at);
 
     create table if not exists audit_events (
       id text primary key,
@@ -136,6 +160,9 @@ export function openApplicationDatabase(filePath: string): ApplicationDatabase {
     );
   `);
   const profileColumns = db.pragma('table_info(profiles)') as Array<{ name: string }>;
+  if (!profileColumns.some((column) => column.name === 'group_name')) {
+    db.exec("alter table profiles add column group_name text not null default '';");
+  }
   if (!profileColumns.some((column) => column.name === 'runtime_channel')) {
     db.exec("alter table profiles add column runtime_channel text not null default 'official';");
   }

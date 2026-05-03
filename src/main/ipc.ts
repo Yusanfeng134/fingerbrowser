@@ -4,6 +4,7 @@ import path from 'node:path';
 import type {
   ActivateLicenseInput,
   BootstrapUserInput,
+  CreateProxyPoolEntryInput,
   CreateUserInput,
   CreateCredentialInput,
   FeedbackPackageInput,
@@ -19,6 +20,7 @@ import type {
   ReorderDesktopFolderShortcutsInput,
   ReorderDesktopItemsInput,
   UpdateCredentialInput,
+  UpdateProxyPoolEntryInput,
   UpdateUserInput,
   UpdateProfileInput
 } from '../shared/types';
@@ -309,6 +311,96 @@ export function registerIpcHandlers(services: ApplicationServices): void {
   handleAuthenticated('proxy.system', () => detectMacSystemProxy());
 
   handleAuthenticated('proxy.scanLocal', () => detectLocalProxyPorts());
+
+  handleAuthenticated('proxyPool.list', () => services.proxyPoolService.listEntries());
+
+  handleAuthenticated('proxyPool.create', (_event, input: CreateProxyPoolEntryInput) => {
+    const entry = services.proxyPoolService.createEntry(input);
+    services.profileService.recordAudit(null, 'PROXY_POOL_CREATED', {
+      entryId: entry.id,
+      name: entry.name,
+      scheme: entry.scheme,
+      host: entry.host,
+      port: entry.port,
+      timezone: entry.timezone
+    });
+    return entry;
+  });
+
+  handleAuthenticated('proxyPool.update', (_event, input: UpdateProxyPoolEntryInput) => {
+    const entry = services.proxyPoolService.updateEntry(input);
+    services.profileService.recordAudit(null, 'PROXY_POOL_UPDATED', {
+      entryId: entry.id,
+      name: entry.name,
+      scheme: entry.scheme,
+      host: entry.host,
+      port: entry.port,
+      timezone: entry.timezone
+    });
+    return entry;
+  });
+
+  handleAuthenticated('proxyPool.delete', (_event, id: string) => {
+    const entry = services.proxyPoolService.deleteEntry(id);
+    services.profileService.recordAudit(null, 'PROXY_POOL_DELETED', {
+      entryId: entry.id,
+      name: entry.name,
+      host: entry.host,
+      port: entry.port
+    });
+    return { id };
+  });
+
+  handleAuthenticated('proxyPool.test', async (_event, id: string) => {
+    const entry = services.proxyPoolService.getEntry(id);
+    const proxyInput = services.proxyPoolService.toProfileProxyInput(id);
+    const result = await testProxyConnection({
+      ...proxyInput,
+      expectedTimezone: entry.timezone || undefined,
+      timeoutMs: 3000
+    });
+    const updated = services.proxyPoolService.updateTestResult(id, result);
+    services.profileService.recordAudit(null, 'PROXY_POOL_TESTED', {
+      entryId: updated.id,
+      name: updated.name,
+      status: result.status,
+      host: updated.host,
+      port: updated.port,
+      ipTimezone: result.ipTimezone,
+      timezoneMatch: result.timezoneMatch
+    });
+    services.trialService.incrementMetric('proxyTestCount');
+    return result;
+  });
+
+  handleAuthenticated('proxyPool.applyToProfile', (_event, input: { entryId: string; profileId: string; matchTimezone?: boolean }) => {
+    const entry = services.proxyPoolService.getEntry(input.entryId);
+    const profile = services.profileService.getProfile(input.profileId);
+    const proxy = services.proxyPoolService.toProfileProxyInput(input.entryId);
+    const updated = services.profileService.updateProfile({
+      id: profile.id,
+      name: profile.name,
+      groupName: profile.groupName,
+      tags: profile.tags,
+      fingerprintPolicy:
+        input.matchTimezone && entry.timezone
+          ? {
+              ...profile.fingerprintPolicy,
+              timezone: entry.timezone
+            }
+          : profile.fingerprintPolicy,
+      runtimeChannel: profile.runtimeChannel,
+      proxy
+    });
+    services.profileService.recordAudit(profile.id, 'PROXY_POOL_APPLIED', {
+      entryId: entry.id,
+      name: entry.name,
+      host: entry.host,
+      port: entry.port,
+      matchTimezone: Boolean(input.matchTimezone && entry.timezone)
+    });
+    return updated;
+  });
 
   handleAuthenticated('audit.list', (_event, profileId?: string) => services.profileService.listAuditEvents(profileId));
 

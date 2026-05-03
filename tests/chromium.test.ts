@@ -6,6 +6,7 @@ function createTestProfile(runtimeChannel: BrowserProfile['runtimeChannel'] = 'o
   return {
     id: 'profile-1',
     name: '运营环境 1',
+    groupName: '',
     tags: ['合规'],
     status: 'closed',
     userDataDir: '/tmp/fingerbrowser/profile-1',

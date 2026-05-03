@@ -8,6 +8,7 @@ import type {
   CreateDesktopFolderInput,
   CreateDesktopShortcutInput,
   CreateCredentialInput,
+  CreateProxyPoolEntryInput,
   MoveDesktopShortcutInput,
   CreateProfileInput,
   ListCredentialsInput,
@@ -17,6 +18,7 @@ import type {
   ReorderDesktopItemsInput,
   SaveGoogleAccountConfigInput,
   UpdateCredentialInput,
+  UpdateProxyPoolEntryInput,
   UpdateUserInput,
   UpdateProfileInput
 } from '../shared/types';
@@ -75,6 +77,17 @@ const api: AppApi = {
       ipcRenderer.invoke('proxy.localStatus', profileId) as ReturnType<AppApi['proxy']['localStatus']>,
     system: () => ipcRenderer.invoke('proxy.system') as ReturnType<AppApi['proxy']['system']>,
     scanLocal: () => ipcRenderer.invoke('proxy.scanLocal') as ReturnType<AppApi['proxy']['scanLocal']>
+  },
+  proxyPool: {
+    list: () => ipcRenderer.invoke('proxyPool.list') as ReturnType<AppApi['proxyPool']['list']>,
+    create: (input: CreateProxyPoolEntryInput) =>
+      ipcRenderer.invoke('proxyPool.create', input) as ReturnType<AppApi['proxyPool']['create']>,
+    update: (input: UpdateProxyPoolEntryInput) =>
+      ipcRenderer.invoke('proxyPool.update', input) as ReturnType<AppApi['proxyPool']['update']>,
+    delete: (id: string) => ipcRenderer.invoke('proxyPool.delete', id) as ReturnType<AppApi['proxyPool']['delete']>,
+    test: (id: string) => ipcRenderer.invoke('proxyPool.test', id) as ReturnType<AppApi['proxyPool']['test']>,
+    applyToProfile: (input) =>
+      ipcRenderer.invoke('proxyPool.applyToProfile', input) as ReturnType<AppApi['proxyPool']['applyToProfile']>
   },
   audit: {
     list: (profileId?: string) => ipcRenderer.invoke('audit.list', profileId) as ReturnType<AppApi['audit']['list']>,

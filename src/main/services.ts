@@ -13,6 +13,7 @@ import { RELEASES_PAGE_URL } from './domain/release';
 import { createTrialService, type TrialService } from './domain/trial-service';
 import { createProfileService, type ProfileService } from './domain/profile-service';
 import { createUserService, type UserService } from './domain/user-service';
+import { createProxyPoolService, type ProxyPoolService } from './domain/proxy-pool-service';
 import {
   createKernelRuntimeManager,
   createMockKernelRuntimeManager,
@@ -34,6 +35,7 @@ export interface ApplicationServices {
   appSettingsService: AppSettingsService;
   userService: UserService;
   profileService: ProfileService;
+  proxyPoolService: ProxyPoolService;
   desktopService: DesktopService;
   credentialService: CredentialService;
   licenseService: LicenseService;
@@ -63,6 +65,7 @@ export function createApplicationServices(): ApplicationServices {
     secretBox,
     getAuditActor: () => userService.currentActor()
   });
+  const proxyPoolService = createProxyPoolService({ db, secretBox });
   const desktopService = createDesktopService({ db });
   const credentialService = createCredentialService({
     db,
@@ -115,6 +118,7 @@ export function createApplicationServices(): ApplicationServices {
     appSettingsService,
     userService,
     profileService,
+    proxyPoolService,
     desktopService,
     credentialService,
     licenseService,

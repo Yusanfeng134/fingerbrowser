@@ -24,6 +24,7 @@ function profile(id: string, name: string): ProfileDetails {
   return {
     id,
     name,
+    groupName: '',
     tags: [],
     status: 'closed',
     userDataDir: `/tmp/${id}`,

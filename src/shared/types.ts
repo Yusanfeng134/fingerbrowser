@@ -14,6 +14,7 @@ export type FeedbackIssueType = 'bug' | 'setup' | 'feature' | 'other';
 export type FeedbackSeverity = 'low' | 'medium' | 'high';
 export type UserRole = 'admin' | 'member';
 export type UserStatus = 'active' | 'disabled';
+export type ProxyPoolBindingMode = 'all' | 'available' | 'used';
 export type TrialMetricKey =
   | 'activationCount'
   | 'profileCreateCount'
@@ -35,6 +36,11 @@ export type AuditAction =
   | 'PROXY_CREATED'
   | 'PROXY_UPDATED'
   | 'PROXY_TESTED'
+  | 'PROXY_POOL_CREATED'
+  | 'PROXY_POOL_UPDATED'
+  | 'PROXY_POOL_DELETED'
+  | 'PROXY_POOL_TESTED'
+  | 'PROXY_POOL_APPLIED'
   | 'LOCAL_PROXY_STARTED'
   | 'LOCAL_PROXY_STOPPED'
   | 'LOCAL_PROXY_ERROR'
@@ -133,6 +139,50 @@ export interface ProxyConfig {
   lastTestStatus: ProxyTestStatus;
 }
 
+export interface ProxyPoolEntry {
+  id: string;
+  name: string;
+  scheme: ProxyScheme;
+  host: string;
+  port: number;
+  username: string;
+  tags: string[];
+  region: string;
+  timezone: string;
+  bypassList: string[];
+  lastTestStatus: ProxyTestStatus;
+  lastTestedAt: string | null;
+  lastExitIp: string | null;
+  lastExitTimezone: string | null;
+  timezoneMatch: boolean | null;
+  assignedProfileCount: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface CreateProxyPoolEntryInput {
+  name: string;
+  scheme: ProxyScheme;
+  host: string;
+  port: number;
+  username?: string;
+  password?: string;
+  tags?: string[];
+  region?: string;
+  timezone?: string;
+  bypassList?: string[];
+}
+
+export interface UpdateProxyPoolEntryInput extends CreateProxyPoolEntryInput {
+  id: string;
+}
+
+export interface ProxyPoolApplyInput {
+  entryId: string;
+  profileId: string;
+  matchTimezone?: boolean;
+}
+
 export interface ProxyRuntimeStatus {
   profileId: string;
   state: ProxyRuntimeState;
@@ -167,6 +217,7 @@ export interface SystemProxyDetectionResult {
 export interface BrowserProfile {
   id: string;
   name: string;
+  groupName: string;
   tags: string[];
   status: ProfileStatus;
   userDataDir: string;
@@ -459,6 +510,7 @@ export interface CreateProxyInput {
 
 export interface CreateProfileInput {
   name: string;
+  groupName?: string;
   tags?: string[];
   fingerprintPolicy?: Partial<FingerprintPolicy>;
   runtimeChannel?: RuntimeChannel;
@@ -468,6 +520,7 @@ export interface CreateProfileInput {
 export interface UpdateProfileInput {
   id: string;
   name: string;
+  groupName: string;
   tags: string[];
   fingerprintPolicy: FingerprintPolicy;
   runtimeChannel: RuntimeChannel;
@@ -568,6 +621,14 @@ export interface AppApi {
     localStatus: (profileId?: string) => Promise<ProxyRuntimeStatus[]>;
     system: () => Promise<SystemProxyDetectionResult>;
     scanLocal: () => Promise<SystemProxyDetectionResult>;
+  };
+  proxyPool: {
+    list: () => Promise<ProxyPoolEntry[]>;
+    create: (input: CreateProxyPoolEntryInput) => Promise<ProxyPoolEntry>;
+    update: (input: UpdateProxyPoolEntryInput) => Promise<ProxyPoolEntry>;
+    delete: (id: string) => Promise<{ id: string }>;
+    test: (id: string) => Promise<ProxyTestResult>;
+    applyToProfile: (input: ProxyPoolApplyInput) => Promise<ProfileDetails>;
   };
   audit: {
     list: (profileId?: string) => Promise<AuditEvent[]>;
