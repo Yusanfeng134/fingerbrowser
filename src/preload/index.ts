@@ -2,6 +2,8 @@ import { contextBridge, ipcRenderer } from 'electron';
 import type {
   ActivateLicenseInput,
   AppApi,
+  BootstrapUserInput,
+  CreateUserInput,
   CreateDesktopFolderFromShortcutsInput,
   CreateDesktopFolderInput,
   CreateDesktopShortcutInput,
@@ -9,15 +11,29 @@ import type {
   MoveDesktopShortcutInput,
   CreateProfileInput,
   ListCredentialsInput,
+  LoginInput,
   ProxyConnectionInput,
   ReorderDesktopFolderShortcutsInput,
   ReorderDesktopItemsInput,
   SaveGoogleAccountConfigInput,
   UpdateCredentialInput,
+  UpdateUserInput,
   UpdateProfileInput
 } from '../shared/types';
 
 const api: AppApi = {
+  auth: {
+    status: () => ipcRenderer.invoke('auth.status') as ReturnType<AppApi['auth']['status']>,
+    bootstrap: (input: BootstrapUserInput) =>
+      ipcRenderer.invoke('auth.bootstrap', input) as ReturnType<AppApi['auth']['bootstrap']>,
+    login: (input: LoginInput) => ipcRenderer.invoke('auth.login', input) as ReturnType<AppApi['auth']['login']>,
+    logout: () => ipcRenderer.invoke('auth.logout') as ReturnType<AppApi['auth']['logout']>
+  },
+  users: {
+    list: () => ipcRenderer.invoke('users.list') as ReturnType<AppApi['users']['list']>,
+    create: (input: CreateUserInput) => ipcRenderer.invoke('users.create', input) as ReturnType<AppApi['users']['create']>,
+    update: (input: UpdateUserInput) => ipcRenderer.invoke('users.update', input) as ReturnType<AppApi['users']['update']>
+  },
   profiles: {
     list: () => ipcRenderer.invoke('profiles.list') as Promise<Awaited<ReturnType<AppApi['profiles']['list']>>>,
     create: (input: CreateProfileInput) => ipcRenderer.invoke('profiles.create', input) as ReturnType<AppApi['profiles']['create']>,

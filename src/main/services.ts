@@ -12,6 +12,7 @@ import { createLicenseService, type LicenseService } from './domain/license-serv
 import { RELEASES_PAGE_URL } from './domain/release';
 import { createTrialService, type TrialService } from './domain/trial-service';
 import { createProfileService, type ProfileService } from './domain/profile-service';
+import { createUserService, type UserService } from './domain/user-service';
 import {
   createKernelRuntimeManager,
   createMockKernelRuntimeManager,
@@ -31,6 +32,7 @@ export interface ApplicationServices {
   dataDir: string;
   secretBox: SecretBox;
   appSettingsService: AppSettingsService;
+  userService: UserService;
   profileService: ProfileService;
   desktopService: DesktopService;
   credentialService: CredentialService;
@@ -54,10 +56,12 @@ export function createApplicationServices(): ApplicationServices {
       : createNodeSecretBox(`fingerbrowser:${dataDir}`);
   const db = openApplicationDatabase(path.join(dataDir, 'fingerbrowser.sqlite'));
   const appSettingsService = createAppSettingsService({ db });
+  const userService = createUserService({ db });
   const profileService = createProfileService({
     db,
     dataDir,
-    secretBox
+    secretBox,
+    getAuditActor: () => userService.currentActor()
   });
   const desktopService = createDesktopService({ db });
   const credentialService = createCredentialService({
@@ -109,6 +113,7 @@ export function createApplicationServices(): ApplicationServices {
     dataDir,
     secretBox,
     appSettingsService,
+    userService,
     profileService,
     desktopService,
     credentialService,

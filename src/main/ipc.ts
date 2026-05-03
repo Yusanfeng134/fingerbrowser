@@ -3,12 +3,15 @@ import { mkdirSync } from 'node:fs';
 import path from 'node:path';
 import type {
   ActivateLicenseInput,
+  BootstrapUserInput,
+  CreateUserInput,
   CreateCredentialInput,
   FeedbackPackageInput,
   CreateProfileInput,
   CreateDesktopFolderFromShortcutsInput,
   CreateDesktopFolderInput,
   ListCredentialsInput,
+  LoginInput,
   MoveDesktopShortcutInput,
   ProfileDetails,
   ProxyConnectionInput,
@@ -16,6 +19,7 @@ import type {
   ReorderDesktopFolderShortcutsInput,
   ReorderDesktopItemsInput,
   UpdateCredentialInput,
+  UpdateUserInput,
   UpdateProfileInput
 } from '../shared/types';
 import { exportAuditEvents, exportProfiles, packageSupportLogs } from './domain/commercial-ops';
@@ -26,16 +30,76 @@ import { writeCredentialSafetyLabPage } from './domain/security-lab';
 import { detectLocalProxyPorts, detectMacSystemProxy } from './domain/system-proxy';
 
 export function registerIpcHandlers(services: ApplicationServices): void {
-  ipcMain.handle('profiles.list', () => services.profileService.listProfiles());
+  const handleAuthenticated = (channel: string, listener: Parameters<typeof ipcMain.handle>[1]): void => {
+    ipcMain.handle(channel, (event, ...args) => {
+      services.userService.requireAuthenticated();
+      return listener(event, ...args);
+    });
+  };
 
-  ipcMain.handle('profiles.create', (_event, input: CreateProfileInput) => {
+  ipcMain.handle('auth.status', () => services.userService.status());
+
+  ipcMain.handle('auth.bootstrap', (_event, input: BootstrapUserInput) => {
+    const status = services.userService.bootstrap(input);
+    services.profileService.recordAudit(null, 'USER_BOOTSTRAPPED', {
+      userId: status.currentUser?.id,
+      email: status.currentUser?.email,
+      role: status.currentUser?.role
+    });
+    return status;
+  });
+
+  ipcMain.handle('auth.login', (_event, input: LoginInput) => {
+    const status = services.userService.login(input);
+    services.profileService.recordAudit(null, 'USER_LOGGED_IN', {
+      userId: status.currentUser?.id,
+      email: status.currentUser?.email
+    });
+    return status;
+  });
+
+  ipcMain.handle('auth.logout', () => {
+    const user = services.userService.requireAuthenticated();
+    services.profileService.recordAudit(null, 'USER_LOGGED_OUT', {
+      userId: user.id,
+      email: user.email
+    });
+    return services.userService.logout();
+  });
+
+  handleAuthenticated('users.list', () => services.userService.listUsers());
+
+  handleAuthenticated('users.create', (_event, input: CreateUserInput) => {
+    const user = services.userService.createUser(input);
+    services.profileService.recordAudit(null, 'USER_CREATED', {
+      userId: user.id,
+      email: user.email,
+      role: user.role
+    });
+    return user;
+  });
+
+  handleAuthenticated('users.update', (_event, input: UpdateUserInput) => {
+    const user = services.userService.updateUser(input);
+    services.profileService.recordAudit(null, 'USER_UPDATED', {
+      userId: user.id,
+      email: user.email,
+      role: user.role,
+      status: user.status
+    });
+    return user;
+  });
+
+  handleAuthenticated('profiles.list', () => services.profileService.listProfiles());
+
+  handleAuthenticated('profiles.create', (_event, input: CreateProfileInput) => {
     services.licenseService.assertCanCreateProfiles(services.profileService.listProfiles().length, 1);
     const profile = services.profileService.createProfile(input);
     services.trialService.incrementMetric('profileCreateCount');
     return profile;
   });
 
-  ipcMain.handle('profiles.bulkCreate', (_event, inputs: CreateProfileInput[]) => {
+  handleAuthenticated('profiles.bulkCreate', (_event, inputs: CreateProfileInput[]) => {
     services.licenseService.assertCanCreateProfiles(services.profileService.listProfiles().length, inputs.length);
     return inputs.map((input) => {
       const profile = services.profileService.createProfile(input);
@@ -44,25 +108,25 @@ export function registerIpcHandlers(services: ApplicationServices): void {
     });
   });
 
-  ipcMain.handle('profiles.update', (_event, input: UpdateProfileInput) => services.profileService.updateProfile(input));
+  handleAuthenticated('profiles.update', (_event, input: UpdateProfileInput) => services.profileService.updateProfile(input));
 
-  ipcMain.handle('profiles.export', async () => {
+  handleAuthenticated('profiles.export', async () => {
     const filePath = exportProfiles(services.profileService.listProfiles(), path.join(services.dataDir, 'exports'));
     services.profileService.recordAudit(null, 'PROFILES_EXPORTED', { filePath });
     return { filePath };
   });
 
-  ipcMain.handle('profiles.launch', async (_event, profileId: string) => {
+  handleAuthenticated('profiles.launch', async (_event, profileId: string) => {
     return launchProfile(services, profileId);
   });
 
-  ipcMain.handle('desktop.list', () => services.desktopService.listShortcuts());
+  handleAuthenticated('desktop.list', () => services.desktopService.listShortcuts());
 
-  ipcMain.handle('desktop.listFolders', () => services.desktopService.listFolders());
+  handleAuthenticated('desktop.listFolders', () => services.desktopService.listFolders());
 
-  ipcMain.handle('desktop.listItems', () => services.desktopService.listDesktopItems());
+  handleAuthenticated('desktop.listItems', () => services.desktopService.listDesktopItems());
 
-  ipcMain.handle('desktop.createShortcut', (_event, input: { profileId: string }) => {
+  handleAuthenticated('desktop.createShortcut', (_event, input: { profileId: string }) => {
     const shortcut = services.desktopService.createShortcut(input);
     services.profileService.recordAudit(shortcut.profileId, 'DESKTOP_SHORTCUT_CREATED', {
       shortcutId: shortcut.id
@@ -70,7 +134,7 @@ export function registerIpcHandlers(services: ApplicationServices): void {
     return shortcut;
   });
 
-  ipcMain.handle('desktop.createFolder', (_event, input?: CreateDesktopFolderInput) => {
+  handleAuthenticated('desktop.createFolder', (_event, input?: CreateDesktopFolderInput) => {
     const folder = services.desktopService.createFolder(input);
     services.profileService.recordAudit(null, 'DESKTOP_FOLDER_CREATED', {
       folderId: folder.id,
@@ -79,7 +143,7 @@ export function registerIpcHandlers(services: ApplicationServices): void {
     return folder;
   });
 
-  ipcMain.handle('desktop.createFolderFromShortcuts', (_event, input: CreateDesktopFolderFromShortcutsInput) => {
+  handleAuthenticated('desktop.createFolderFromShortcuts', (_event, input: CreateDesktopFolderFromShortcutsInput) => {
     const folder = services.desktopService.createFolderFromShortcuts(input);
     services.profileService.recordAudit(null, 'DESKTOP_FOLDER_CREATED', {
       folderId: folder.id,
@@ -90,7 +154,7 @@ export function registerIpcHandlers(services: ApplicationServices): void {
     return folder;
   });
 
-  ipcMain.handle('desktop.moveShortcut', (_event, input: MoveDesktopShortcutInput) => {
+  handleAuthenticated('desktop.moveShortcut', (_event, input: MoveDesktopShortcutInput) => {
     const shortcut = services.desktopService.moveShortcut(input);
     services.profileService.recordAudit(shortcut.profileId, 'DESKTOP_SHORTCUT_MOVED', {
       shortcutId: shortcut.id,
@@ -99,15 +163,15 @@ export function registerIpcHandlers(services: ApplicationServices): void {
     return shortcut;
   });
 
-  ipcMain.handle('desktop.reorderItems', (_event, input: ReorderDesktopItemsInput) => {
+  handleAuthenticated('desktop.reorderItems', (_event, input: ReorderDesktopItemsInput) => {
     return services.desktopService.reorderDesktopItems(input);
   });
 
-  ipcMain.handle('desktop.reorderFolderShortcuts', (_event, input: ReorderDesktopFolderShortcutsInput) => {
+  handleAuthenticated('desktop.reorderFolderShortcuts', (_event, input: ReorderDesktopFolderShortcutsInput) => {
     return services.desktopService.reorderFolderShortcuts(input);
   });
 
-  ipcMain.handle('desktop.deleteShortcut', (_event, id: string) => {
+  handleAuthenticated('desktop.deleteShortcut', (_event, id: string) => {
     const shortcut = services.desktopService.getShortcut(id);
     services.desktopService.deleteShortcut(id);
     services.profileService.recordAudit(shortcut.profileId, 'DESKTOP_SHORTCUT_DELETED', {
@@ -116,7 +180,7 @@ export function registerIpcHandlers(services: ApplicationServices): void {
     return { id };
   });
 
-  ipcMain.handle('desktop.deleteFolder', (_event, id: string) => {
+  handleAuthenticated('desktop.deleteFolder', (_event, id: string) => {
     services.desktopService.deleteFolder(id);
     services.profileService.recordAudit(null, 'DESKTOP_FOLDER_DELETED', {
       folderId: id
@@ -124,7 +188,7 @@ export function registerIpcHandlers(services: ApplicationServices): void {
     return { id };
   });
 
-  ipcMain.handle('desktop.launchShortcut', async (_event, id: string) => {
+  handleAuthenticated('desktop.launchShortcut', async (_event, id: string) => {
     const shortcut = services.desktopService.getShortcut(id);
     services.profileService.recordAudit(shortcut.profileId, 'DESKTOP_SHORTCUT_LAUNCHED', {
       shortcutId: id
@@ -132,7 +196,7 @@ export function registerIpcHandlers(services: ApplicationServices): void {
     return launchProfile(services, shortcut.profileId);
   });
 
-  ipcMain.handle('profiles.stop', async (_event, profileId: string) => {
+  handleAuthenticated('profiles.stop', async (_event, profileId: string) => {
     const proxyStatus = services.localProxyManager.status(profileId);
     await services.browserController.stop(profileId);
     services.profileService.setProfileStatus(profileId, 'closed');
@@ -151,7 +215,7 @@ export function registerIpcHandlers(services: ApplicationServices): void {
     };
   });
 
-  ipcMain.handle('proxy.test', async (_event, input: ProxyConnectionInput & { profileId?: string }) => {
+  handleAuthenticated('proxy.test', async (_event, input: ProxyConnectionInput & { profileId?: string }) => {
     const profile = input.profileId ? services.profileService.getProfile(input.profileId) : null;
     const result = await testProxyConnection({
       ...input,
@@ -190,7 +254,7 @@ export function registerIpcHandlers(services: ApplicationServices): void {
     return result;
   });
 
-  ipcMain.handle('proxy.testAll', async () => {
+  handleAuthenticated('proxy.testAll', async () => {
     const profiles = services.profileService.listProfiles().filter((profile) => profile.proxy);
     const results = await Promise.all(
       profiles.map(async (profile) => {
@@ -235,26 +299,26 @@ export function registerIpcHandlers(services: ApplicationServices): void {
     return results;
   });
 
-  ipcMain.handle('proxy.localStatus', (_event, profileId?: string) => {
+  handleAuthenticated('proxy.localStatus', (_event, profileId?: string) => {
     if (profileId) {
       return [services.localProxyManager.statusOrStopped(profileId)];
     }
     return services.localProxyManager.listStatuses();
   });
 
-  ipcMain.handle('proxy.system', () => detectMacSystemProxy());
+  handleAuthenticated('proxy.system', () => detectMacSystemProxy());
 
-  ipcMain.handle('proxy.scanLocal', () => detectLocalProxyPorts());
+  handleAuthenticated('proxy.scanLocal', () => detectLocalProxyPorts());
 
-  ipcMain.handle('audit.list', (_event, profileId?: string) => services.profileService.listAuditEvents(profileId));
+  handleAuthenticated('audit.list', (_event, profileId?: string) => services.profileService.listAuditEvents(profileId));
 
-  ipcMain.handle('audit.export', async (_event, profileId?: string) => {
+  handleAuthenticated('audit.export', async (_event, profileId?: string) => {
     const filePath = exportAuditEvents(services.profileService.listAuditEvents(profileId), path.join(services.dataDir, 'exports'));
     services.profileService.recordAudit(profileId ?? null, 'AUDIT_EXPORTED', { filePath });
     return { filePath };
   });
 
-  ipcMain.handle('chromium.ensureInstalled', async () => {
+  handleAuthenticated('chromium.ensureInstalled', async () => {
     const result = await services.chromiumInstaller.ensureInstalled();
     services.profileService.recordAudit(null, 'CHROMIUM_INSTALLED', {
       version: result.version,
@@ -263,11 +327,11 @@ export function registerIpcHandlers(services: ApplicationServices): void {
     return result;
   });
 
-  ipcMain.handle('kernel.manifest', () => services.kernelRuntimeManager.manifest());
+  handleAuthenticated('kernel.manifest', () => services.kernelRuntimeManager.manifest());
 
-  ipcMain.handle('kernel.status', () => services.kernelRuntimeManager.status());
+  handleAuthenticated('kernel.status', () => services.kernelRuntimeManager.status());
 
-  ipcMain.handle('kernel.ensureInstalled', async () => {
+  handleAuthenticated('kernel.ensureInstalled', async () => {
     const result = await services.kernelRuntimeManager.ensureInstalled();
     services.profileService.recordAudit(null, 'KERNEL_INSTALLED', {
       version: result.manifest.version,
@@ -278,7 +342,7 @@ export function registerIpcHandlers(services: ApplicationServices): void {
     return result;
   });
 
-  ipcMain.handle('kernel.importManifest', async (_event, manifestPath?: string) => {
+  handleAuthenticated('kernel.importManifest', async (_event, manifestPath?: string) => {
     let selectedPath = manifestPath;
     if (!selectedPath) {
       const result = await dialog.showOpenDialog({
@@ -301,7 +365,7 @@ export function registerIpcHandlers(services: ApplicationServices): void {
     return status;
   });
 
-  ipcMain.handle('kernel.clearManifest', () => {
+  handleAuthenticated('kernel.clearManifest', () => {
     const previous = services.kernelRuntimeManager.status();
     const status = services.kernelRuntimeManager.clearManifest();
     services.profileService.recordAudit(null, 'KERNEL_MANIFEST_CLEARED', {
@@ -311,7 +375,7 @@ export function registerIpcHandlers(services: ApplicationServices): void {
     return status;
   });
 
-  ipcMain.handle('kernel.openRuntimeFolder', async () => {
+  handleAuthenticated('kernel.openRuntimeFolder', async () => {
     const status = services.kernelRuntimeManager.status();
     mkdirSync(status.runtimeRoot, { recursive: true });
     const errorMessage = await shell.openPath(status.runtimeRoot);
@@ -321,9 +385,9 @@ export function registerIpcHandlers(services: ApplicationServices): void {
     return { folderPath: status.runtimeRoot };
   });
 
-  ipcMain.handle('googleAccount.status', () => services.googleAccountService.status());
+  handleAuthenticated('googleAccount.status', () => services.googleAccountService.status());
 
-  ipcMain.handle('googleAccount.save', (_event, input) => {
+  handleAuthenticated('googleAccount.save', (_event, input) => {
     const status = services.googleAccountService.save(input);
     services.profileService.recordAudit(null, 'GOOGLE_ACCOUNT_CONFIG_UPDATED', {
       enabled: status.enabled,
@@ -332,7 +396,7 @@ export function registerIpcHandlers(services: ApplicationServices): void {
     return status;
   });
 
-  ipcMain.handle('googleAccount.clear', () => {
+  handleAuthenticated('googleAccount.clear', () => {
     const previous = services.googleAccountService.status();
     const status = services.googleAccountService.clear();
     services.profileService.recordAudit(null, 'GOOGLE_ACCOUNT_CONFIG_CLEARED', {
@@ -342,9 +406,9 @@ export function registerIpcHandlers(services: ApplicationServices): void {
     return status;
   });
 
-  ipcMain.handle('app.version', () => services.trialService.version());
+  handleAuthenticated('app.version', () => services.trialService.version());
 
-  ipcMain.handle('release.checkForUpdates', async () => {
+  handleAuthenticated('release.checkForUpdates', async () => {
     services.trialService.incrementMetric('updateCheckCount');
     const result = await checkForUpdates({
       currentVersion: app.getVersion(),
@@ -371,7 +435,7 @@ export function registerIpcHandlers(services: ApplicationServices): void {
     return result;
   });
 
-  ipcMain.handle('release.openLatestRelease', async () => {
+  handleAuthenticated('release.openLatestRelease', async () => {
     await shell.openExternal(RELEASES_PAGE_URL);
     return { releaseUrl: RELEASES_PAGE_URL };
   });
@@ -386,26 +450,26 @@ export function registerIpcHandlers(services: ApplicationServices): void {
     });
   }
 
-  ipcMain.handle('onboarding.status', () => onboardingStatus());
+  handleAuthenticated('onboarding.status', () => onboardingStatus());
 
-  ipcMain.handle('onboarding.dismiss', async () => {
+  handleAuthenticated('onboarding.dismiss', async () => {
     services.trialService.dismissOnboarding();
     return onboardingStatus();
   });
 
-  ipcMain.handle('onboarding.reset', async () => {
+  handleAuthenticated('onboarding.reset', async () => {
     services.trialService.resetOnboarding();
     return onboardingStatus();
   });
 
-  ipcMain.handle('trial.metrics', () =>
+  handleAuthenticated('trial.metrics', () =>
     services.trialService.metrics({
       profileCount: services.profileService.listProfiles().length,
       credentialCount: services.credentialService.countCredentials()
     })
   );
 
-  ipcMain.handle('feedback.package', async (_event, input: FeedbackPackageInput) => {
+  handleAuthenticated('feedback.package', async (_event, input: FeedbackPackageInput) => {
     const license = await services.licenseService.redactedStatus();
     services.trialService.incrementMetric('feedbackPackageCount');
     const metrics = services.trialService.metrics({
@@ -424,7 +488,7 @@ export function registerIpcHandlers(services: ApplicationServices): void {
     return result;
   });
 
-  ipcMain.handle('securityLab.open', async (_event, profileId: string) => {
+  handleAuthenticated('securityLab.open', async (_event, profileId: string) => {
     services.licenseService.assertCanUseCredentials();
     const profile = services.profileService.getProfile(profileId);
     const boundCredentialCount = services.credentialService.listCredentials({ profileId: profile.id }).length;
@@ -444,12 +508,12 @@ export function registerIpcHandlers(services: ApplicationServices): void {
     return result;
   });
 
-  ipcMain.handle('credentials.list', (_event, input?: ListCredentialsInput) => {
+  handleAuthenticated('credentials.list', (_event, input?: ListCredentialsInput) => {
     services.licenseService.assertCanUseCredentials();
     return services.credentialService.listCredentials(input);
   });
 
-  ipcMain.handle('credentials.create', (_event, input: CreateCredentialInput) => {
+  handleAuthenticated('credentials.create', (_event, input: CreateCredentialInput) => {
     services.licenseService.assertCanUseCredentials();
     const credential = services.credentialService.createCredential(input);
     services.profileService.recordAudit(credential.profileId, 'CREDENTIAL_CREATED', {
@@ -460,7 +524,7 @@ export function registerIpcHandlers(services: ApplicationServices): void {
     return credential;
   });
 
-  ipcMain.handle('credentials.update', (_event, input: UpdateCredentialInput) => {
+  handleAuthenticated('credentials.update', (_event, input: UpdateCredentialInput) => {
     services.licenseService.assertCanUseCredentials();
     const credential = services.credentialService.updateCredential(input);
     services.profileService.recordAudit(credential.profileId, 'CREDENTIAL_UPDATED', {
@@ -471,7 +535,7 @@ export function registerIpcHandlers(services: ApplicationServices): void {
     return credential;
   });
 
-  ipcMain.handle('credentials.delete', (_event, id: string) => {
+  handleAuthenticated('credentials.delete', (_event, id: string) => {
     services.licenseService.assertCanUseCredentials();
     const credential = services.credentialService.deleteCredential(id);
     services.profileService.recordAudit(credential.profileId, 'CREDENTIAL_DELETED', {
@@ -482,7 +546,7 @@ export function registerIpcHandlers(services: ApplicationServices): void {
     return { id };
   });
 
-  ipcMain.handle('credentials.copyUsername', (_event, id: string) => {
+  handleAuthenticated('credentials.copyUsername', (_event, id: string) => {
     services.licenseService.assertCanUseCredentials();
     const result = services.credentialService.copyUsername(id);
     services.profileService.recordAudit(result.profileId, 'CREDENTIAL_USERNAME_COPIED', {
@@ -491,7 +555,7 @@ export function registerIpcHandlers(services: ApplicationServices): void {
     return result;
   });
 
-  ipcMain.handle('credentials.copyPassword', (_event, id: string) => {
+  handleAuthenticated('credentials.copyPassword', (_event, id: string) => {
     services.licenseService.assertCanUseCredentials();
     const result = services.credentialService.copyPassword(id);
     services.profileService.recordAudit(result.profileId, 'CREDENTIAL_PASSWORD_COPIED', {
@@ -500,7 +564,7 @@ export function registerIpcHandlers(services: ApplicationServices): void {
     return result;
   });
 
-  ipcMain.handle('credentials.revealPassword', (_event, id: string) => {
+  handleAuthenticated('credentials.revealPassword', (_event, id: string) => {
     services.licenseService.assertCanUseCredentials();
     const result = services.credentialService.revealPassword(id);
     services.profileService.recordAudit(result.profileId, 'CREDENTIAL_PASSWORD_REVEALED', {
@@ -509,7 +573,7 @@ export function registerIpcHandlers(services: ApplicationServices): void {
     return result;
   });
 
-  ipcMain.handle('license.activate', async (_event, input: ActivateLicenseInput) => {
+  handleAuthenticated('license.activate', async (_event, input: ActivateLicenseInput) => {
     const state = await services.licenseService.activate(input);
     services.trialService.incrementMetric('activationCount');
     services.profileService.recordAudit(null, 'LICENSE_ACTIVATED', {
@@ -521,9 +585,9 @@ export function registerIpcHandlers(services: ApplicationServices): void {
     return services.licenseService.redactedStatus();
   });
 
-  ipcMain.handle('license.status', () => services.licenseService.redactedStatus());
+  handleAuthenticated('license.status', () => services.licenseService.redactedStatus());
 
-  ipcMain.handle('license.refresh', async () => {
+  handleAuthenticated('license.refresh', async () => {
     const state = await services.licenseService.refresh();
     services.profileService.recordAudit(null, 'LICENSE_REFRESHED', {
       status: state.status,
@@ -534,13 +598,13 @@ export function registerIpcHandlers(services: ApplicationServices): void {
     return services.licenseService.redactedStatus();
   });
 
-  ipcMain.handle('license.deactivate', async () => {
+  handleAuthenticated('license.deactivate', async () => {
     const state = await services.licenseService.deactivate();
     services.profileService.recordAudit(null, 'LICENSE_DEACTIVATED');
     return state;
   });
 
-  ipcMain.handle('license.usage', async () => {
+  handleAuthenticated('license.usage', async () => {
     const state = await services.licenseService.status();
     return {
       profilesUsed: services.profileService.listProfiles().length,
@@ -550,7 +614,7 @@ export function registerIpcHandlers(services: ApplicationServices): void {
     };
   });
 
-  ipcMain.handle('support.packageLogs', async () => {
+  handleAuthenticated('support.packageLogs', async () => {
     const license = await services.licenseService.redactedStatus();
     const filePath = packageSupportLogs({
       exportDir: path.join(services.dataDir, 'exports'),

@@ -64,6 +64,24 @@ describe('profile service', () => {
     expect(JSON.stringify(audits)).not.toContain('plain-proxy-password');
   });
 
+  it('uses the configured current user as the audit actor', () => {
+    const dataDir = mkdtempSync(path.join(tmpdir(), 'fingerbrowser-audit-actor-test-'));
+    tempDirs.push(dataDir);
+    const db = openApplicationDatabase(path.join(dataDir, 'app.sqlite'));
+    const service = createProfileService({
+      db,
+      dataDir,
+      secretBox: createNodeSecretBox('test-master-key'),
+      getAuditActor: () => 'admin@example.test'
+    });
+
+    service.createProfile({
+      name: '审计用户环境'
+    });
+
+    expect(service.listAuditEvents()[0]?.actor).toBe('admin@example.test');
+  });
+
   it('migrates legacy profiles to the official runtime channel and persists custom-kernel updates', () => {
     const dataDir = mkdtempSync(path.join(tmpdir(), 'fingerbrowser-runtime-migration-test-'));
     tempDirs.push(dataDir);

@@ -66,7 +66,13 @@ test('中文 UI 完成激活 license、新建环境、代理测试、导出审�
 
   try {
     const page = await app.firstWindow();
+    await expect(page.getByRole('heading', { name: '创建管理员账号' })).toBeVisible();
+    await page.getByLabel('管理员邮箱').fill('admin@example.test');
+    await page.getByLabel('管理员名称').fill('E2E 管理员');
+    await page.getByLabel('管理员密码').fill('AdminPass123!');
+    await page.getByRole('button', { name: '创建管理员' }).click();
     await expect(page.getByRole('heading', { name: '指纹浏览器' })).toBeVisible();
+    await expect(page.getByLabel('当前用户')).toContainText('E2E 管理员');
     await expect(page.getByText('试卖上手清单')).toHaveCount(0);
     await expect(page.getByText('试卖清单')).toHaveCount(0);
 
@@ -109,6 +115,13 @@ test('中文 UI 完成激活 license、新建环境、代理测试、导出审�
     await expect(sideNav.getByRole('link', { name: '授权' })).toHaveCount(0);
     await page.getByRole('tab', { name: '审计' }).click();
     await expect(page.getByRole('button', { name: '导出审计' })).toBeVisible();
+    await page.getByRole('tab', { name: '用户' }).click();
+    await expect(page.getByLabel('用户列表').getByText('E2E 管理员')).toBeVisible();
+    await page.getByLabel('新用户邮箱').fill('member@example.test');
+    await page.getByLabel('新用户名称').fill('E2E 成员');
+    await page.getByLabel('新用户初始密码').fill('MemberPass123!');
+    await page.getByRole('button', { name: '创建用户' }).click();
+    await expect(page.getByLabel('用户列表').getByText('E2E 成员')).toBeVisible();
     await page.getByRole('tab', { name: '授权' }).click();
     await expect(page.getByText('授权中心')).toBeVisible();
     await page.getByRole('tab', { name: '试卖' }).click();

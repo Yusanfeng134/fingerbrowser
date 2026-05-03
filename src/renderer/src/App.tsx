@@ -17,6 +17,7 @@ import {
   Globe2,
   KeyRound,
   LockKeyhole,
+  LogOut,
   Mail,
   MessageSquare,
   PackageCheck,
@@ -30,6 +31,9 @@ import {
   SlidersHorizontal,
   Trash2,
   Upload,
+  UserCheck,
+  UserPlus,
+  UserX,
   Wifi,
   X
 } from 'lucide-react';
@@ -39,6 +43,8 @@ import { TIMEZONE_OPTION_GROUPS } from '../../shared/timezones';
 import type {
   AuditEvent,
   AppVersionInfo,
+  AppUser,
+  AuthStatus,
   BrowserProfile,
   CredentialEntry,
   KernelRuntimeManifest,
@@ -57,6 +63,7 @@ import type {
   RuntimeChannel,
   SystemProxyDetectionResult,
   TrialMetrics,
+  UserRole,
   UpdateProfileInput,
   UsageSummary,
   DesktopFolder,
@@ -103,7 +110,7 @@ interface CredentialDraftState {
   password: string;
 }
 
-type ActiveTab = 'config' | 'credentials' | 'audit' | 'license' | 'trial';
+type ActiveTab = 'config' | 'credentials' | 'audit' | 'users' | 'license' | 'trial';
 type WorkspaceView = 'profiles' | 'vault' | 'desktop';
 type VaultEditorMode = 'view' | 'edit' | 'new';
 type SideNavKey = 'profiles' | 'vault' | 'desktop';
@@ -126,6 +133,19 @@ interface GoogleAccountDraftState {
   apiKey: string;
   clientId: string;
   clientSecret: string;
+}
+
+interface AuthDraftState {
+  email: string;
+  displayName: string;
+  password: string;
+}
+
+interface UserDraftState {
+  email: string;
+  displayName: string;
+  password: string;
+  role: UserRole;
 }
 
 const emptyDraft: DraftState = {
@@ -166,6 +186,19 @@ const emptyGoogleAccountDraft: GoogleAccountDraftState = {
   apiKey: '',
   clientId: '',
   clientSecret: ''
+};
+
+const emptyAuthDraft: AuthDraftState = {
+  email: '',
+  displayName: '',
+  password: ''
+};
+
+const emptyUserDraft: UserDraftState = {
+  email: '',
+  displayName: '',
+  password: '',
+  role: 'member'
 };
 
 const statusText: Record<BrowserProfile['status'], string> = {
@@ -222,6 +255,11 @@ const actionLabel: Record<string, string> = {
   KERNEL_LAUNCHED: '启动自研内核',
   GOOGLE_ACCOUNT_CONFIG_UPDATED: '更新 Google 账号配置',
   GOOGLE_ACCOUNT_CONFIG_CLEARED: '清除 Google 账号配置',
+  USER_BOOTSTRAPPED: '初始化管理员',
+  USER_LOGGED_IN: '用户登录',
+  USER_LOGGED_OUT: '用户退出',
+  USER_CREATED: '创建用户',
+  USER_UPDATED: '更新用户',
   LICENSE_ACTIVATED: '激活许可证',
   LICENSE_REFRESHED: '刷新许可证',
   LICENSE_DEACTIVATED: '停用许可证',
@@ -254,6 +292,16 @@ const licenseStatusText: Record<RedactedLicenseState['status'], string> = {
   active: '有效',
   grace: '宽限期',
   expired: '已过期'
+};
+
+const userRoleText: Record<UserRole, string> = {
+  admin: '管理员',
+  member: '成员'
+};
+
+const userStatusText: Record<AppUser['status'], string> = {
+  active: '启用',
+  disabled: '停用'
 };
 
 function profileToDraft(profile: ProfileDetails): DraftState {
@@ -334,6 +382,10 @@ function formatDate(value: string): string {
 }
 
 export function App(): JSX.Element {
+  const [authStatus, setAuthStatus] = useState<AuthStatus | null>(null);
+  const [authDraft, setAuthDraft] = useState<AuthDraftState>(emptyAuthDraft);
+  const [userDraft, setUserDraft] = useState<UserDraftState>(emptyUserDraft);
+  const [users, setUsers] = useState<AppUser[]>([]);
   const [profiles, setProfiles] = useState<ProfileDetails[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [draft, setDraft] = useState<DraftState>(emptyDraft);
@@ -574,8 +626,23 @@ export function App(): JSX.Element {
     });
   }, []);
 
+  const loadUsers = useCallback(async () => {
+    const nextUsers = await window.fingerBrowser.users.list();
+    setUsers(nextUsers);
+  }, []);
+
   useEffect(() => {
-    void Promise.all([
+    void window.fingerBrowser.auth
+      .status()
+      .then(setAuthStatus)
+      .catch((error) => setNotice(error instanceof Error ? error.message : '加载用户状态失败'));
+  }, []);
+
+  useEffect(() => {
+    if (!authStatus?.authenticated) {
+      return;
+    }
+    const tasks: Array<Promise<unknown>> = [
       loadProfiles(),
       loadDesktopShortcuts(),
       loadCommercialState(),
@@ -583,18 +650,28 @@ export function App(): JSX.Element {
       loadKernelState(),
       loadGoogleAccountState(),
       loadProxyRuntimeStatus()
-    ]).catch((error) => setNotice(error instanceof Error ? error.message : '加载环境失败'));
+    ];
+    if (authStatus.currentUser?.role === 'admin') {
+      tasks.push(loadUsers());
+    }
+    void Promise.all(tasks).catch((error) => setNotice(error instanceof Error ? error.message : '加载环境失败'));
   }, [
+    authStatus?.authenticated,
+    authStatus?.currentUser?.role,
     loadCommercialState,
     loadDesktopShortcuts,
     loadGoogleAccountState,
     loadKernelState,
     loadProfiles,
     loadProxyRuntimeStatus,
-    loadTrialState
+    loadTrialState,
+    loadUsers
   ]);
 
   useEffect(() => {
+    if (!authStatus?.authenticated) {
+      return;
+    }
     if (selectedProfile) {
       setDraft(profileToDraft(selectedProfile));
       void loadAudits(selectedProfile.id);
@@ -612,9 +689,12 @@ export function App(): JSX.Element {
     setCredentialDraft(emptyCredentialDraft);
     setCredentialQuery('');
     setRevealedCredential(null);
-  }, [credentialsEnabled, loadAudits, loadCredentials, loadProxyRuntimeStatus, selectedProfile]);
+  }, [authStatus?.authenticated, credentialsEnabled, loadAudits, loadCredentials, loadProxyRuntimeStatus, selectedProfile]);
 
   useEffect(() => {
+    if (!authStatus?.authenticated) {
+      return;
+    }
     if (workspaceView === 'vault') {
       void loadVaultCredentials().catch((error) =>
         setNotice(error instanceof Error ? error.message : '加载全局密码库失败')
@@ -625,7 +705,7 @@ export function App(): JSX.Element {
         setNotice(error instanceof Error ? error.message : '加载我的桌面失败')
       );
     }
-  }, [loadDesktopShortcuts, loadVaultCredentials, workspaceView]);
+  }, [authStatus?.authenticated, loadDesktopShortcuts, loadVaultCredentials, workspaceView]);
 
   useEffect(() => {
     setRevealedCredential(null);
@@ -643,6 +723,87 @@ export function App(): JSX.Element {
       setBusy(false);
     }
   }, []);
+
+  const resetWorkspaceState = (): void => {
+    setUsers([]);
+    setProfiles([]);
+    setSelectedId(null);
+    setDraft(emptyDraft);
+    setAudits([]);
+    setCredentials([]);
+    setCredentialDraft(emptyCredentialDraft);
+    setCredentialQuery('');
+    setVaultAllCredentials([]);
+    setVaultCredentials([]);
+    setDesktopShortcuts([]);
+    setDesktopFolders([]);
+    setDesktopItems([]);
+    setOpenDesktopFolderId(null);
+    setVaultDraft(emptyCredentialDraft);
+    setVaultQuery('');
+    setVaultMenuId('all');
+    setSelectedVaultCredentialId(null);
+    setVaultEditorMode('view');
+    setPasswordGeneratorTarget(null);
+    setGeneratedPassword('');
+    setRevealedCredential(null);
+    setLicense(null);
+    setUsage(null);
+    setMetrics(null);
+    setWorkspaceView('profiles');
+    setActiveNavKey('profiles');
+    setActiveTab('config');
+  };
+
+  const handleBootstrapAdmin = (): void => {
+    void run('创建管理员', async () => {
+      const status = await window.fingerBrowser.auth.bootstrap(authDraft);
+      setAuthStatus(status);
+      setAuthDraft(emptyAuthDraft);
+      return `已创建管理员：${status.currentUser?.displayName ?? ''}`;
+    });
+  };
+
+  const handleLogin = (): void => {
+    void run('登录', async () => {
+      const status = await window.fingerBrowser.auth.login({
+        email: authDraft.email,
+        password: authDraft.password
+      });
+      setAuthStatus(status);
+      setAuthDraft(emptyAuthDraft);
+      return `已登录：${status.currentUser?.displayName ?? ''}`;
+    });
+  };
+
+  const handleLogout = (): void => {
+    void run('退出登录', async () => {
+      const status = await window.fingerBrowser.auth.logout();
+      setAuthStatus(status);
+      resetWorkspaceState();
+      return '已退出登录';
+    });
+  };
+
+  const handleCreateUser = (): void => {
+    void run('创建用户', async () => {
+      const user = await window.fingerBrowser.users.create(userDraft);
+      await loadUsers();
+      await loadAudits();
+      setUserDraft(emptyUserDraft);
+      return `已创建用户：${user.displayName}`;
+    });
+  };
+
+  const handleToggleUserStatus = (user: AppUser): void => {
+    void run(user.status === 'active' ? '停用用户' : '启用用户', async () => {
+      const nextStatus = user.status === 'active' ? 'disabled' : 'active';
+      const updated = await window.fingerBrowser.users.update({ id: user.id, status: nextStatus });
+      await loadUsers();
+      await loadAudits();
+      return `${updated.displayName} 已${userStatusText[updated.status]}`;
+    });
+  };
 
   const handleOpenProfiles = (navKey: SideNavKey = 'profiles'): void => {
     setWorkspaceView('profiles');
@@ -1561,6 +1722,97 @@ export function App(): JSX.Element {
     );
   };
 
+  if (!authStatus) {
+    return (
+      <main className="auth-shell">
+        <section className="auth-card">
+          <div className="brand-mark">
+            <ShieldCheck size={22} />
+          </div>
+          <div>
+            <p className="section-kicker">本地用户体系</p>
+            <h1>加载用户状态</h1>
+          </div>
+          <footer className="notice-bar" aria-live="polite">
+            {busy ? <RefreshCw className="spin" size={15} /> : <CheckCircle2 size={15} />}
+            {notice}
+          </footer>
+        </section>
+      </main>
+    );
+  }
+
+  if (!authStatus.bootstrapped || !authStatus.authenticated) {
+    const isSetup = !authStatus.bootstrapped;
+    return (
+      <main className="auth-shell">
+        <section className="auth-card">
+          <div className="brand-lockup">
+            <div className="brand-mark">
+              <ShieldCheck size={22} />
+            </div>
+            <div>
+              <p className="section-kicker">本地工作台</p>
+              <h1>指纹浏览器</h1>
+            </div>
+          </div>
+          <div className="auth-heading">
+            <p className="section-kicker">{isSetup ? '首次启动' : '用户登录'}</p>
+            <h2>{isSetup ? '创建管理员账号' : '登录本地账号'}</h2>
+            <span>{isSetup ? '管理员用于管理本机用户、授权和环境资产。' : '登录后才能访问本机环境、密码库和审计数据。'}</span>
+          </div>
+          <form className="auth-form" onSubmit={(event) => event.preventDefault()}>
+            <label>
+              {isSetup ? '管理员邮箱' : '邮箱'}
+              <input
+                aria-label={isSetup ? '管理员邮箱' : '邮箱'}
+                autoComplete="username"
+                value={authDraft.email}
+                onChange={(event) => setAuthDraft({ ...authDraft, email: event.target.value })}
+                placeholder="admin@example.com"
+              />
+            </label>
+            {isSetup ? (
+              <label>
+                管理员名称
+                <input
+                  aria-label="管理员名称"
+                  value={authDraft.displayName}
+                  onChange={(event) => setAuthDraft({ ...authDraft, displayName: event.target.value })}
+                  placeholder="管理员"
+                />
+              </label>
+            ) : null}
+            <label>
+              {isSetup ? '管理员密码' : '密码'}
+              <input
+                aria-label={isSetup ? '管理员密码' : '密码'}
+                type="password"
+                autoComplete={isSetup ? 'new-password' : 'current-password'}
+                value={authDraft.password}
+                onChange={(event) => setAuthDraft({ ...authDraft, password: event.target.value })}
+                placeholder="至少 8 位"
+              />
+            </label>
+            <button
+              className="primary-button wide"
+              type="button"
+              onClick={isSetup ? handleBootstrapAdmin : handleLogin}
+              disabled={busy || !authDraft.email || !authDraft.password || (isSetup && !authDraft.displayName)}
+            >
+              {isSetup ? <UserPlus size={16} /> : <UserCheck size={16} />}
+              {isSetup ? '创建管理员' : '登录'}
+            </button>
+          </form>
+          <footer className="notice-bar" aria-live="polite">
+            {busy ? <RefreshCw className="spin" size={15} /> : <CheckCircle2 size={15} />}
+            {notice}
+          </footer>
+        </section>
+      </main>
+    );
+  }
+
   return (
     <main className="app-shell">
       <aside className="sidebar">
@@ -1608,6 +1860,19 @@ export function App(): JSX.Element {
             密码库
           </a>
         </nav>
+        <div className="user-session-card" aria-label="当前用户">
+          <div>
+            <strong>{authStatus.currentUser?.displayName ?? '本地用户'}</strong>
+            <span>
+              {authStatus.currentUser?.email ?? ''}
+              {authStatus.currentUser ? ` · ${userRoleText[authStatus.currentUser.role]}` : ''}
+            </span>
+          </div>
+          <button className="secondary-button compact-button" type="button" onClick={handleLogout} disabled={busy}>
+            <LogOut size={14} />
+            退出
+          </button>
+        </div>
         <div className="policy-note">
           <ShieldCheck size={17} />
           <span>仅做可解释的隐私归一化与合规审计。</span>
@@ -2375,6 +2640,20 @@ export function App(): JSX.Element {
           >
             审计
           </button>
+          {authStatus.currentUser?.role === 'admin' ? (
+            <button
+              type="button"
+              role="tab"
+              aria-selected={activeTab === 'users'}
+              className={activeTab === 'users' ? 'active' : ''}
+              onClick={() => {
+                setActiveTab('users');
+                void loadUsers().catch((error) => setNotice(error instanceof Error ? error.message : '加载用户失败'));
+              }}
+            >
+              用户
+            </button>
+          ) : null}
           <button
             type="button"
             role="tab"
@@ -2949,6 +3228,90 @@ export function App(): JSX.Element {
               </article>
             ))}
             {audits.length === 0 ? <div className="empty-state">暂无审计日志</div> : null}
+          </section>
+        ) : activeTab === 'users' ? (
+          <section className="audit-list user-panel">
+            <div className="form-section">
+              <div className="form-title">
+                <UserPlus size={17} />
+                新增用户
+              </div>
+              <label>
+                邮箱
+                <input
+                  aria-label="新用户邮箱"
+                  value={userDraft.email}
+                  onChange={(event) => setUserDraft({ ...userDraft, email: event.target.value })}
+                  placeholder="member@example.com"
+                />
+              </label>
+              <label>
+                用户名称
+                <input
+                  aria-label="新用户名称"
+                  value={userDraft.displayName}
+                  onChange={(event) => setUserDraft({ ...userDraft, displayName: event.target.value })}
+                  placeholder="运营成员"
+                />
+              </label>
+              <div className="inline-grid">
+                <label>
+                  角色
+                  <select
+                    aria-label="新用户角色"
+                    value={userDraft.role}
+                    onChange={(event) => setUserDraft({ ...userDraft, role: event.target.value as UserRole })}
+                  >
+                    <option value="member">成员</option>
+                    <option value="admin">管理员</option>
+                  </select>
+                </label>
+                <label>
+                  初始密码
+                  <input
+                    aria-label="新用户初始密码"
+                    type="password"
+                    value={userDraft.password}
+                    onChange={(event) => setUserDraft({ ...userDraft, password: event.target.value })}
+                    placeholder="至少 8 位"
+                  />
+                </label>
+              </div>
+              <button
+                className="primary-button wide"
+                type="button"
+                onClick={handleCreateUser}
+                disabled={busy || !userDraft.email || !userDraft.displayName || !userDraft.password}
+              >
+                <UserPlus size={16} />
+                创建用户
+              </button>
+            </div>
+
+            <div className="user-list" aria-label="用户列表">
+              {users.map((user) => (
+                <article className="user-row" key={user.id}>
+                  <div>
+                    <strong>{user.displayName}</strong>
+                    <span>{user.email}</span>
+                    <small>
+                      {userRoleText[user.role]} · {user.lastLoginAt ? `最近登录 ${formatDate(user.lastLoginAt)}` : '尚未登录'}
+                    </small>
+                  </div>
+                  <span className={`user-status-pill ${user.status}`}>{userStatusText[user.status]}</span>
+                  <button
+                    className="secondary-button compact-button"
+                    type="button"
+                    onClick={() => handleToggleUserStatus(user)}
+                    disabled={busy || user.id === authStatus.currentUser?.id}
+                  >
+                    {user.status === 'active' ? <UserX size={14} /> : <UserCheck size={14} />}
+                    {user.status === 'active' ? '停用' : '启用'}
+                  </button>
+                </article>
+              ))}
+              {users.length === 0 ? <div className="empty-state">暂无用户</div> : null}
+            </div>
           </section>
         ) : activeTab === 'license' ? (
           <section className="audit-list license-panel">

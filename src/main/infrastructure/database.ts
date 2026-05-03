@@ -42,6 +42,19 @@ export function openApplicationDatabase(filePath: string): ApplicationDatabase {
       created_at text not null
     );
 
+    create table if not exists app_users (
+      id text primary key,
+      email text not null unique,
+      display_name text not null,
+      role text not null,
+      status text not null,
+      password_salt text not null,
+      password_hash text not null,
+      created_at text not null,
+      updated_at text not null,
+      last_login_at text
+    );
+
     create table if not exists license_cache (
       id integer primary key check (id = 1),
       team_name text not null,

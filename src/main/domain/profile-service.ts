@@ -24,6 +24,7 @@ interface ProfileServiceOptions {
   db: ApplicationDatabase;
   dataDir: string;
   secretBox: SecretBox;
+  getAuditActor?: () => string;
 }
 
 interface ProfileRow {
@@ -55,7 +56,7 @@ interface AuditRow {
   id: string;
   profile_id: string | null;
   action: AuditAction;
-  actor: 'local-user';
+  actor: string;
   metadata_json: string;
   created_at: string;
 }
@@ -234,9 +235,10 @@ export function createProfileService(options: ProfileServiceOptions): ProfileSer
   }
 
   function recordAudit(profileId: string | null, action: AuditAction, metadata: Record<string, unknown> = {}): void {
+    const actor = options.getAuditActor?.() ?? 'local-user';
     db.prepare(
       'insert into audit_events (id, profile_id, action, actor, metadata_json, created_at) values (?, ?, ?, ?, ?, ?)'
-    ).run(randomUUID(), profileId, action, 'local-user', JSON.stringify(metadata), new Date().toISOString());
+    ).run(randomUUID(), profileId, action, actor, JSON.stringify(metadata), new Date().toISOString());
   }
 
   return {

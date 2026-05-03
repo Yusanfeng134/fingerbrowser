@@ -12,6 +12,8 @@ export type ProxyRuntimeState = 'stopped' | 'running' | 'error';
 export type SystemProxySource = 'http' | 'https' | 'socks5' | 'local-scan';
 export type FeedbackIssueType = 'bug' | 'setup' | 'feature' | 'other';
 export type FeedbackSeverity = 'low' | 'medium' | 'high';
+export type UserRole = 'admin' | 'member';
+export type UserStatus = 'active' | 'disabled';
 export type TrialMetricKey =
   | 'activationCount'
   | 'profileCreateCount'
@@ -44,6 +46,11 @@ export type AuditAction =
   | 'KERNEL_LAUNCHED'
   | 'GOOGLE_ACCOUNT_CONFIG_UPDATED'
   | 'GOOGLE_ACCOUNT_CONFIG_CLEARED'
+  | 'USER_BOOTSTRAPPED'
+  | 'USER_LOGGED_IN'
+  | 'USER_LOGGED_OUT'
+  | 'USER_CREATED'
+  | 'USER_UPDATED'
   | 'LICENSE_ACTIVATED'
   | 'LICENSE_REFRESHED'
   | 'LICENSE_DEACTIVATED'
@@ -244,9 +251,51 @@ export interface AuditEvent {
   id: string;
   profileId: string | null;
   action: AuditAction;
-  actor: 'local-user';
+  actor: string;
   metadata: Record<string, unknown>;
   createdAt: string;
+}
+
+export interface AppUser {
+  id: string;
+  email: string;
+  displayName: string;
+  role: UserRole;
+  status: UserStatus;
+  createdAt: string;
+  updatedAt: string;
+  lastLoginAt: string | null;
+}
+
+export interface AuthStatus {
+  bootstrapped: boolean;
+  authenticated: boolean;
+  currentUser: AppUser | null;
+}
+
+export interface BootstrapUserInput {
+  email: string;
+  displayName: string;
+  password: string;
+}
+
+export interface LoginInput {
+  email: string;
+  password: string;
+}
+
+export interface CreateUserInput {
+  email: string;
+  displayName: string;
+  password: string;
+  role: UserRole;
+}
+
+export interface UpdateUserInput {
+  id: string;
+  displayName?: string;
+  role?: UserRole;
+  status?: UserStatus;
 }
 
 export interface CredentialEntry {
@@ -479,6 +528,17 @@ export interface SecurityLabOpenResult {
 }
 
 export interface AppApi {
+  auth: {
+    status: () => Promise<AuthStatus>;
+    bootstrap: (input: BootstrapUserInput) => Promise<AuthStatus>;
+    login: (input: LoginInput) => Promise<AuthStatus>;
+    logout: () => Promise<AuthStatus>;
+  };
+  users: {
+    list: () => Promise<AppUser[]>;
+    create: (input: CreateUserInput) => Promise<AppUser>;
+    update: (input: UpdateUserInput) => Promise<AppUser>;
+  };
   profiles: {
     list: () => Promise<ProfileDetails[]>;
     create: (input: CreateProfileInput) => Promise<ProfileDetails>;
