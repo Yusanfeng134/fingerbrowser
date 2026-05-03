@@ -186,6 +186,8 @@ export function buildProfileHealthReport(profiles: ProfileDetails[], now: Date =
   const readiness = getProfileHealthReadiness(profiles, now);
   const issueStats = getProfileHealthIssueStats(profiles, now);
   const issueSummary = issueStats.map((stat) => `${stat.label} ${stat.count}`).join('，');
+  const deliveryConclusion = getDeliveryConclusion(readiness);
+  const nextStep = getNextStep(readiness, issueStats);
 
   return [
     '环境健康摘要',
@@ -193,8 +195,34 @@ export function buildProfileHealthReport(profiles: ProfileDetails[], now: Date =
     `已就绪：${stats.ready}`,
     `待补全：${stats.attention}`,
     `已归档：${stats.archived}`,
-    `问题分布：${issueSummary}`
+    `问题分布：${issueSummary}`,
+    `交付结论：${deliveryConclusion}`,
+    `下一步建议：${nextStep}`
   ].join('\n');
+}
+
+function getDeliveryConclusion(readiness: ProfileHealthReadiness): string {
+  if (readiness.activeTotal === 0) {
+    return '暂无活跃环境';
+  }
+  return readiness.ready === readiness.activeTotal ? '可进入客户演示' : '交付前需补全';
+}
+
+function getNextStep(readiness: ProfileHealthReadiness, issueStats: ProfileHealthIssueStat[]): string {
+  if (readiness.activeTotal === 0) {
+    return '创建或恢复环境后再做交付检查';
+  }
+  if (readiness.ready === readiness.activeTotal) {
+    return '保持代理检测与启动记录更新';
+  }
+
+  const priority: ProfileHealthIssueKey[] = ['proxy', 'launch', 'owner', 'notes'];
+  const issues = priority
+    .map((key) => issueStats.find((stat) => stat.key === key))
+    .filter((stat): stat is ProfileHealthIssueStat => stat !== undefined && stat.count > 0)
+    .map((stat) => `${stat.label} ${stat.count} 项`);
+
+  return issues.length > 0 ? `优先处理${issues.join('、')}` : '复核待补全环境配置';
 }
 
 function isIssueStatKey(key: ProfileHealthCheck['key']): key is ProfileHealthIssueKey {

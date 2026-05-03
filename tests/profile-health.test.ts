@@ -238,7 +238,30 @@ describe('profile health helpers', () => {
     expect(report).toContain('待补全：2');
     expect(report).toContain('已归档：1');
     expect(report).toContain('问题分布：负责人 1，备注 1，代理 2，启动记录 2');
+    expect(report).toContain('交付结论：交付前需补全');
+    expect(report).toContain('下一步建议：优先处理代理 2 项、启动记录 2 项、负责人 1 项、备注 1 项');
     expect(report).not.toContain('完整环境');
     expect(report).not.toContain('proxy.example.test');
+  });
+
+  it('marks fully ready health reports as demo-ready', () => {
+    const report = buildProfileHealthReport(
+      [
+        profile({
+          id: 'ready',
+          name: '完整环境',
+          owner: 'Alice',
+          notes: '试卖客户',
+          proxyId: 'proxy-passed',
+          proxy: proxy('passed'),
+          lastLaunchedAt: '2026-05-03T10:00:00.000Z'
+        })
+      ],
+      now
+    );
+
+    expect(report).toContain('就绪率：100% (1/1)');
+    expect(report).toContain('交付结论：可进入客户演示');
+    expect(report).toContain('下一步建议：保持代理检测与启动记录更新');
   });
 });
