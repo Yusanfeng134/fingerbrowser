@@ -11,6 +11,7 @@ import type {
   CreateProxyPoolEntryInput,
   MoveDesktopShortcutInput,
   CreateProfileInput,
+  DuplicateProfileInput,
   ListCredentialsInput,
   LoginInput,
   ProxyConnectionInput,
@@ -41,6 +42,8 @@ const api: AppApi = {
     create: (input: CreateProfileInput) => ipcRenderer.invoke('profiles.create', input) as ReturnType<AppApi['profiles']['create']>,
     bulkCreate: (inputs: CreateProfileInput[]) =>
       ipcRenderer.invoke('profiles.bulkCreate', inputs) as ReturnType<AppApi['profiles']['bulkCreate']>,
+    duplicate: (input: DuplicateProfileInput) =>
+      ipcRenderer.invoke('profiles.duplicate', input) as ReturnType<AppApi['profiles']['duplicate']>,
     update: (input: UpdateProfileInput) => ipcRenderer.invoke('profiles.update', input) as ReturnType<AppApi['profiles']['update']>,
     export: () => ipcRenderer.invoke('profiles.export') as ReturnType<AppApi['profiles']['export']>,
     launch: (profileId: string) => ipcRenderer.invoke('profiles.launch', profileId) as ReturnType<AppApi['profiles']['launch']>,

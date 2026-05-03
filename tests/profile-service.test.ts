@@ -174,4 +174,63 @@ describe('profile service', () => {
       })
     ).toThrow('时区无效');
   });
+
+  it('duplicates an environment as a clean profile with copied policy and redacted proxy credentials', () => {
+    const dataDir = mkdtempSync(path.join(tmpdir(), 'fingerbrowser-duplicate-profile-test-'));
+    tempDirs.push(dataDir);
+    const db = openApplicationDatabase(path.join(dataDir, 'app.sqlite'));
+    const secretBox = createNodeSecretBox('test-master-key');
+    const service = createProfileService({
+      db,
+      dataDir,
+      secretBox
+    });
+
+    const source = service.createProfile({
+      name: '洛杉矶运营环境',
+      groupName: '广告项目',
+      tags: ['US', '投放'],
+      runtimeChannel: 'custom-kernel',
+      fingerprintPolicy: {
+        locale: 'en-US',
+        timezone: 'America/Los_Angeles',
+        windowSize: { width: 1440, height: 900 }
+      },
+      proxy: {
+        scheme: 'socks5',
+        host: 'proxy.example.test',
+        port: 1080,
+        username: 'operator',
+        password: 'copied-proxy-password',
+        bypassList: ['localhost']
+      }
+    });
+
+    const duplicated = service.duplicateProfile({ profileId: source.id });
+
+    expect(duplicated.id).not.toBe(source.id);
+    expect(duplicated.name).toBe('洛杉矶运营环境 副本');
+    expect(duplicated.groupName).toBe(source.groupName);
+    expect(duplicated.tags).toEqual(source.tags);
+    expect(duplicated.runtimeChannel).toBe(source.runtimeChannel);
+    expect(duplicated.fingerprintPolicy).toEqual(source.fingerprintPolicy);
+    expect(duplicated.status).toBe('closed');
+    expect(duplicated.userDataDir).not.toBe(source.userDataDir);
+    expect(duplicated.userDataDir).toContain(duplicated.id);
+    expect(duplicated.proxyId).not.toBe(source.proxyId);
+    expect(duplicated.proxy).toMatchObject({
+      scheme: 'socks5',
+      host: 'proxy.example.test',
+      port: 1080,
+      username: 'operator',
+      bypassList: ['localhost'],
+      lastTestStatus: 'untested'
+    });
+    expect(secretBox.decrypt(duplicated.proxy?.encryptedPassword ?? '')).toBe('copied-proxy-password');
+
+    const audits = service.listAuditEvents();
+    expect(audits.map((event) => event.action)).toContain('PROFILE_DUPLICATED');
+    expect(JSON.stringify(audits)).toContain(source.id);
+    expect(JSON.stringify(audits)).not.toContain('copied-proxy-password');
+  });
 });

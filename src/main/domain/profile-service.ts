@@ -9,6 +9,7 @@ import type {
   BrowserProfile,
   CreateProfileInput,
   CreateProxyInput,
+  DuplicateProfileInput,
   FingerprintPolicy,
   ProfileDetails,
   ProxyConfig,
@@ -65,6 +66,7 @@ interface AuditRow {
 export interface ProfileService {
   listProfiles(): ProfileDetails[];
   createProfile(input: CreateProfileInput): ProfileDetails;
+  duplicateProfile(input: DuplicateProfileInput): ProfileDetails;
   updateProfile(input: UpdateProfileInput): ProfileDetails;
   getProfile(id: string): ProfileDetails;
   setProfileStatus(id: string, status: BrowserProfile['status']): ProfileDetails;
@@ -188,6 +190,42 @@ export function createProfileService(options: ProfileServiceOptions): ProfileSer
     return proxy;
   }
 
+  function duplicateProxy(proxyId: string): ProxyConfig {
+    const source = db.prepare('select * from proxies where id = ?').get(proxyId) as ProxyRow | undefined;
+    if (!source) {
+      throw new Error('代理配置不存在');
+    }
+    const now = new Date().toISOString();
+    const duplicated: ProxyConfig = {
+      id: randomUUID(),
+      scheme: source.scheme,
+      host: source.host,
+      port: source.port,
+      username: source.username,
+      encryptedPassword: source.encrypted_password,
+      bypassList: JSON.parse(source.bypass_list_json) as string[],
+      lastTestStatus: 'untested'
+    };
+
+    db.prepare(
+      `insert into proxies (
+        id, scheme, host, port, username, encrypted_password, bypass_list_json, last_test_status, created_at, updated_at
+      ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    ).run(
+      duplicated.id,
+      duplicated.scheme,
+      duplicated.host,
+      duplicated.port,
+      duplicated.username,
+      duplicated.encryptedPassword,
+      JSON.stringify(duplicated.bypassList),
+      duplicated.lastTestStatus,
+      now,
+      now
+    );
+    return duplicated;
+  }
+
   function updateOrCreateProxy(input: CreateProxyInput | null | undefined, existingProxyId: string | null): string | null {
     if (!input) {
       return null;
@@ -280,6 +318,49 @@ export function createProfileService(options: ProfileServiceOptions): ProfileSer
         name: input.name.trim(),
         groupName: normalizeGroupName(input.groupName),
         tags: normalizeTags(input.tags)
+      });
+      if (proxy) {
+        recordAudit(id, 'PROXY_CREATED', redactProxyConfig(proxy));
+      }
+      return getProfile(id);
+    },
+    duplicateProfile(input: DuplicateProfileInput): ProfileDetails {
+      const source = getProfile(input.profileId);
+      const name = input.name?.trim() || `${source.name} 副本`;
+      assertValidProfileName(name);
+      const id = randomUUID();
+      const now = new Date().toISOString();
+      const shouldIncludeProxy = input.includeProxy !== false && Boolean(source.proxyId);
+      const proxy = shouldIncludeProxy && source.proxyId ? duplicateProxy(source.proxyId) : null;
+      const userDataDir = path.join(profilesRoot, id);
+      mkdirSync(userDataDir, { recursive: true });
+
+      db.prepare(
+        `insert into profiles (
+          id, name, group_name, tags_json, status, user_data_dir, chromium_version, runtime_channel, fingerprint_policy_json, proxy_id, created_at, updated_at
+        ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      ).run(
+        id,
+        name,
+        normalizeGroupName(input.groupName ?? source.groupName),
+        JSON.stringify(normalizeTags(input.tags ?? source.tags)),
+        'closed',
+        userDataDir,
+        source.chromiumVersion,
+        normalizeRuntimeChannel(source.runtimeChannel),
+        JSON.stringify(normalizeFingerprintPolicy(source.fingerprintPolicy)),
+        proxy?.id ?? null,
+        now,
+        now
+      );
+
+      recordAudit(id, 'PROFILE_DUPLICATED', {
+        sourceProfileId: source.id,
+        name,
+        groupName: normalizeGroupName(input.groupName ?? source.groupName),
+        tags: normalizeTags(input.tags ?? source.tags),
+        runtimeChannel: normalizeRuntimeChannel(source.runtimeChannel),
+        hasProxy: Boolean(proxy)
       });
       if (proxy) {
         recordAudit(id, 'PROXY_CREATED', redactProxyConfig(proxy));

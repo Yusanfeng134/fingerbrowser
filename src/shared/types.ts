@@ -24,6 +24,7 @@ export type TrialMetricKey =
   | 'updateCheckCount';
 export type AuditAction =
   | 'PROFILE_CREATED'
+  | 'PROFILE_DUPLICATED'
   | 'PROFILE_UPDATED'
   | 'PROFILE_LAUNCHED'
   | 'PROFILE_STOPPED'
@@ -517,6 +518,14 @@ export interface CreateProfileInput {
   proxy?: CreateProxyInput;
 }
 
+export interface DuplicateProfileInput {
+  profileId: string;
+  name?: string;
+  groupName?: string;
+  tags?: string[];
+  includeProxy?: boolean;
+}
+
 export interface UpdateProfileInput {
   id: string;
   name: string;
@@ -596,6 +605,7 @@ export interface AppApi {
     list: () => Promise<ProfileDetails[]>;
     create: (input: CreateProfileInput) => Promise<ProfileDetails>;
     bulkCreate: (inputs: CreateProfileInput[]) => Promise<ProfileDetails[]>;
+    duplicate: (input: DuplicateProfileInput) => Promise<ProfileDetails>;
     update: (input: UpdateProfileInput) => Promise<ProfileDetails>;
     export: () => Promise<ExportResult>;
     launch: (profileId: string) => Promise<LaunchResult>;

@@ -9,6 +9,7 @@ import type {
   CreateCredentialInput,
   FeedbackPackageInput,
   CreateProfileInput,
+  DuplicateProfileInput,
   CreateDesktopFolderFromShortcutsInput,
   CreateDesktopFolderInput,
   ListCredentialsInput,
@@ -108,6 +109,13 @@ export function registerIpcHandlers(services: ApplicationServices): void {
       services.trialService.incrementMetric('profileCreateCount');
       return profile;
     });
+  });
+
+  handleAuthenticated('profiles.duplicate', (_event, input: DuplicateProfileInput) => {
+    services.licenseService.assertCanCreateProfiles(services.profileService.listProfiles().length, 1);
+    const profile = services.profileService.duplicateProfile(input);
+    services.trialService.incrementMetric('profileCreateCount');
+    return profile;
   });
 
   handleAuthenticated('profiles.update', (_event, input: UpdateProfileInput) => services.profileService.updateProfile(input));

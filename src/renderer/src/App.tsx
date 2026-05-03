@@ -291,6 +291,7 @@ const kernelManifestSourceText: Record<KernelManifestSource, string> = {
 
 const actionLabel: Record<string, string> = {
   PROFILE_CREATED: '创建环境',
+  PROFILE_DUPLICATED: '复制环境',
   PROFILE_UPDATED: '更新环境',
   PROFILE_LAUNCHED: '启动 Chromium',
   PROFILE_STOPPED: '关闭环境',
@@ -1447,6 +1448,30 @@ export function App(): JSX.Element {
     });
     setActiveTab('config');
     setNotice('正在创建新环境');
+  };
+
+  const handleDuplicateProfile = (): void => {
+    const source = selectedProfile;
+    if (!source) {
+      setNotice('请先选择环境');
+      return;
+    }
+    if (!canCreateProfile) {
+      setActiveTab('license');
+      setNotice(license?.status === 'inactive' ? '请先激活许可证' : '当前套餐环境数已达上限');
+      return;
+    }
+    void run('复制环境', async () => {
+      const duplicated = await window.fingerBrowser.profiles.duplicate({ profileId: source.id });
+      await loadProfiles();
+      await loadCommercialState();
+      await loadTrialState();
+      setSelectedId(duplicated.id);
+      setDraft(profileToDraft(duplicated));
+      setActiveTab('config');
+      await loadAudits(duplicated.id);
+      return `已复制环境：${duplicated.name}`;
+    });
   };
 
   const handleSave = (): void => {
@@ -3369,6 +3394,10 @@ export function App(): JSX.Element {
             >
               <Grid2X2 size={16} />
               添加到桌面
+            </button>
+            <button type="button" className="secondary-button" onClick={handleDuplicateProfile} disabled={!selectedProfile || busy}>
+              <Clipboard size={16} />
+              复制环境
             </button>
             <button type="button" className="secondary-button" onClick={handleStop} disabled={!selectedProfile || busy}>
               <Power size={16} />
