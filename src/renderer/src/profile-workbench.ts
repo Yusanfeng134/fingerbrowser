@@ -1,12 +1,13 @@
 import type { ProfileDetails, ProfileStatus, ProxyTestStatus, RuntimeChannel } from '../../shared/types';
 import { getProfileHealth } from './profile-health';
-import type { ProfileHealthStatus } from './profile-health';
+import type { ProfileHealthIssueKey, ProfileHealthStatus } from './profile-health';
 
 export type WorkbenchStatusFilter = 'all' | ProfileStatus;
 export type WorkbenchRuntimeFilter = 'all' | RuntimeChannel;
 export type WorkbenchProxyFilter = 'all' | 'configured' | 'missing' | ProxyTestStatus;
 export type WorkbenchArchiveFilter = 'active' | 'archived' | 'all';
 export type WorkbenchHealthFilter = 'all' | ProfileHealthStatus;
+export type WorkbenchHealthIssueFilter = 'all' | ProfileHealthIssueKey;
 
 export interface ProfileWorkbenchFilters {
   query?: string;
@@ -16,6 +17,7 @@ export interface ProfileWorkbenchFilters {
   proxy?: WorkbenchProxyFilter;
   archive?: WorkbenchArchiveFilter;
   health?: WorkbenchHealthFilter;
+  healthIssue?: WorkbenchHealthIssueFilter;
 }
 
 export function splitWorkbenchCsv(value: string): string[] {
@@ -40,12 +42,16 @@ export function filterWorkbenchProfiles(
 ): ProfileDetails[] {
   const query = filters.query?.trim().toLowerCase() ?? '';
   const healthFilter = filters.health ?? 'all';
+  const healthIssueFilter = filters.healthIssue ?? 'all';
   return profiles.filter((profile) => {
     if (healthFilter !== 'archived' && !matchesArchiveFilter(profile, filters.archive ?? 'active')) {
       return false;
     }
     const health = getProfileHealth(profile, now);
     if (healthFilter !== 'all' && health.status !== healthFilter) {
+      return false;
+    }
+    if (!matchesHealthIssueFilter(health, healthIssueFilter)) {
       return false;
     }
     if (filters.groupName && profile.groupName !== filters.groupName) {
@@ -101,4 +107,14 @@ function matchesProxyFilter(profile: ProfileDetails, filter: WorkbenchProxyFilte
     return !profile.proxy;
   }
   return profile.proxy?.lastTestStatus === filter;
+}
+
+function matchesHealthIssueFilter(
+  health: ReturnType<typeof getProfileHealth>,
+  filter: WorkbenchHealthIssueFilter
+): boolean {
+  if (filter === 'all') {
+    return true;
+  }
+  return health.checks.some((check) => check.key === filter && !check.ok);
 }

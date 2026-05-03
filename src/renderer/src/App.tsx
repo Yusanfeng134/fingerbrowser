@@ -97,6 +97,7 @@ import { getProfileHealth, getProfileHealthIssueStats, getProfileHealthStats } f
 import type {
   WorkbenchArchiveFilter,
   WorkbenchHealthFilter,
+  WorkbenchHealthIssueFilter,
   WorkbenchProxyFilter,
   WorkbenchRuntimeFilter,
   WorkbenchStatusFilter
@@ -301,6 +302,14 @@ const profileHealthTone = {
   archived: 'muted'
 } as const;
 
+const profileHealthIssueFilterText: Record<WorkbenchHealthIssueFilter, string> = {
+  all: '全部问题',
+  owner: '负责人',
+  notes: '备注',
+  proxy: '代理',
+  launch: '启动记录'
+};
+
 const kernelManifestSourceText: Record<KernelManifestSource, string> = {
   default: '内置默认',
   environment: '环境变量',
@@ -496,6 +505,7 @@ export function App(): JSX.Element {
   const [profileGroupFilter, setProfileGroupFilter] = useState('');
   const [profileStatusFilter, setProfileStatusFilter] = useState<WorkbenchStatusFilter>('all');
   const [profileHealthFilter, setProfileHealthFilter] = useState<WorkbenchHealthFilter>('all');
+  const [profileHealthIssueFilter, setProfileHealthIssueFilter] = useState<WorkbenchHealthIssueFilter>('all');
   const [profileRuntimeFilter, setProfileRuntimeFilter] = useState<WorkbenchRuntimeFilter>('all');
   const [profileProxyFilter, setProfileProxyFilter] = useState<WorkbenchProxyFilter>('all');
   const [profileArchiveFilter, setProfileArchiveFilter] = useState<WorkbenchArchiveFilter>('active');
@@ -554,6 +564,7 @@ export function App(): JSX.Element {
       groupName: profileGroupFilter,
       status: profileStatusFilter,
       health: profileHealthFilter,
+      healthIssue: profileHealthIssueFilter,
       runtimeChannel: profileRuntimeFilter,
       proxy: profileProxyFilter,
       archive: profileArchiveFilter
@@ -562,6 +573,7 @@ export function App(): JSX.Element {
     profileArchiveFilter,
     profileGroupFilter,
     profileHealthFilter,
+    profileHealthIssueFilter,
     profileProxyFilter,
     profileRuntimeFilter,
     profileStatusFilter,
@@ -942,6 +954,7 @@ export function App(): JSX.Element {
     setProfileGroupFilter('');
     setProfileStatusFilter('all');
     setProfileHealthFilter('all');
+    setProfileHealthIssueFilter('all');
     setProfileRuntimeFilter('all');
     setProfileProxyFilter('all');
     setProfileArchiveFilter('active');
@@ -1058,12 +1071,23 @@ export function App(): JSX.Element {
 
   const handleProfileHealthFilterChange = (filter: WorkbenchHealthFilter): void => {
     setProfileHealthFilter(filter);
+    setProfileHealthIssueFilter('all');
     if (filter === 'archived') {
       setProfileArchiveFilter('archived');
       return;
     }
     if (filter !== 'all' && profileArchiveFilter === 'archived') {
       setProfileArchiveFilter('active');
+    }
+  };
+
+  const handleProfileHealthIssueFilterChange = (filter: WorkbenchHealthIssueFilter): void => {
+    setProfileHealthIssueFilter(filter);
+    if (filter !== 'all') {
+      setProfileHealthFilter('attention');
+      if (profileArchiveFilter === 'archived') {
+        setProfileArchiveFilter('active');
+      }
     }
   };
 
@@ -2559,10 +2583,19 @@ export function App(): JSX.Element {
         <section className="profile-issue-strip" aria-label="健康问题分布">
           <span className="profile-issue-title">问题分布</span>
           {profileHealthIssueStats.map((stat) => (
-            <span className={stat.count > 0 ? 'issue-hot' : 'issue-clear'} key={stat.key}>
+            <button
+              className={`profile-issue-chip ${stat.count > 0 ? 'issue-hot' : 'issue-clear'} ${
+                profileHealthIssueFilter === stat.key ? 'active' : ''
+              }`}
+              type="button"
+              aria-label={`筛选${stat.key}问题环境`}
+              aria-pressed={profileHealthIssueFilter === stat.key}
+              onClick={() => handleProfileHealthIssueFilterChange(stat.key)}
+              key={stat.key}
+            >
               {stat.label}
               <strong>{stat.count}</strong>
-            </span>
+            </button>
           ))}
         </section>
 
@@ -2616,6 +2649,20 @@ export function App(): JSX.Element {
               <option value="ready">已就绪</option>
               <option value="attention">待补全</option>
               <option value="archived">已归档</option>
+            </select>
+          </label>
+          <label>
+            问题
+            <select
+              aria-label="筛选问题"
+              value={profileHealthIssueFilter}
+              onChange={(event) => handleProfileHealthIssueFilterChange(event.target.value as WorkbenchHealthIssueFilter)}
+            >
+              {Object.entries(profileHealthIssueFilterText).map(([value, label]) => (
+                <option value={value} key={value}>
+                  {label}
+                </option>
+              ))}
             </select>
           </label>
           <label>

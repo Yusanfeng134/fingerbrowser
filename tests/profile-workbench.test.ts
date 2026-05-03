@@ -121,6 +121,19 @@ describe('profile workbench helpers', () => {
     expect(filterWorkbenchProfiles(profiles, { health: 'archived' }, now).map((item) => item.id)).toEqual(['p4']);
   });
 
+  it('filters by derived health issue category', () => {
+    const now = new Date('2026-05-03T12:00:00.000Z');
+
+    expect(filterWorkbenchProfiles(profiles, { healthIssue: 'proxy' }, now).map((item) => item.id)).toEqual(['p2', 'p3']);
+    expect(
+      filterWorkbenchProfiles(profiles, { healthIssue: 'owner', groupName: '销售项目' }, now).map((item) => item.id)
+    ).toEqual(['p2']);
+    expect(filterWorkbenchProfiles(profiles, { healthIssue: 'launch', archive: 'all' }, now).map((item) => item.id)).toEqual([
+      'p2',
+      'p3'
+    ]);
+  });
+
   it('hides archived profiles by default and can show archived or all profiles', () => {
     expect(filterWorkbenchProfiles(profiles).map((item) => item.id)).toEqual(['p1', 'p2', 'p3']);
     expect(filterWorkbenchProfiles(profiles, { archive: 'archived' }).map((item) => item.id)).toEqual(['p4']);

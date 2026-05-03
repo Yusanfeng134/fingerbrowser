@@ -472,29 +472,34 @@ p {
   font-weight: 760;
 }
 
-.profile-issue-strip span:not(.profile-issue-title) {
+.profile-issue-chip {
   display: inline-flex;
   align-items: center;
   gap: 6px;
   min-height: 27px;
+  border: 0;
   border-radius: 999px;
   padding: 0 9px;
   font-size: 12px;
   font-weight: 720;
 }
 
-.profile-issue-strip strong {
+.profile-issue-chip strong {
   font-size: 13px;
 }
 
-.profile-issue-strip .issue-hot {
+.profile-issue-chip.issue-hot {
   color: #875514;
   background: #fff0d3;
 }
 
-.profile-issue-strip .issue-clear {
+.profile-issue-chip.issue-clear {
   color: #176757;
   background: rgba(31, 122, 107, 0.1);
+}
+
+.profile-issue-chip.active {
+  box-shadow: inset 0 0 0 1px currentColor;
 }
 
 .search-row input,
@@ -526,7 +531,7 @@ p {
 
 .profile-filter-bar {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   gap: 10px;
   margin: 0 0 14px;
 }
