@@ -1,6 +1,11 @@
 import { describe, expect, it } from 'vitest';
 import type { ProfileDetails, ProxyTestStatus } from '../src/shared/types';
-import { getProfileHealth, getProfileHealthIssueStats, getProfileHealthStats } from '../src/renderer/src/profile-health';
+import {
+  getProfileHealth,
+  getProfileHealthIssueStats,
+  getProfileHealthReadiness,
+  getProfileHealthStats
+} from '../src/renderer/src/profile-health';
 
 function profile(input: Partial<ProfileDetails> & Pick<ProfileDetails, 'id' | 'name'>): ProfileDetails {
   return {
@@ -163,5 +168,39 @@ describe('profile health helpers', () => {
       { key: 'proxy', label: '代理', count: 2 },
       { key: 'launch', label: '启动记录', count: 2 }
     ]);
+  });
+
+  it('calculates readiness rate from active profiles only', () => {
+    const readiness = getProfileHealthReadiness(
+      [
+        profile({
+          id: 'ready',
+          name: '完整环境',
+          owner: 'Alice',
+          notes: '试卖客户',
+          proxyId: 'proxy-passed',
+          proxy: proxy('passed'),
+          lastLaunchedAt: '2026-05-03T10:00:00.000Z'
+        }),
+        profile({ id: 'attention-a', name: '待补全 A' }),
+        profile({ id: 'attention-b', name: '待补全 B' }),
+        profile({ id: 'archived', name: '归档环境', archivedAt: '2026-05-01T00:00:00.000Z' })
+      ],
+      now
+    );
+
+    expect(readiness).toEqual({
+      ready: 1,
+      activeTotal: 3,
+      rate: 33,
+      label: '33%'
+    });
+
+    expect(getProfileHealthReadiness([profile({ id: 'archived', name: '归档环境', archivedAt: '2026-05-01T00:00:00.000Z' })], now)).toEqual({
+      ready: 0,
+      activeTotal: 0,
+      rate: 0,
+      label: '0%'
+    });
   });
 });

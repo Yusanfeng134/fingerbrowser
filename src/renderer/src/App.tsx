@@ -93,7 +93,12 @@ import {
   reconcileSelectedProfileIds,
   splitWorkbenchCsv
 } from './profile-workbench';
-import { getProfileHealth, getProfileHealthIssueStats, getProfileHealthStats } from './profile-health';
+import {
+  getProfileHealth,
+  getProfileHealthIssueStats,
+  getProfileHealthReadiness,
+  getProfileHealthStats
+} from './profile-health';
 import type {
   WorkbenchArchiveFilter,
   WorkbenchHealthFilter,
@@ -588,6 +593,8 @@ export function App(): JSX.Element {
   }, [profiles]);
 
   const profileHealthStats = useMemo(() => getProfileHealthStats(profiles), [profiles]);
+
+  const profileHealthReadiness = useMemo(() => getProfileHealthReadiness(profiles), [profiles]);
 
   const profileHealthIssueStats = useMemo(() => getProfileHealthIssueStats(profiles), [profiles]);
 
@@ -2534,6 +2541,14 @@ export function App(): JSX.Element {
         </section>
 
         <section className="profile-health-strip" aria-label="环境健康概览">
+          <div className="profile-health-summary readiness" aria-label="环境就绪率">
+            <BadgeCheck size={16} />
+            <span>就绪率</span>
+            <strong>{profileHealthReadiness.label}</strong>
+            <small>
+              {profileHealthReadiness.ready}/{profileHealthReadiness.activeTotal}
+            </small>
+          </div>
           <button
             className={`profile-health-summary all ${profileHealthFilter === 'all' ? 'active' : ''}`}
             type="button"

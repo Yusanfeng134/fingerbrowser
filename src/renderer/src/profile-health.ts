@@ -22,6 +22,13 @@ export interface ProfileHealthStats {
   archived: number;
 }
 
+export interface ProfileHealthReadiness {
+  ready: number;
+  activeTotal: number;
+  rate: number;
+  label: string;
+}
+
 export type ProfileHealthIssueKey = 'owner' | 'notes' | 'proxy' | 'launch';
 
 export interface ProfileHealthIssueStat {
@@ -132,6 +139,22 @@ export function getProfileHealthStats(profiles: ProfileDetails[], now: Date = ne
     },
     { ready: 0, attention: 0, archived: 0 }
   );
+}
+
+export function getProfileHealthReadiness(
+  profiles: ProfileDetails[],
+  now: Date = new Date()
+): ProfileHealthReadiness {
+  const stats = getProfileHealthStats(profiles, now);
+  const activeTotal = stats.ready + stats.attention;
+  const rate = activeTotal === 0 ? 0 : Math.round((stats.ready / activeTotal) * 100);
+
+  return {
+    ready: stats.ready,
+    activeTotal,
+    rate,
+    label: `${rate}%`
+  };
 }
 
 export function getProfileHealthIssueStats(
