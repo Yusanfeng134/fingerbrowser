@@ -93,6 +93,7 @@ import {
   reconcileSelectedProfileIds,
   splitWorkbenchCsv
 } from './profile-workbench';
+import { getProfileHealth, getProfileHealthStats } from './profile-health';
 import type {
   WorkbenchArchiveFilter,
   WorkbenchProxyFilter,
@@ -292,6 +293,12 @@ const proxyTestStatusText: Record<ProxyPoolEntry['lastTestStatus'], string> = {
   passed: '可用',
   failed: '失败'
 };
+
+const profileHealthTone = {
+  ready: 'good',
+  attention: 'warn',
+  archived: 'muted'
+} as const;
 
 const kernelManifestSourceText: Record<KernelManifestSource, string> = {
   default: '内置默认',
@@ -551,6 +558,17 @@ export function App(): JSX.Element {
   }, [profileArchiveFilter, profileGroupFilter, profileProxyFilter, profileRuntimeFilter, profileStatusFilter, profiles, query]);
 
   const profileGroupOptions = useMemo(() => getProfileGroupOptions(profiles), [profiles]);
+
+  const profileHealthById = useMemo(() => {
+    return new Map(profiles.map((profile) => [profile.id, getProfileHealth(profile)]));
+  }, [profiles]);
+
+  const profileHealthStats = useMemo(() => getProfileHealthStats(profiles), [profiles]);
+
+  const selectedProfileHealth = useMemo(
+    () => (selectedProfile ? (profileHealthById.get(selectedProfile.id) ?? getProfileHealth(selectedProfile)) : null),
+    [profileHealthById, selectedProfile]
+  );
 
   const visibleSelectedProfileIds = useMemo(
     () => reconcileSelectedProfileIds(selectedProfileIds, filteredProfiles),
@@ -2465,6 +2483,24 @@ export function App(): JSX.Element {
           ) : null}
         </section>
 
+        <section className="profile-health-strip" aria-label="环境健康概览">
+          <div className="profile-health-summary ready">
+            <CheckCircle2 size={16} />
+            <span>已就绪</span>
+            <strong>{profileHealthStats.ready}</strong>
+          </div>
+          <div className="profile-health-summary attention">
+            <Activity size={16} />
+            <span>待补全</span>
+            <strong>{profileHealthStats.attention}</strong>
+          </div>
+          <div className="profile-health-summary archived">
+            <PackageCheck size={16} />
+            <span>已归档</span>
+            <strong>{profileHealthStats.archived}</strong>
+          </div>
+        </section>
+
         <div className="search-row">
           <Search size={16} />
           <input
@@ -2676,52 +2712,60 @@ export function App(): JSX.Element {
           </label>
           <span>环境</span>
           <span>状态</span>
+          <span>健康</span>
           <span>代理</span>
           <span>内核</span>
         </div>
 
         <div className="profile-rows" role="list" aria-label="环境列表">
-          {filteredProfiles.map((profile) => (
-            <article
-              className={`profile-row ${profile.id === selectedId ? 'selected' : ''}`}
-              key={profile.id}
-            >
-              <label className="profile-check-cell">
-                <input
-                  aria-label={`选择环境 ${profile.name}`}
-                  type="checkbox"
-                  checked={visibleSelectedProfileIds.includes(profile.id)}
-                  onChange={() => handleToggleProfileSelection(profile.id)}
-                />
-              </label>
-              <button
-                className="profile-row-content"
-                onClick={() => {
-                  setSelectedId(profile.id);
-                  setActiveTab('config');
-                  setActiveNavKey('profiles');
-                }}
-                type="button"
+          {filteredProfiles.map((profile) => {
+            const health = profileHealthById.get(profile.id) ?? getProfileHealth(profile);
+            const healthTitle = health.issues.length > 0 ? health.issues.join('；') : '环境配置完整';
+            return (
+              <article
+                className={`profile-row ${profile.id === selectedId ? 'selected' : ''}`}
+                key={profile.id}
               >
-                <span className="profile-name-cell">
-                  <strong>{profile.name}</strong>
-                  <small>
-                    {profile.archivedAt ? '已归档 · ' : ''}
-                    {profile.groupName ? `${profile.groupName} · ` : ''}
-                    {profile.owner ? `${profile.owner} · ` : ''}
-                    {profile.tags.length > 0 ? profile.tags.join(' / ') : '未设置标签'}
-                    {profile.lastLaunchedAt ? ` · 最近 ${formatDate(profile.lastLaunchedAt)}` : ''}
-                  </small>
-                </span>
-                <span className={`status-pill ${statusTone[profile.status]}`}>
-                  <Circle size={9} fill="currentColor" />
-                  {statusText[profile.status]}
-                </span>
-                <span>{profile.proxy ? `${profile.proxy.scheme}://${profile.proxy.host}:${profile.proxy.port}` : '未配置'}</span>
-                <span>{runtimeChannelText[profile.runtimeChannel]}</span>
-              </button>
-            </article>
-          ))}
+                <label className="profile-check-cell">
+                  <input
+                    aria-label={`选择环境 ${profile.name}`}
+                    type="checkbox"
+                    checked={visibleSelectedProfileIds.includes(profile.id)}
+                    onChange={() => handleToggleProfileSelection(profile.id)}
+                  />
+                </label>
+                <button
+                  className="profile-row-content"
+                  onClick={() => {
+                    setSelectedId(profile.id);
+                    setActiveTab('config');
+                    setActiveNavKey('profiles');
+                  }}
+                  type="button"
+                >
+                  <span className="profile-name-cell">
+                    <strong>{profile.name}</strong>
+                    <small>
+                      {profile.archivedAt ? '已归档 · ' : ''}
+                      {profile.groupName ? `${profile.groupName} · ` : ''}
+                      {profile.owner ? `${profile.owner} · ` : ''}
+                      {profile.tags.length > 0 ? profile.tags.join(' / ') : '未设置标签'}
+                      {profile.lastLaunchedAt ? ` · 最近 ${formatDate(profile.lastLaunchedAt)}` : ''}
+                    </small>
+                  </span>
+                  <span className={`status-pill ${statusTone[profile.status]}`}>
+                    <Circle size={9} fill="currentColor" />
+                    {statusText[profile.status]}
+                  </span>
+                  <span className={`health-pill ${profileHealthTone[health.status]}`} title={healthTitle}>
+                    {health.label}
+                  </span>
+                  <span>{profile.proxy ? `${profile.proxy.scheme}://${profile.proxy.host}:${profile.proxy.port}` : '未配置'}</span>
+                  <span>{runtimeChannelText[profile.runtimeChannel]}</span>
+                </button>
+              </article>
+            );
+          })}
           {filteredProfiles.length === 0 ? (
             <div className="empty-state">
               <Activity size={18} />
@@ -3711,6 +3755,30 @@ export function App(): JSX.Element {
 
         {activeTab === 'config' ? (
           <form className="detail-form" onSubmit={(event) => event.preventDefault()}>
+            {selectedProfileHealth ? (
+              <section className={`profile-health-card ${selectedProfileHealth.status}`} aria-label="环境健康详情">
+                <div className="profile-health-card-header">
+                  <div>
+                    <p className="section-kicker">资产健康</p>
+                    <strong>{selectedProfileHealth.label}</strong>
+                  </div>
+                  <span>{selectedProfileHealth.score}</span>
+                </div>
+                <div className="profile-health-checks">
+                  {selectedProfileHealth.checks.map((check) => (
+                    <span className={check.ok ? 'ok' : 'issue'} key={`${check.key}-${check.label}`}>
+                      {check.ok ? <CheckCircle2 size={14} /> : <Activity size={14} />}
+                      {check.label}
+                    </span>
+                  ))}
+                </div>
+                <div className="profile-health-issues">
+                  {selectedProfileHealth.issues.length > 0
+                    ? selectedProfileHealth.issues.map((issue) => <span key={issue}>{issue}</span>)
+                    : <span>环境资产完整，代理与启动记录均正常。</span>}
+                </div>
+              </section>
+            ) : null}
             <section className="form-section">
               <div className="form-title">
                 <SlidersHorizontal size={17} />
