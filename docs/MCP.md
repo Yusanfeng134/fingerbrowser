@@ -2,6 +2,8 @@
 
 FingerBrowser exports a local MCP stdio server for external MCP clients. The MCP server is a thin adapter over the existing authenticated Local API, so it keeps the same compliance boundary and redaction rules.
 
+For a full Chinese integration guide, see [MCP_INTEGRATION.md](MCP_INTEGRATION.md).
+
 ## Runtime
 
 1. Start the FingerBrowser desktop app so the Local API is running.
