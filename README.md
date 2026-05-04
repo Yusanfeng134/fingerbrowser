@@ -8,6 +8,7 @@
 npm install
 npm run dev
 npm run dev:kernel
+npm run mcp
 npm run typecheck
 npm run lint
 npm test
@@ -52,3 +53,9 @@ ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/ npm install
 ```bash
 FINGERBROWSER_LICENSE_SIGNING_SECRET=<shared-secret>
 ```
+
+## MCP 外部调用
+
+项目构建后会输出 MCP stdio 入口 `out/main/mcp.js`，供外部 MCP 客户端调用合规的本地浏览器环境能力。MCP 入口复用 Local API Token，不开放密码、Cookie/cache、profile 目录、批量自动化或平台规避能力。
+
+配置与工具清单见 [docs/MCP.md](docs/MCP.md)。

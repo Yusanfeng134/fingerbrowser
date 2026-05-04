@@ -8,6 +8,7 @@
     "dev": "npm run rebuild:electron && electron-vite dev",
     "dev:kernel": "node scripts/dev-with-local-kernel.mjs",
     "build": "electron-vite build",
+    "mcp": "node out/main/mcp.js",
     "rebuild:node": "npm rebuild better-sqlite3",
     "rebuild:electron": "electron-rebuild -f -w better-sqlite3",
     "rebuild:native": "npm run rebuild:electron",
@@ -22,11 +23,13 @@
     "release:trial:publish": "node scripts/prepare-trial-release.mjs --publish"
   },
   "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.29.0",
     "@puppeteer/browsers": "^2.13.0",
     "better-sqlite3": "^12.9.0",
     "lucide-react": "^0.468.0",
     "react": "^18.3.1",
-    "react-dom": "^18.3.1"
+    "react-dom": "^18.3.1",
+    "zod": "^4.4.2"
   },
   "devDependencies": {
     "@electron/rebuild": "^4.0.4",
@@ -62,7 +65,9 @@
     ],
     "mac": {
       "category": "public.app-category.business",
-      "target": ["dir"],
+      "target": [
+        "dir"
+      ],
       "identity": null
     }
   }

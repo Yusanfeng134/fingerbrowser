@@ -42,6 +42,10 @@ GET /v1/proxy/local-status?profileId=:profileId
 GET /v1/audit?profileId=:profileId
 ```
 
+## MCP Bridge
+
+External MCP clients can call the compliant Local API through the stdio server built at `out/main/mcp.js`. See [MCP.md](MCP.md) for client configuration, environment variables, and exposed tool names.
+
 ## Examples
 
 ```bash
