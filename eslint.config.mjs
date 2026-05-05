@@ -3,7 +3,16 @@ import tseslint from 'typescript-eslint';
 
 export default tseslint.config(
   {
-    ignores: ['dist/**', 'out/**', 'node_modules/**', '.superpowers/**', 'coverage/**', 'test-results/**', 'playwright-report/**']
+    ignores: [
+      'dist/**',
+      'website/dist/**',
+      'out/**',
+      'node_modules/**',
+      '.superpowers/**',
+      'coverage/**',
+      'test-results/**',
+      'playwright-report/**'
+    ]
   },
   js.configs.recommended,
   ...tseslint.configs.recommended,

@@ -19,6 +19,7 @@
   },
   "include": [
     "src",
+    "website",
     "tests",
     "e2e",
     "electron.vite.config.ts",

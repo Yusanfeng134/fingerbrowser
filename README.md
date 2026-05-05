@@ -8,6 +8,9 @@
 npm install
 npm run dev
 npm run dev:kernel
+npm run website:dev
+npm run website:build
+npm run website:preview
 npm run mcp
 npm run typecheck
 npm run lint
