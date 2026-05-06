@@ -3,6 +3,7 @@ import path from 'node:path';
 import { createApplicationServices } from './services';
 import { registerIpcHandlers } from './ipc';
 import type { ApplicationServices } from './services';
+import { resolveRendererEntry } from './renderer-entry';
 
 let mainWindow: BrowserWindow | null = null;
 let applicationServices: ApplicationServices | null = null;
@@ -28,10 +29,16 @@ function createMainWindow(): void {
     return { action: 'deny' };
   });
 
-  if (process.env.ELECTRON_RENDERER_URL) {
-    void mainWindow.loadURL(process.env.ELECTRON_RENDERER_URL);
+  const rendererEntry = resolveRendererEntry({
+    isPackaged: app.isPackaged,
+    mainDir: __dirname,
+    rendererUrl: process.env.ELECTRON_RENDERER_URL
+  });
+
+  if (rendererEntry.kind === 'url') {
+    void mainWindow.loadURL(rendererEntry.value);
   } else {
-    void mainWindow.loadFile(path.join(__dirname, '../renderer/index.html'));
+    void mainWindow.loadFile(rendererEntry.value);
   }
 }
 
