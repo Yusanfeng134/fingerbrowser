@@ -23,7 +23,8 @@
     "package:mac": "npm run build && npm run rebuild:electron && ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/ electron-builder --mac --dir",
     "license:issue": "node scripts/issue-license.mjs",
     "release:trial": "node scripts/prepare-trial-release.mjs",
-    "release:trial:publish": "node scripts/prepare-trial-release.mjs --publish"
+    "release:trial:publish": "node scripts/prepare-trial-release.mjs --publish",
+    "admin:reset": "node scripts/reset-admin.mjs"
   },
   "dependencies": {
     "@modelcontextprotocol/sdk": "^1.29.0",
