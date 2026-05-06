@@ -10,6 +10,7 @@ export async function launchProfileRuntime(
   if (profile.archivedAt) {
     throw new Error('请先恢复环境再启动');
   }
+  services.syncService.prepareProfileLaunch(profileId);
   const credentialStartUrls = services.credentialService.listLaunchUrlsForProfile(profileId);
   const proxyDiagnostic = await createLaunchProxyDiagnostic(services, profile);
   const result = await services.browserController.launch(profile, profile.proxy, {
@@ -68,6 +69,7 @@ export async function stopProfileRuntime(services: ApplicationServices, profileI
     });
   }
   services.profileService.recordAudit(profileId, 'PROFILE_STOPPED');
+  services.syncService.finalizeProfileStop(profileId);
   return {
     profileId,
     status: 'closed'

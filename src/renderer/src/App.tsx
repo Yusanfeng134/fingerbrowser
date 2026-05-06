@@ -64,6 +64,7 @@ import type {
   ReleaseCheckResult,
   RuntimeChannel,
   SystemProxyDetectionResult,
+  SyncStatus,
   TrialMetrics,
   UserRole,
   UpdateProfileInput,
@@ -552,6 +553,7 @@ export function App(): JSX.Element {
   const [feedbackDraft, setFeedbackDraft] = useState<FeedbackDraftState>(emptyFeedbackDraft);
   const [license, setLicense] = useState<RedactedLicenseState | null>(null);
   const [usage, setUsage] = useState<UsageSummary | null>(null);
+  const [syncStatus, setSyncStatus] = useState<SyncStatus | null>(null);
   const [activationCode, setActivationCode] = useState('');
   const [query, setQuery] = useState('');
   const [activeTab, setActiveTab] = useState<ActiveTab>('config');
@@ -838,6 +840,11 @@ export function App(): JSX.Element {
     setUsers(nextUsers);
   }, []);
 
+  const loadSyncStatus = useCallback(async () => {
+    const nextStatus = await window.fingerBrowser.sync.status();
+    setSyncStatus(nextStatus);
+  }, []);
+
   const loadProxyPoolEntries = useCallback(async () => {
     const entries = await window.fingerBrowser.proxyPool.list();
     setProxyPoolEntries(entries);
@@ -864,7 +871,8 @@ export function App(): JSX.Element {
       loadKernelState(),
       loadGoogleAccountState(),
       loadProxyRuntimeStatus(),
-      loadProxyPoolEntries()
+      loadProxyPoolEntries(),
+      loadSyncStatus()
     ];
     if (authStatus.currentUser?.role === 'admin') {
       tasks.push(loadUsers());
@@ -877,6 +885,7 @@ export function App(): JSX.Element {
     loadDesktopShortcuts,
     loadGoogleAccountState,
     loadKernelState,
+    loadSyncStatus,
     loadProfileTemplates,
     loadProfiles,
     loadProxyPoolEntries,
@@ -1013,9 +1022,11 @@ export function App(): JSX.Element {
         email: authDraft.email,
         password: authDraft.password
       });
+      await window.fingerBrowser.sync.pullWorkspace();
+      await loadSyncStatus();
       setAuthStatus(status);
       setAuthDraft(emptyAuthDraft);
-      return `已登录：${status.currentUser?.displayName ?? ''}`;
+      return `已登录云账号：${status.currentUser?.displayName ?? ''}`;
     });
   };
 
@@ -1025,6 +1036,30 @@ export function App(): JSX.Element {
       setAuthStatus(status);
       resetWorkspaceState();
       return '已退出登录';
+    });
+  };
+
+  const handleMigrateLocalData = (): void => {
+    void run('迁移本机数据', async () => {
+      const result = await window.fingerBrowser.sync.migrateLocalData();
+      await Promise.all([loadProfiles(), loadVaultCredentials(), loadAudits(), loadSyncStatus()]);
+      return `已迁移 ${result.migratedProfiles} 个环境、${result.migratedCredentials} 个密码项和 ${result.migratedProfileSnapshots} 个浏览器状态快照`;
+    });
+  };
+
+  const handlePullWorkspace = (): void => {
+    void run('拉取云端工作区', async () => {
+      const result = await window.fingerBrowser.sync.pullWorkspace();
+      await Promise.all([loadProfiles(), loadVaultCredentials(), loadAudits(), loadSyncStatus()]);
+      return `已拉取 ${result.profiles} 个环境、${result.credentials} 个密码项和 ${result.auditEvents} 条审计`;
+    });
+  };
+
+  const handlePushPendingChanges = (): void => {
+    void run('推送同步变更', async () => {
+      const result = await window.fingerBrowser.sync.pushPendingChanges();
+      await loadSyncStatus();
+      return `已推送 ${result.profiles} 个环境、${result.credentials} 个密码项和 ${result.auditEvents} 条审计`;
     });
   };
 
@@ -2345,8 +2380,8 @@ export function App(): JSX.Element {
             <ShieldCheck size={22} />
           </div>
           <div>
-            <p className="section-kicker">本地用户体系</p>
-            <h1>加载用户状态</h1>
+            <p className="section-kicker">云账号体系</p>
+            <h1>加载云端会话</h1>
           </div>
           <footer className="notice-bar" aria-live="polite">
             {busy ? <RefreshCw className="spin" size={15} /> : <CheckCircle2 size={15} />}
@@ -2367,14 +2402,18 @@ export function App(): JSX.Element {
               <ShieldCheck size={22} />
             </div>
             <div>
-              <p className="section-kicker">本地工作台</p>
+              <p className="section-kicker">云端工作台</p>
               <h1>指纹浏览器</h1>
             </div>
           </div>
           <div className="auth-heading">
-            <p className="section-kicker">{isSetup ? '首次启动' : '用户登录'}</p>
-            <h2>{isSetup ? '创建管理员账号' : '登录本地账号'}</h2>
-            <span>{isSetup ? '管理员用于管理本机用户、授权和环境资产。' : '登录后才能访问本机环境、密码库和审计数据。'}</span>
+            <p className="section-kicker">{isSetup ? '旧版本机初始化' : '云账号登录'}</p>
+            <h2>{isSetup ? '创建管理员账号' : '登录云账号'}</h2>
+            <span>
+              {isSetup
+                ? '管理员用于管理本机用户、授权和环境资产。'
+                : '登录后会进入团队云工作区，并同步环境、密码库、审计和浏览器状态。'}
+            </span>
           </div>
           <form className="auth-form" onSubmit={(event) => event.preventDefault()}>
             <label>
@@ -2416,7 +2455,7 @@ export function App(): JSX.Element {
               disabled={busy || !authDraft.email || !authDraft.password || (isSetup && !authDraft.displayName)}
             >
               {isSetup ? <UserPlus size={16} /> : <UserCheck size={16} />}
-              {isSetup ? '创建管理员' : '登录'}
+              {isSetup ? '创建管理员' : '登录云账号'}
             </button>
           </form>
           <footer className="notice-bar" aria-live="polite">
@@ -2488,20 +2527,44 @@ export function App(): JSX.Element {
         </nav>
         <div className="user-session-card" aria-label="当前用户">
           <div>
-            <strong>{authStatus.currentUser?.displayName ?? '本地用户'}</strong>
+            <strong>{authStatus.currentUser?.displayName ?? '云端用户'}</strong>
             <span>
               {authStatus.currentUser?.email ?? ''}
               {authStatus.currentUser ? ` · ${userRoleText[authStatus.currentUser.role]}` : ''}
             </span>
+            <span>{authStatus.currentTeam?.name ? `团队：${authStatus.currentTeam.name}` : '团队云工作区'}</span>
+            {syncStatus ? (
+              <span>
+                {syncStatus.hasLocalDataToMigrate
+                  ? '发现可迁移的本机数据'
+                  : `待同步 ${syncStatus.pendingLocalRecords} 项 · 运行锁 ${syncStatus.runningProfileLocks}`}
+              </span>
+            ) : null}
           </div>
           <button className="secondary-button compact-button" type="button" onClick={handleLogout} disabled={busy}>
             <LogOut size={14} />
             退出
           </button>
         </div>
+        <div className="sync-actions" aria-label="云同步操作">
+          {syncStatus?.hasLocalDataToMigrate ? (
+            <button className="secondary-button compact-button" type="button" onClick={handleMigrateLocalData} disabled={busy}>
+              <Upload size={14} />
+              迁移本机数据
+            </button>
+          ) : null}
+          <button className="secondary-button compact-button" type="button" onClick={handlePullWorkspace} disabled={busy}>
+            <Download size={14} />
+            拉取云端
+          </button>
+          <button className="secondary-button compact-button" type="button" onClick={handlePushPendingChanges} disabled={busy}>
+            <Upload size={14} />
+            推送变更
+          </button>
+        </div>
         <div className="policy-note">
           <ShieldCheck size={17} />
-          <span>仅做可解释的隐私归一化与合规审计。</span>
+          <span>云同步仅用于授权团队设备的数据连续性。</span>
         </div>
       </aside>
 

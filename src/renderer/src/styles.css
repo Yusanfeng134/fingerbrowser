@@ -206,6 +206,16 @@ p {
   font-weight: 640;
 }
 
+.sync-actions {
+  display: grid;
+  gap: 8px;
+}
+
+.sync-actions .secondary-button {
+  justify-content: flex-start;
+  width: 100%;
+}
+
 .policy-note {
   display: flex;
   align-items: flex-start;

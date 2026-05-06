@@ -34,6 +34,14 @@ const api: AppApi = {
     login: (input: LoginInput) => ipcRenderer.invoke('auth.login', input) as ReturnType<AppApi['auth']['login']>,
     logout: () => ipcRenderer.invoke('auth.logout') as ReturnType<AppApi['auth']['logout']>
   },
+  sync: {
+    status: () => ipcRenderer.invoke('sync.status') as ReturnType<AppApi['sync']['status']>,
+    migrateLocalData: () =>
+      ipcRenderer.invoke('sync.migrateLocalData') as ReturnType<AppApi['sync']['migrateLocalData']>,
+    pullWorkspace: () => ipcRenderer.invoke('sync.pullWorkspace') as ReturnType<AppApi['sync']['pullWorkspace']>,
+    pushPendingChanges: () =>
+      ipcRenderer.invoke('sync.pushPendingChanges') as ReturnType<AppApi['sync']['pushPendingChanges']>
+  },
   users: {
     list: () => ipcRenderer.invoke('users.list') as ReturnType<AppApi['users']['list']>,
     create: (input: CreateUserInput) => ipcRenderer.invoke('users.create', input) as ReturnType<AppApi['users']['create']>,

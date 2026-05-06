@@ -344,10 +344,24 @@ export interface AppUser {
   lastLoginAt: string | null;
 }
 
+export interface CloudTeamStatus {
+  id: string;
+  name: string;
+}
+
+export interface CloudDeviceStatus {
+  id: string;
+  name: string;
+}
+
 export interface AuthStatus {
   bootstrapped: boolean;
   authenticated: boolean;
   currentUser: AppUser | null;
+  mode?: 'local' | 'cloud';
+  currentTeam?: CloudTeamStatus | null;
+  currentDevice?: CloudDeviceStatus | null;
+  hasLocalDataToMigrate?: boolean;
 }
 
 export interface BootstrapUserInput {
@@ -359,6 +373,35 @@ export interface BootstrapUserInput {
 export interface LoginInput {
   email: string;
   password: string;
+  inviteCode?: string;
+}
+
+export interface SyncStatus {
+  authenticated: boolean;
+  teamId: string | null;
+  teamName: string | null;
+  hasLocalDataToMigrate: boolean;
+  pendingLocalRecords: number;
+  runningProfileLocks: number;
+}
+
+export interface SyncMigrationResult {
+  migratedProfiles: number;
+  migratedCredentials: number;
+  migratedAuditEvents: number;
+  migratedProfileSnapshots: number;
+}
+
+export interface SyncPullResult {
+  profiles: number;
+  credentials: number;
+  auditEvents: number;
+}
+
+export interface SyncPushResult {
+  profiles: number;
+  credentials: number;
+  auditEvents: number;
 }
 
 export interface CreateUserInput {
@@ -642,6 +685,12 @@ export interface AppApi {
     bootstrap: (input: BootstrapUserInput) => Promise<AuthStatus>;
     login: (input: LoginInput) => Promise<AuthStatus>;
     logout: () => Promise<AuthStatus>;
+  };
+  sync: {
+    status: () => Promise<SyncStatus>;
+    migrateLocalData: () => Promise<SyncMigrationResult>;
+    pullWorkspace: () => Promise<SyncPullResult>;
+    pushPendingChanges: () => Promise<SyncPushResult>;
   };
   users: {
     list: () => Promise<AppUser[]>;

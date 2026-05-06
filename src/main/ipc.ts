@@ -71,6 +71,14 @@ export function registerIpcHandlers(services: ApplicationServices): void {
     return services.userService.logout();
   });
 
+  handleAuthenticated('sync.status', () => services.syncService.status());
+
+  handleAuthenticated('sync.migrateLocalData', () => services.syncService.migrateLocalData());
+
+  handleAuthenticated('sync.pullWorkspace', () => services.syncService.pullWorkspace());
+
+  handleAuthenticated('sync.pushPendingChanges', () => services.syncService.pushPendingChanges());
+
   handleAuthenticated('users.list', () => services.userService.listUsers());
 
   handleAuthenticated('users.create', (_event, input: CreateUserInput) => {

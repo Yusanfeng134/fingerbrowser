@@ -10,10 +10,14 @@ import type {
   UserStatus
 } from '../../shared/types';
 import type { ApplicationDatabase } from '../infrastructure/database';
+import type { CloudClient } from './cloud-client';
+import type { CloudSession } from '../../../cloud-api/src/types';
 
 interface CreateUserServiceOptions {
   db: ApplicationDatabase;
   now?: () => Date;
+  cloudClient?: CloudClient;
+  deviceName?: string;
 }
 
 interface UserRow {
@@ -37,6 +41,9 @@ export interface UserService {
   requireAuthenticated(): AppUser;
   requireAdmin(): AppUser;
   currentActor(): string;
+  currentCloudSession(): CloudSession | null;
+  currentTeamKey(): string | null;
+  currentTeamId(): string | null;
   listUsers(): AppUser[];
   createUser(input: CreateUserInput): AppUser;
   updateUser(input: UpdateUserInput): AppUser;
@@ -47,7 +54,10 @@ const PASSWORD_HASH_LENGTH = 64;
 export function createUserService(options: CreateUserServiceOptions): UserService {
   const { db } = options;
   const now = options.now ?? (() => new Date());
+  const cloudClient = options.cloudClient;
+  const deviceName = options.deviceName ?? 'FingerBrowser Desktop';
   let currentUser: AppUser | null = null;
+  let currentCloudSession: CloudSession | null = null;
 
   function normalizeEmail(email: string): string {
     const normalized = email.trim().toLowerCase();
@@ -129,10 +139,35 @@ export function createUserService(options: CreateUserServiceOptions): UserServic
   }
 
   function authStatus(): AuthStatus {
+    if (cloudClient) {
+      return {
+        bootstrapped: true,
+        authenticated: Boolean(currentUser && currentCloudSession),
+        currentUser,
+        mode: 'cloud',
+        currentTeam: currentCloudSession
+          ? {
+              id: currentCloudSession.team.id,
+              name: currentCloudSession.team.name
+            }
+          : null,
+        currentDevice: currentCloudSession
+          ? {
+              id: currentCloudSession.device.id,
+              name: currentCloudSession.device.name
+            }
+          : null,
+        hasLocalDataToMigrate: false
+      };
+    }
     return {
       bootstrapped: isBootstrapped(),
       authenticated: Boolean(currentUser),
-      currentUser
+      currentUser,
+      mode: 'local',
+      currentTeam: null,
+      currentDevice: null,
+      hasLocalDataToMigrate: false
     };
   }
 
@@ -150,6 +185,9 @@ export function createUserService(options: CreateUserServiceOptions): UserServic
 
   function requireAuthenticated(): AppUser {
     if (!currentUser) {
+      if (cloudClient) {
+        throw new Error('请先登录云账号');
+      }
       throw new Error('请先登录');
     }
     if (currentUser.status !== 'active') {
@@ -167,9 +205,53 @@ export function createUserService(options: CreateUserServiceOptions): UserServic
     return user;
   }
 
+  function cacheCloudUser(user: CloudSession['user']): AppUser {
+    const existing =
+      (db.prepare('select * from app_users where id = ?').get(user.id) as UserRow | undefined) ??
+      (db.prepare('select * from app_users where email = ?').get(user.email) as UserRow | undefined);
+    const secret = createPasswordSecret(randomUUID());
+    if (existing) {
+      db.prepare(
+        `update app_users
+         set id = ?, email = ?, display_name = ?, role = ?, status = ?, updated_at = ?, last_login_at = ?
+         where id = ?`
+      ).run(user.id, user.email, user.displayName, user.role, user.status, user.updatedAt, user.lastLoginAt, existing.id);
+    } else {
+      db.prepare(
+        `insert into app_users (
+          id, email, display_name, role, status, password_salt, password_hash, created_at, updated_at, last_login_at
+        ) values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+      ).run(
+        user.id,
+        user.email,
+        user.displayName,
+        user.role,
+        user.status,
+        secret.salt,
+        secret.hash,
+        user.createdAt,
+        user.updatedAt,
+        user.lastLoginAt
+      );
+    }
+    return {
+      id: user.id,
+      email: user.email,
+      displayName: user.displayName,
+      role: user.role,
+      status: user.status,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
+      lastLoginAt: user.lastLoginAt
+    };
+  }
+
   return {
     status: authStatus,
     bootstrap(input: BootstrapUserInput): AuthStatus {
+      if (cloudClient) {
+        throw new Error('云账号模式不支持创建本地管理员');
+      }
       if (isBootstrapped()) {
         throw new Error('管理员账号已初始化');
       }
@@ -199,6 +281,16 @@ export function createUserService(options: CreateUserServiceOptions): UserServic
       return authStatus();
     },
     login(input: LoginInput): AuthStatus {
+      if (cloudClient) {
+        const session = cloudClient.login({
+          email: input.email,
+          password: input.password,
+          deviceName
+        });
+        currentCloudSession = session;
+        currentUser = cacheCloudUser(session.user);
+        return authStatus();
+      }
       const email = normalizeEmail(input.email);
       const row = getUserRowByEmail(email);
       if (!row || !verifyPassword(input.password, row)) {
@@ -211,6 +303,10 @@ export function createUserService(options: CreateUserServiceOptions): UserServic
       return authStatus();
     },
     logout(): AuthStatus {
+      if (currentCloudSession && cloudClient) {
+        cloudClient.logout(currentCloudSession.accessToken);
+        currentCloudSession = null;
+      }
       currentUser = null;
       return authStatus();
     },
@@ -219,13 +315,57 @@ export function createUserService(options: CreateUserServiceOptions): UserServic
     currentActor(): string {
       return currentUser?.email ?? 'local-user';
     },
+    currentCloudSession(): CloudSession | null {
+      return currentCloudSession;
+    },
+    currentTeamKey(): string | null {
+      return currentCloudSession?.teamKey ?? null;
+    },
+    currentTeamId(): string | null {
+      return currentCloudSession?.team.id ?? null;
+    },
     listUsers(): AppUser[] {
       requireAdmin();
+      if (cloudClient && currentCloudSession) {
+        return cloudClient.listTeamMembers(currentCloudSession.accessToken).map((user) => ({
+          id: user.id,
+          email: user.email,
+          displayName: user.displayName,
+          role: user.role,
+          status: user.status,
+          createdAt: user.createdAt,
+          updatedAt: user.updatedAt,
+          lastLoginAt: user.lastLoginAt
+        }));
+      }
       const rows = db.prepare('select * from app_users order by created_at asc').all() as UserRow[];
       return rows.map(mapUser);
     },
     createUser(input: CreateUserInput): AppUser {
       requireAdmin();
+      if (cloudClient && currentCloudSession) {
+        const invite = cloudClient.createInvite(currentCloudSession.accessToken, {
+          email: input.email,
+          role: normalizeRole(input.role)
+        });
+        const session = cloudClient.acceptInvite({
+          inviteCode: invite.inviteCode,
+          email: input.email,
+          displayName: input.displayName,
+          password: input.password,
+          deviceName: `${normalizeDisplayName(input.displayName)} 初始设备`
+        });
+        return {
+          id: session.user.id,
+          email: session.user.email,
+          displayName: session.user.displayName,
+          role: session.user.role,
+          status: session.user.status,
+          createdAt: session.user.createdAt,
+          updatedAt: session.user.updatedAt,
+          lastLoginAt: session.user.lastLoginAt
+        };
+      }
       const email = normalizeEmail(input.email);
       if (getUserRowByEmail(email)) {
         throw new Error('用户邮箱已存在');

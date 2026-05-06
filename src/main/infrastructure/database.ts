@@ -21,6 +21,12 @@ export function openApplicationDatabase(filePath: string): ApplicationDatabase {
       proxy_id text,
       last_launched_at text,
       archived_at text,
+      team_id text,
+      remote_id text,
+      sync_version integer not null default 0,
+      last_synced_at text,
+      dirty integer not null default 0,
+      deleted integer not null default 0,
       created_at text not null,
       updated_at text not null
     );
@@ -34,6 +40,12 @@ export function openApplicationDatabase(filePath: string): ApplicationDatabase {
       encrypted_password text not null,
       bypass_list_json text not null,
       last_test_status text not null,
+      team_id text,
+      remote_id text,
+      sync_version integer not null default 0,
+      last_synced_at text,
+      dirty integer not null default 0,
+      deleted integer not null default 0,
       created_at text not null,
       updated_at text not null
     );
@@ -84,6 +96,12 @@ export function openApplicationDatabase(filePath: string): ApplicationDatabase {
       action text not null,
       actor text not null,
       metadata_json text not null,
+      team_id text,
+      remote_id text,
+      sync_version integer not null default 0,
+      last_synced_at text,
+      dirty integer not null default 0,
+      deleted integer not null default 0,
       created_at text not null
     );
 
@@ -118,6 +136,12 @@ export function openApplicationDatabase(filePath: string): ApplicationDatabase {
       website_url text not null,
       username text not null,
       encrypted_password text not null,
+      team_id text,
+      remote_id text,
+      sync_version integer not null default 0,
+      last_synced_at text,
+      dirty integer not null default 0,
+      deleted integer not null default 0,
       created_at text not null,
       updated_at text not null,
       last_copied_at text
@@ -132,6 +156,12 @@ export function openApplicationDatabase(filePath: string): ApplicationDatabase {
       website_url text not null,
       username text not null,
       encrypted_password text not null,
+      team_id text,
+      remote_id text,
+      sync_version integer not null default 0,
+      last_synced_at text,
+      dirty integer not null default 0,
+      deleted integer not null default 0,
       created_at text not null,
       updated_at text not null,
       last_copied_at text
@@ -145,6 +175,12 @@ export function openApplicationDatabase(filePath: string): ApplicationDatabase {
       folder_id text,
       icon_variant text not null,
       position_index integer not null,
+      team_id text,
+      remote_id text,
+      sync_version integer not null default 0,
+      last_synced_at text,
+      dirty integer not null default 0,
+      deleted integer not null default 0,
       created_at text not null,
       updated_at text not null
     );
@@ -153,6 +189,12 @@ export function openApplicationDatabase(filePath: string): ApplicationDatabase {
       id text primary key,
       name text not null,
       position_index integer not null,
+      team_id text,
+      remote_id text,
+      sync_version integer not null default 0,
+      last_synced_at text,
+      dirty integer not null default 0,
+      deleted integer not null default 0,
       created_at text not null,
       updated_at text not null
     );
@@ -199,6 +241,13 @@ export function openApplicationDatabase(filePath: string): ApplicationDatabase {
   if (!profileColumns.some((column) => column.name === 'archived_at')) {
     db.exec('alter table profiles add column archived_at text;');
   }
+  ensureSyncColumns(db, 'profiles');
+  ensureSyncColumns(db, 'proxies');
+  ensureSyncColumns(db, 'audit_events');
+  ensureSyncColumns(db, 'profile_credentials');
+  ensureSyncColumns(db, 'credentials');
+  ensureSyncColumns(db, 'desktop_shortcuts');
+  ensureSyncColumns(db, 'desktop_folders');
   const profileTemplateColumns = db.pragma('table_info(profile_templates)') as Array<{ name: string }>;
   if (!profileTemplateColumns.some((column) => column.name === 'owner')) {
     db.exec("alter table profile_templates add column owner text not null default '';");
@@ -215,4 +264,22 @@ export function openApplicationDatabase(filePath: string): ApplicationDatabase {
     create index if not exists idx_desktop_folders_position on desktop_folders(position_index, created_at);
   `);
   return db;
+}
+
+function ensureSyncColumns(db: ApplicationDatabase, tableName: string): void {
+  const columns = db.pragma(`table_info(${tableName})`) as Array<{ name: string }>;
+  const existing = new Set(columns.map((column) => column.name));
+  const additions: Array<{ name: string; sql: string }> = [
+    { name: 'team_id', sql: `alter table ${tableName} add column team_id text;` },
+    { name: 'remote_id', sql: `alter table ${tableName} add column remote_id text;` },
+    { name: 'sync_version', sql: `alter table ${tableName} add column sync_version integer not null default 0;` },
+    { name: 'last_synced_at', sql: `alter table ${tableName} add column last_synced_at text;` },
+    { name: 'dirty', sql: `alter table ${tableName} add column dirty integer not null default 0;` },
+    { name: 'deleted', sql: `alter table ${tableName} add column deleted integer not null default 0;` }
+  ];
+  for (const addition of additions) {
+    if (!existing.has(addition.name)) {
+      db.exec(addition.sql);
+    }
+  }
 }

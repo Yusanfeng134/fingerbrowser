@@ -13,6 +13,9 @@ import { RELEASES_PAGE_URL } from './domain/release';
 import { createTrialService, type TrialService } from './domain/trial-service';
 import { createProfileService, type ProfileService } from './domain/profile-service';
 import { createUserService, type UserService } from './domain/user-service';
+import { createCloudClient } from './domain/cloud-client';
+import { createTeamSyncKey } from './domain/cloud-crypto';
+import { createCloudSyncService, type CloudSyncService } from './domain/cloud-sync-service';
 import { createProxyPoolService, type ProxyPoolService } from './domain/proxy-pool-service';
 import {
   createKernelRuntimeManager,
@@ -30,6 +33,11 @@ import type { BrowserController } from './domain/chromium';
 import { LocalProxyManager } from './domain/local-proxy';
 import { createLocalApiServer, createLocalApiToken, type LocalApiServer } from './domain/local-api';
 import { launchProfileRuntime, stopProfileRuntime } from './domain/profile-runtime';
+import { createCloudApiService, type CloudApiService } from '../../cloud-api/src/service';
+import { createMemoryCloudStore } from '../../cloud-api/src/memory-store';
+import { createMemoryObjectStorage } from '../../cloud-api/src/object-storage';
+
+let embeddedCloudApi: CloudApiService | null = null;
 
 export interface ApplicationServices {
   dataDir: string;
@@ -37,6 +45,7 @@ export interface ApplicationServices {
   secretBox: SecretBox;
   appSettingsService: AppSettingsService;
   userService: UserService;
+  syncService: CloudSyncService;
   profileService: ProfileService;
   proxyPoolService: ProxyPoolService;
   desktopService: DesktopService;
@@ -62,7 +71,9 @@ export function createApplicationServices(): ApplicationServices {
       : createNodeSecretBox(`fingerbrowser:${dataDir}`);
   const db = openApplicationDatabase(path.join(dataDir, 'fingerbrowser.sqlite'));
   const appSettingsService = createAppSettingsService({ db });
-  const userService = createUserService({ db });
+  const cloudClient = createCloudClient(resolveEmbeddedCloudApi());
+  const deviceName = `${hostname()} ${userInfo().username}`;
+  const userService = createUserService({ db, cloudClient, deviceName });
   const profileService = createProfileService({
     db,
     dataDir,
@@ -75,6 +86,15 @@ export function createApplicationServices(): ApplicationServices {
     db,
     secretBox,
     writeClipboard: (value) => clipboard.writeText(value)
+  });
+  const syncService = createCloudSyncService({
+    db,
+    dataDir,
+    secretBox,
+    userService,
+    profileService,
+    credentialService,
+    cloudClient
   });
   const deviceSeed = `${process.platform}:${hostname()}:${userInfo().username}:${app.getPath('userData')}`;
   const licenseService = createLicenseService({
@@ -155,6 +175,7 @@ export function createApplicationServices(): ApplicationServices {
     secretBox,
     appSettingsService,
     userService,
+    syncService,
     profileService,
     proxyPoolService,
     desktopService,
@@ -194,6 +215,25 @@ function resolveLocalApiToken(dataDir: string): { token: string; filePath: strin
     // Best effort on filesystems that do not support POSIX modes.
   }
   return { token, filePath };
+}
+
+function resolveEmbeddedCloudApi(): CloudApiService {
+  if (embeddedCloudApi) {
+    return embeddedCloudApi;
+  }
+  embeddedCloudApi = createCloudApiService({
+    store: createMemoryCloudStore(),
+    objects: createMemoryObjectStorage(),
+    tokenSecret: process.env.FINGERBROWSER_CLOUD_TOKEN_SECRET ?? 'fingerbrowser-cloud-dev-token-secret'
+  });
+  embeddedCloudApi.bootstrapTeam({
+    teamName: process.env.FINGERBROWSER_CLOUD_BOOTSTRAP_TEAM ?? 'FingerBrowser 云工作区',
+    adminEmail: process.env.FINGERBROWSER_CLOUD_BOOTSTRAP_EMAIL ?? 'admin@example.test',
+    adminPassword: process.env.FINGERBROWSER_CLOUD_BOOTSTRAP_PASSWORD ?? 'AdminPass123!',
+    adminDisplayName: process.env.FINGERBROWSER_CLOUD_BOOTSTRAP_NAME ?? '云端管理员',
+    teamKey: createTeamSyncKey()
+  });
+  return embeddedCloudApi;
 }
 
 function normalizeLocalApiPort(value: string | undefined, isE2E: boolean): number {

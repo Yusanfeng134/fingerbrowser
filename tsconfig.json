@@ -19,6 +19,7 @@
   },
   "include": [
     "src",
+    "cloud-api",
     "website",
     "tests",
     "e2e",

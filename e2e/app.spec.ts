@@ -62,19 +62,23 @@ test('中文 UI 完成激活 license、新建环境、代理测试、导出审�
       ...process.env,
       FINGERBROWSER_E2E: '1',
       FINGERBROWSER_DATA_DIR: dataDir,
-      FINGERBROWSER_LOCAL_API_PORT: String(localApiPort)
+      FINGERBROWSER_LOCAL_API_PORT: String(localApiPort),
+      FINGERBROWSER_CLOUD_BOOTSTRAP_TEAM: 'E2E 云工作区',
+      FINGERBROWSER_CLOUD_BOOTSTRAP_EMAIL: 'admin@example.test',
+      FINGERBROWSER_CLOUD_BOOTSTRAP_PASSWORD: 'AdminPass123!',
+      FINGERBROWSER_CLOUD_BOOTSTRAP_NAME: 'E2E 管理员'
     }
   });
 
   try {
     const page = await app.firstWindow();
-    await expect(page.getByRole('heading', { name: '创建管理员账号' })).toBeVisible();
-    await page.getByLabel('管理员邮箱').fill('admin@example.test');
-    await page.getByLabel('管理员名称').fill('E2E 管理员');
-    await page.getByLabel('管理员密码').fill('AdminPass123!');
-    await page.getByRole('button', { name: '创建管理员' }).click();
+    await expect(page.getByRole('heading', { name: '登录云账号' })).toBeVisible();
+    await page.getByLabel('邮箱').fill('admin@example.test');
+    await page.getByLabel('密码').fill('AdminPass123!');
+    await page.getByRole('button', { name: '登录云账号' }).click();
     await expect(page.getByRole('heading', { name: '指纹浏览器' })).toBeVisible();
     await expect(page.getByLabel('当前用户')).toContainText('E2E 管理员');
+    await expect(page.getByLabel('当前用户')).toContainText('E2E 云工作区');
     await expect(page.getByText('试卖上手清单')).toHaveCount(0);
     await expect(page.getByText('试卖清单')).toHaveCount(0);
 
