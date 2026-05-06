@@ -241,9 +241,9 @@ const emptyGoogleAccountDraft: GoogleAccountDraftState = {
 };
 
 const emptyAuthDraft: AuthDraftState = {
-  email: '',
+  email: 'admin@example.test',
   displayName: '',
-  password: ''
+  password: 'AdminPass123!'
 };
 
 const emptyUserDraft: UserDraftState = {
@@ -2423,7 +2423,7 @@ export function App(): JSX.Element {
                 autoComplete="username"
                 value={authDraft.email}
                 onChange={(event) => setAuthDraft({ ...authDraft, email: event.target.value })}
-                placeholder="admin@example.com"
+                placeholder="admin@example.test"
               />
             </label>
             {isSetup ? (
