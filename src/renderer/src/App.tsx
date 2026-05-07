@@ -2711,112 +2711,113 @@ export function App(): JSX.Element {
           </section>
         </section>
 
-        <div className="search-row">
-          <Search size={16} />
-          <input
-            aria-label="搜索环境"
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder="搜索名称、负责人、备注、标签、代理或状态"
-          />
-        </div>
+        <section className="profile-command-panel" aria-label="环境查询与工具">
+          <div className="search-row">
+            <Search size={16} />
+            <input
+              aria-label="搜索环境"
+              value={query}
+              onChange={(event) => setQuery(event.target.value)}
+              placeholder="搜索名称、负责人、备注、标签、代理或状态"
+            />
+          </div>
 
-        <div className="profile-filter-bar" aria-label="环境筛选">
-          <label>
-            分组
-            <select
-              aria-label="筛选分组"
-              value={profileGroupFilter}
-              onChange={(event) => setProfileGroupFilter(event.target.value)}
-            >
-              <option value="">全部分组</option>
-              {profileGroupOptions.map((groupName) => (
-                <option value={groupName} key={groupName}>
-                  {groupName}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            状态
-            <select
-              aria-label="筛选状态"
-              value={profileStatusFilter}
-              onChange={(event) => setProfileStatusFilter(event.target.value as WorkbenchStatusFilter)}
-            >
-              <option value="all">全部状态</option>
-              <option value="running">运行中</option>
-              <option value="closed">已关闭</option>
-              <option value="error">异常</option>
-            </select>
-          </label>
-          <label>
-            健康
-            <select
-              aria-label="筛选健康"
-              value={profileHealthFilter}
-              onChange={(event) => handleProfileHealthFilterChange(event.target.value as WorkbenchHealthFilter)}
-            >
-              <option value="all">全部健康</option>
-              <option value="ready">已就绪</option>
-              <option value="attention">待补全</option>
-              <option value="archived">已归档</option>
-            </select>
-          </label>
-          <label>
-            问题
-            <select
-              aria-label="筛选问题"
-              value={profileHealthIssueFilter}
-              onChange={(event) => handleProfileHealthIssueFilterChange(event.target.value as WorkbenchHealthIssueFilter)}
-            >
-              {Object.entries(profileHealthIssueFilterText).map(([value, label]) => (
-                <option value={value} key={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label>
-            内核
-            <select
-              aria-label="筛选内核"
-              value={profileRuntimeFilter}
-              onChange={(event) => setProfileRuntimeFilter(event.target.value as WorkbenchRuntimeFilter)}
-            >
-              <option value="all">全部内核</option>
-              <option value="official">官方稳定版</option>
-              <option value="custom-kernel">自研内核</option>
-            </select>
-          </label>
-          <label>
-            代理
-            <select
-              aria-label="筛选代理"
-              value={profileProxyFilter}
-              onChange={(event) => setProfileProxyFilter(event.target.value as WorkbenchProxyFilter)}
-            >
-              <option value="all">全部代理</option>
-              <option value="configured">已配置</option>
-              <option value="missing">未配置</option>
-              <option value="passed">代理可用</option>
-              <option value="failed">代理失败</option>
-              <option value="untested">未检测</option>
-            </select>
-          </label>
-          <label>
-            归档
-            <select
-              aria-label="筛选归档"
-              value={profileArchiveFilter}
-              onChange={(event) => setProfileArchiveFilter(event.target.value as WorkbenchArchiveFilter)}
-            >
-              <option value="active">未归档</option>
-              <option value="archived">已归档</option>
-              <option value="all">全部环境</option>
-            </select>
-          </label>
-        </div>
+          <div className="profile-filter-bar" aria-label="环境筛选">
+            <label>
+              分组
+              <select
+                aria-label="筛选分组"
+                value={profileGroupFilter}
+                onChange={(event) => setProfileGroupFilter(event.target.value)}
+              >
+                <option value="">全部分组</option>
+                {profileGroupOptions.map((groupName) => (
+                  <option value={groupName} key={groupName}>
+                    {groupName}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              状态
+              <select
+                aria-label="筛选状态"
+                value={profileStatusFilter}
+                onChange={(event) => setProfileStatusFilter(event.target.value as WorkbenchStatusFilter)}
+              >
+                <option value="all">全部状态</option>
+                <option value="running">运行中</option>
+                <option value="closed">已关闭</option>
+                <option value="error">异常</option>
+              </select>
+            </label>
+            <label>
+              健康
+              <select
+                aria-label="筛选健康"
+                value={profileHealthFilter}
+                onChange={(event) => handleProfileHealthFilterChange(event.target.value as WorkbenchHealthFilter)}
+              >
+                <option value="all">全部健康</option>
+                <option value="ready">已就绪</option>
+                <option value="attention">待补全</option>
+                <option value="archived">已归档</option>
+              </select>
+            </label>
+            <label>
+              问题
+              <select
+                aria-label="筛选问题"
+                value={profileHealthIssueFilter}
+                onChange={(event) => handleProfileHealthIssueFilterChange(event.target.value as WorkbenchHealthIssueFilter)}
+              >
+                {Object.entries(profileHealthIssueFilterText).map(([value, label]) => (
+                  <option value={value} key={value}>
+                    {label}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              内核
+              <select
+                aria-label="筛选内核"
+                value={profileRuntimeFilter}
+                onChange={(event) => setProfileRuntimeFilter(event.target.value as WorkbenchRuntimeFilter)}
+              >
+                <option value="all">全部内核</option>
+                <option value="official">官方稳定版</option>
+                <option value="custom-kernel">自研内核</option>
+              </select>
+            </label>
+            <label>
+              代理
+              <select
+                aria-label="筛选代理"
+                value={profileProxyFilter}
+                onChange={(event) => setProfileProxyFilter(event.target.value as WorkbenchProxyFilter)}
+              >
+                <option value="all">全部代理</option>
+                <option value="configured">已配置</option>
+                <option value="missing">未配置</option>
+                <option value="passed">代理可用</option>
+                <option value="failed">代理失败</option>
+                <option value="untested">未检测</option>
+              </select>
+            </label>
+            <label>
+              归档
+              <select
+                aria-label="筛选归档"
+                value={profileArchiveFilter}
+                onChange={(event) => setProfileArchiveFilter(event.target.value as WorkbenchArchiveFilter)}
+              >
+                <option value="active">未归档</option>
+                <option value="archived">已归档</option>
+                <option value="all">全部环境</option>
+              </select>
+            </label>
+          </div>
 
         <details className="profile-tool-panel" aria-label="环境模板工具">
           <summary>
@@ -2882,7 +2883,7 @@ export function App(): JSX.Element {
           </section>
         </details>
 
-        <details className="profile-tool-panel" aria-label="批量操作工具">
+        <details className="profile-tool-panel selection-panel" aria-label="批量操作工具">
           <summary>
             <span>
               <SlidersHorizontal size={15} />
@@ -2959,79 +2960,82 @@ export function App(): JSX.Element {
           </div>
           </section>
         </details>
+        </section>
 
-        <div className="table-header">
-          <label className="profile-check-cell">
-            <input
-              aria-label="选择当前筛选环境"
-              type="checkbox"
-              checked={allFilteredProfilesSelected}
-              onChange={handleToggleAllFilteredProfiles}
-            />
-          </label>
-          <span>环境</span>
-          <span>状态</span>
-          <span>健康</span>
-          <span>代理</span>
-          <span>内核</span>
-        </div>
+        <section className="profile-table-shell" aria-label="环境资产表格">
+          <div className="table-header">
+            <label className="profile-check-cell">
+              <input
+                aria-label="选择当前筛选环境"
+                type="checkbox"
+                checked={allFilteredProfilesSelected}
+                onChange={handleToggleAllFilteredProfiles}
+              />
+            </label>
+            <span>环境</span>
+            <span>状态</span>
+            <span>健康</span>
+            <span>代理</span>
+            <span>内核</span>
+          </div>
 
-        <div className="profile-rows" role="list" aria-label="环境列表">
-          {filteredProfiles.map((profile) => {
-            const health = profileHealthById.get(profile.id) ?? getProfileHealth(profile);
-            const healthTitle = health.issues.length > 0 ? health.issues.join('；') : '环境配置完整';
-            return (
-              <article
-                className={`profile-row ${profile.id === selectedId ? 'selected' : ''}`}
-                key={profile.id}
-              >
-                <label className="profile-check-cell">
-                  <input
-                    aria-label={`选择环境 ${profile.name}`}
-                    type="checkbox"
-                    checked={visibleSelectedProfileIds.includes(profile.id)}
-                    onChange={() => handleToggleProfileSelection(profile.id)}
-                  />
-                </label>
-                <button
-                  className="profile-row-content"
-                  onClick={() => {
-                    setSelectedId(profile.id);
-                    setActiveTab('config');
-                    setActiveNavKey('profiles');
-                  }}
-                  type="button"
+          <div className="profile-rows" role="list" aria-label="环境列表">
+            {filteredProfiles.map((profile) => {
+              const health = profileHealthById.get(profile.id) ?? getProfileHealth(profile);
+              const healthTitle = health.issues.length > 0 ? health.issues.join('；') : '环境配置完整';
+              return (
+                <article
+                  className={`profile-row ${profile.id === selectedId ? 'selected' : ''}`}
+                  key={profile.id}
                 >
-                  <span className="profile-name-cell">
-                    <strong>{profile.name}</strong>
-                    <small>
-                      {profile.archivedAt ? '已归档 · ' : ''}
-                      {profile.groupName ? `${profile.groupName} · ` : ''}
-                      {profile.owner ? `${profile.owner} · ` : ''}
-                      {profile.tags.length > 0 ? profile.tags.join(' / ') : '未设置标签'}
-                      {profile.lastLaunchedAt ? ` · 最近 ${formatDate(profile.lastLaunchedAt)}` : ''}
-                    </small>
-                  </span>
-                  <span className={`status-pill ${statusTone[profile.status]}`}>
-                    <Circle size={9} fill="currentColor" />
-                    {statusText[profile.status]}
-                  </span>
-                  <span className={`health-pill ${profileHealthTone[health.status]}`} title={healthTitle}>
-                    {health.label}
-                  </span>
-                  <span>{profile.proxy ? `${profile.proxy.scheme}://${profile.proxy.host}:${profile.proxy.port}` : '未配置'}</span>
-                  <span>{runtimeChannelText[profile.runtimeChannel]}</span>
-                </button>
-              </article>
-            );
-          })}
-          {filteredProfiles.length === 0 ? (
-            <div className="empty-state">
-              <Activity size={18} />
-              <span>暂无环境，点击“新建环境”开始。</span>
+                  <label className="profile-check-cell">
+                    <input
+                      aria-label={`选择环境 ${profile.name}`}
+                      type="checkbox"
+                      checked={visibleSelectedProfileIds.includes(profile.id)}
+                      onChange={() => handleToggleProfileSelection(profile.id)}
+                    />
+                  </label>
+                  <button
+                    className="profile-row-content"
+                    onClick={() => {
+                      setSelectedId(profile.id);
+                      setActiveTab('config');
+                      setActiveNavKey('profiles');
+                    }}
+                    type="button"
+                  >
+                    <span className="profile-name-cell">
+                      <strong>{profile.name}</strong>
+                      <small>
+                        {profile.archivedAt ? '已归档 · ' : ''}
+                        {profile.groupName ? `${profile.groupName} · ` : ''}
+                        {profile.owner ? `${profile.owner} · ` : ''}
+                        {profile.tags.length > 0 ? profile.tags.join(' / ') : '未设置标签'}
+                        {profile.lastLaunchedAt ? ` · 最近 ${formatDate(profile.lastLaunchedAt)}` : ''}
+                      </small>
+                    </span>
+                    <span className={`status-pill ${statusTone[profile.status]}`}>
+                      <Circle size={9} fill="currentColor" />
+                      {statusText[profile.status]}
+                    </span>
+                    <span className={`health-pill ${profileHealthTone[health.status]}`} title={healthTitle}>
+                      {health.label}
+                    </span>
+                    <span>{profile.proxy ? `${profile.proxy.scheme}://${profile.proxy.host}:${profile.proxy.port}` : '未配置'}</span>
+                    <span>{runtimeChannelText[profile.runtimeChannel]}</span>
+                  </button>
+                </article>
+              );
+            })}
+            {filteredProfiles.length === 0 ? (
+              <div className="empty-state">
+                <Activity size={18} />
+                <span>暂无环境，点击“新建环境”开始。</span>
+              </div>
+            ) : null}
             </div>
-          ) : null}
-        </div>
+        </section>
       </section>
       ) : workspaceView === 'proxies' ? (
         <section className="profile-list proxy-pool-workspace" id="proxy-pool">
@@ -4445,6 +4449,82 @@ export function App(): JSX.Element {
               <div className="empty-state">请选择环境后管理密码</div>
             ) : (
               <>
+                <div className="search-row credential-search">
+                  <Search size={16} />
+                  <input
+                    aria-label="搜索密码"
+                    value={credentialQuery}
+                    onChange={(event) => setCredentialQuery(event.target.value)}
+                    placeholder="搜索名称、网站或用户名"
+                  />
+                </div>
+
+                <div className="credential-list" aria-label="密码列表">
+                  {filteredCredentials.map((credential) => (
+                    <article className="credential-row" key={credential.id}>
+                      <div className="credential-main">
+                        <strong>{credential.title}</strong>
+                        <span>{credential.websiteUrl || '未设置网站地址'}</span>
+                        <small>{credential.username || '未设置用户名'}</small>
+                      </div>
+                      <div
+                        className={`credential-mask ${revealedCredential?.id === credential.id ? 'revealed' : ''}`}
+                        aria-label={revealedCredential?.id === credential.id ? '密码已显示' : '密码已隐藏'}
+                      >
+                        {revealedCredential?.id === credential.id ? revealedCredential.password : '••••••••'}
+                      </div>
+                      <div className="credential-actions">
+                        <button
+                          type="button"
+                          className="icon-button"
+                          onClick={() => handleCopyUsername(credential)}
+                          title="复制账号"
+                          aria-label={`复制账号 ${credential.title}`}
+                        >
+                          <Clipboard size={15} />
+                        </button>
+                        <button
+                          type="button"
+                          className="icon-button"
+                          onClick={() => handleCopyPassword(credential)}
+                          title="复制密码"
+                          aria-label={`复制密码 ${credential.title}`}
+                        >
+                          <KeyRound size={15} />
+                        </button>
+                        <button
+                          type="button"
+                          className="icon-button"
+                          onClick={() => handleToggleRevealPassword(credential)}
+                          title={revealedCredential?.id === credential.id ? '隐藏密码' : '查看密码'}
+                          aria-label={`${revealedCredential?.id === credential.id ? '隐藏密码' : '查看密码'} ${credential.title}`}
+                        >
+                          {revealedCredential?.id === credential.id ? <EyeOff size={15} /> : <Eye size={15} />}
+                        </button>
+                        <button
+                          type="button"
+                          className="icon-button"
+                          onClick={() => handleEditCredential(credential)}
+                          title="编辑密码项"
+                          aria-label={`编辑密码项 ${credential.title}`}
+                        >
+                          <Edit3 size={15} />
+                        </button>
+                        <button
+                          type="button"
+                          className="icon-button"
+                          onClick={() => handleDeleteCredential(credential)}
+                          title="删除密码项"
+                          aria-label={`删除密码项 ${credential.title}`}
+                        >
+                          <Trash2 size={15} />
+                        </button>
+                      </div>
+                    </article>
+                  ))}
+                  {filteredCredentials.length === 0 ? <div className="empty-state">暂无密码项</div> : null}
+                </div>
+
                 <section className="form-section">
                   <div className="form-title">
                     <LockKeyhole size={17} />
@@ -4521,82 +4601,6 @@ export function App(): JSX.Element {
                   <ShieldCheck size={16} />
                   打开本地安全实验页
                 </button>
-
-                <div className="search-row credential-search">
-                  <Search size={16} />
-                  <input
-                    aria-label="搜索密码"
-                    value={credentialQuery}
-                    onChange={(event) => setCredentialQuery(event.target.value)}
-                    placeholder="搜索名称、网站或用户名"
-                  />
-                </div>
-
-                <div className="credential-list" aria-label="密码列表">
-                  {filteredCredentials.map((credential) => (
-                    <article className="credential-row" key={credential.id}>
-                      <div className="credential-main">
-                        <strong>{credential.title}</strong>
-                        <span>{credential.websiteUrl || '未设置网站地址'}</span>
-                        <small>{credential.username || '未设置用户名'}</small>
-                      </div>
-                      <div
-                        className={`credential-mask ${revealedCredential?.id === credential.id ? 'revealed' : ''}`}
-                        aria-label={revealedCredential?.id === credential.id ? '密码已显示' : '密码已隐藏'}
-                      >
-                        {revealedCredential?.id === credential.id ? revealedCredential.password : '••••••••'}
-                      </div>
-                      <div className="credential-actions">
-                        <button
-                          type="button"
-                          className="icon-button"
-                          onClick={() => handleCopyUsername(credential)}
-                          title="复制账号"
-                          aria-label={`复制账号 ${credential.title}`}
-                        >
-                          <Clipboard size={15} />
-                        </button>
-                        <button
-                          type="button"
-                          className="icon-button"
-                          onClick={() => handleCopyPassword(credential)}
-                          title="复制密码"
-                          aria-label={`复制密码 ${credential.title}`}
-                        >
-                          <KeyRound size={15} />
-                        </button>
-                        <button
-                          type="button"
-                          className="icon-button"
-                          onClick={() => handleToggleRevealPassword(credential)}
-                          title={revealedCredential?.id === credential.id ? '隐藏密码' : '查看密码'}
-                          aria-label={`${revealedCredential?.id === credential.id ? '隐藏密码' : '查看密码'} ${credential.title}`}
-                        >
-                          {revealedCredential?.id === credential.id ? <EyeOff size={15} /> : <Eye size={15} />}
-                        </button>
-                        <button
-                          type="button"
-                          className="icon-button"
-                          onClick={() => handleEditCredential(credential)}
-                          title="编辑密码项"
-                          aria-label={`编辑密码项 ${credential.title}`}
-                        >
-                          <Edit3 size={15} />
-                        </button>
-                        <button
-                          type="button"
-                          className="icon-button"
-                          onClick={() => handleDeleteCredential(credential)}
-                          title="删除密码项"
-                          aria-label={`删除密码项 ${credential.title}`}
-                        >
-                          <Trash2 size={15} />
-                        </button>
-                      </div>
-                    </article>
-                  ))}
-                  {filteredCredentials.length === 0 ? <div className="empty-state">暂无密码项</div> : null}
-                </div>
               </>
             )}
           </section>
