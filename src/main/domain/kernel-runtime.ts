@@ -1,6 +1,6 @@
 import { createHash } from 'node:crypto';
 import { execFileSync } from 'node:child_process';
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'node:fs';
+import { existsSync, mkdirSync, readFileSync, statSync, writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import path from 'node:path';
 import type {
@@ -8,7 +8,9 @@ import type {
   FingerprintPolicy,
   KernelInstallResult,
   KernelManifestSource,
+  KernelRuntimeArch,
   KernelRuntimeManifest,
+  KernelRuntimePlatform,
   KernelRuntimeStatus,
   RuntimeChannel
 } from '../../shared/types';
@@ -32,7 +34,12 @@ export interface KernelRuntimeManager {
   clearManifest(): KernelRuntimeStatus;
 }
 
-export const DEFAULT_KERNEL_RUNTIME_MANIFEST: KernelRuntimeManifest = {
+export interface KernelRuntimeTarget {
+  platform: KernelRuntimePlatform;
+  arch: KernelRuntimeArch;
+}
+
+export const DEFAULT_DARWIN_KERNEL_RUNTIME_MANIFEST: KernelRuntimeManifest = {
   version: '0.1.1',
   baseChromiumRevision: 'refs/tags/124.0.6367.207',
   patchsetVersion: '2026.04.30.1',
@@ -43,6 +50,20 @@ export const DEFAULT_KERNEL_RUNTIME_MANIFEST: KernelRuntimeManifest = {
   executableRelativePath: 'FingerBrowser Kernel.app/Contents/MacOS/Chromium',
   policySchemaVersion: KERNEL_POLICY_SCHEMA_VERSION
 };
+
+export const DEFAULT_LINUX_KERNEL_RUNTIME_MANIFEST: KernelRuntimeManifest = {
+  version: '0.1.1',
+  baseChromiumRevision: 'refs/tags/124.0.6367.207',
+  patchsetVersion: '2026.05.07.1',
+  platform: 'linux',
+  arch: 'x64',
+  artifactUrl: 'manual://fingerbrowser-kernel-v0.1.1-linux-x64.tar.gz',
+  sha256: '0000000000000000000000000000000000000000000000000000000000000000',
+  executableRelativePath: 'fingerbrowser-kernel/chrome',
+  policySchemaVersion: KERNEL_POLICY_SCHEMA_VERSION
+};
+
+export const DEFAULT_KERNEL_RUNTIME_MANIFEST = DEFAULT_DARWIN_KERNEL_RUNTIME_MANIFEST;
 
 export function buildKernelPolicyDocument(profile: BrowserProfile): KernelPolicyDocument {
   return {
@@ -60,7 +81,30 @@ export function writeKernelPolicyFile(profile: BrowserProfile): string {
   return policyPath;
 }
 
-export function validateKernelRuntimeManifest(input: unknown): KernelRuntimeManifest {
+export function getCurrentKernelRuntimeTarget(): KernelRuntimeTarget {
+  if (process.platform !== 'darwin' && process.platform !== 'linux') {
+    throw new Error(`当前平台暂不支持自研内核：${process.platform}`);
+  }
+  if (process.platform === 'darwin' && process.arch !== 'arm64') {
+    throw new Error(`macOS 自研内核仅支持 arm64，当前架构为 ${process.arch}`);
+  }
+  if (process.platform === 'linux' && process.arch !== 'x64') {
+    throw new Error(`Linux 服务器版自研内核仅支持 x64，当前架构为 ${process.arch}`);
+  }
+  return {
+    platform: process.platform,
+    arch: process.arch as KernelRuntimeArch
+  };
+}
+
+export function defaultKernelRuntimeManifestForTarget(target: KernelRuntimeTarget): KernelRuntimeManifest {
+  return target.platform === 'linux' ? DEFAULT_LINUX_KERNEL_RUNTIME_MANIFEST : DEFAULT_DARWIN_KERNEL_RUNTIME_MANIFEST;
+}
+
+export function validateKernelRuntimeManifest(
+  input: unknown,
+  target: KernelRuntimeTarget = getCurrentKernelRuntimeTarget()
+): KernelRuntimeManifest {
   if (!input || typeof input !== 'object') {
     throw new Error('自研内核 manifest 格式无效');
   }
@@ -78,8 +122,16 @@ export function validateKernelRuntimeManifest(input: unknown): KernelRuntimeMani
       throw new Error(`自研内核 manifest 缺少字段：${field}`);
     }
   }
-  if (manifest.platform !== 'darwin' || manifest.arch !== 'arm64') {
-    throw new Error('仅支持 macOS arm64 自研内核');
+  if (manifest.platform !== 'darwin' && manifest.platform !== 'linux') {
+    throw new Error(`自研内核 manifest 平台不支持：${String(manifest.platform)}`);
+  }
+  if (manifest.arch !== 'arm64' && manifest.arch !== 'x64') {
+    throw new Error(`自研内核 manifest 架构不支持：${String(manifest.arch)}`);
+  }
+  if (manifest.platform !== target.platform || manifest.arch !== target.arch) {
+    throw new Error(
+      `自研内核 manifest 平台不匹配：需要 ${target.platform}/${target.arch}，收到 ${manifest.platform}/${manifest.arch}`
+    );
   }
   if (!/^[a-f0-9]{64}$/i.test(manifest.sha256)) {
     throw new Error('自研内核 sha256 格式无效');
@@ -90,11 +142,14 @@ export function validateKernelRuntimeManifest(input: unknown): KernelRuntimeMani
   return manifest;
 }
 
-export function loadKernelRuntimeManifestFile(manifestPath: string): KernelRuntimeManifest {
+export function loadKernelRuntimeManifestFile(
+  manifestPath: string,
+  target: KernelRuntimeTarget = getCurrentKernelRuntimeTarget()
+): KernelRuntimeManifest {
   if (!existsSync(manifestPath)) {
     throw new Error(`自研内核 manifest 不存在：${manifestPath}`);
   }
-  return validateKernelRuntimeManifest(JSON.parse(readFileSync(manifestPath, 'utf8')) as unknown);
+  return validateKernelRuntimeManifest(JSON.parse(readFileSync(manifestPath, 'utf8')) as unknown, target);
 }
 
 export function verifyKernelArtifact(
@@ -116,11 +171,21 @@ export function resolveKernelExecutablePath(dataDir: string, manifest: KernelRun
   return path.join(resolveKernelRuntimeRoot(dataDir, manifest), manifest.executableRelativePath);
 }
 
+function assertKernelExecutable(executablePath: string, manifest: KernelRuntimeManifest): void {
+  if (!existsSync(executablePath)) {
+    throw new Error('自研内核安装包缺少可执行文件');
+  }
+  if (manifest.platform === 'linux' && (statSync(executablePath).mode & 0o111) === 0) {
+    throw new Error('Linux 自研内核可执行文件缺少执行权限');
+  }
+}
+
 export function createKernelRuntimeManager(options: {
   dataDir: string;
   manifest?: KernelRuntimeManifest;
   environmentManifestPath?: string;
   settings?: AppSettingsService;
+  target?: KernelRuntimeTarget;
 }): KernelRuntimeManager {
   interface KernelRuntimeState {
     manifest: KernelRuntimeManifest;
@@ -130,7 +195,11 @@ export function createKernelRuntimeManager(options: {
     lastError?: string;
   }
 
-  const defaultManifest = validateKernelRuntimeManifest(options.manifest ?? DEFAULT_KERNEL_RUNTIME_MANIFEST);
+  const target = options.target ?? getCurrentKernelRuntimeTarget();
+  const defaultManifest = validateKernelRuntimeManifest(
+    options.manifest ?? defaultKernelRuntimeManifestForTarget(target),
+    target
+  );
 
   function defaultState(lastError?: string): KernelRuntimeState {
     return {
@@ -148,7 +217,7 @@ export function createKernelRuntimeManager(options: {
     }
     try {
       return {
-        manifest: loadKernelRuntimeManifestFile(options.environmentManifestPath),
+        manifest: loadKernelRuntimeManifestFile(options.environmentManifestPath, target),
         source: 'environment',
         manifestPath: options.environmentManifestPath,
         importedAt: null
@@ -166,7 +235,7 @@ export function createKernelRuntimeManager(options: {
     const importedAt = options.settings?.get('kernelManifestImportedAt') ?? null;
     try {
       return {
-        manifest: loadKernelRuntimeManifestFile(manifestPath),
+        manifest: loadKernelRuntimeManifestFile(manifestPath, target),
         source: 'imported',
         manifestPath,
         importedAt
@@ -206,6 +275,7 @@ export function createKernelRuntimeManager(options: {
     async ensureInstalled(): Promise<KernelInstallResult> {
       const current = status();
       if (current.installed) {
+        assertKernelExecutable(current.executablePath, current.manifest);
         return {
           ...current,
           installed: true,
@@ -215,12 +285,20 @@ export function createKernelRuntimeManager(options: {
       if (current.manifest.artifactUrl.startsWith('file://')) {
         const artifactPath = fileURLToPath(current.manifest.artifactUrl);
         verifyKernelArtifact(current.manifest, artifactPath);
-        mkdirSync(path.dirname(current.executablePath), { recursive: true });
-        execFileSync('ditto', ['-x', '-k', artifactPath, current.runtimeRoot]);
+        mkdirSync(current.runtimeRoot, { recursive: true });
+        if (current.manifest.platform === 'linux') {
+          if (!artifactPath.endsWith('.tar.gz')) {
+            throw new Error('Linux 自研内核安装包必须为 .tar.gz');
+          }
+          execFileSync('tar', ['-xzf', artifactPath, '-C', current.runtimeRoot]);
+        } else {
+          execFileSync('ditto', ['-x', '-k', artifactPath, current.runtimeRoot]);
+        }
         const installed = status();
         if (!installed.installed) {
           throw new Error('自研内核安装包缺少可执行文件');
         }
+        assertKernelExecutable(installed.executablePath, current.manifest);
         return {
           ...installed,
           installed: true,
@@ -231,7 +309,7 @@ export function createKernelRuntimeManager(options: {
       }
     },
     importManifest(manifestPath: string): KernelRuntimeStatus {
-      const manifest = loadKernelRuntimeManifestFile(manifestPath);
+      const manifest = loadKernelRuntimeManifestFile(manifestPath, target);
       const importedAt = new Date().toISOString();
       options.settings?.set('kernelManifestPath', manifestPath);
       options.settings?.set('kernelManifestImportedAt', importedAt);
@@ -253,14 +331,15 @@ export function createKernelRuntimeManager(options: {
 }
 
 export function createMockKernelRuntimeManager(executablePath: string): KernelRuntimeManager {
+  const target = getCurrentKernelRuntimeTarget();
   const defaultManifest = validateKernelRuntimeManifest({
-    ...DEFAULT_KERNEL_RUNTIME_MANIFEST,
+    ...defaultKernelRuntimeManifestForTarget(target),
     version: 'e2e-kernel',
     baseChromiumRevision: 'e2e-mock',
     patchsetVersion: 'e2e-mock',
     artifactUrl: 'mock://fingerbrowser-kernel',
     sha256: '1111111111111111111111111111111111111111111111111111111111111111'
-  });
+  }, target);
   let manifest = defaultManifest;
   let source: KernelManifestSource = 'default';
   let manifestPath: string | null = null;
@@ -285,7 +364,7 @@ export function createMockKernelRuntimeManager(executablePath: string): KernelRu
       };
     },
     importManifest(nextManifestPath: string): KernelRuntimeStatus {
-      manifest = loadKernelRuntimeManifestFile(nextManifestPath);
+      manifest = loadKernelRuntimeManifestFile(nextManifestPath, target);
       source = 'imported';
       manifestPath = nextManifestPath;
       importedAt = new Date().toISOString();

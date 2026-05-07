@@ -8,6 +8,7 @@ import type {
   LaunchResult,
   ProfileDetails,
   ProxyRuntimeStatus,
+  SyncPullResult,
   StopResult
 } from '../../shared/types';
 
@@ -50,6 +51,7 @@ interface LocalApiServerOptions {
   stopProfile: (profileId: string) => Promise<StopResult>;
   listAuditEvents: (profileId?: string) => AuditEvent[];
   localProxyStatus: (profileId?: string) => ProxyRuntimeStatus[];
+  pullWorkspace: () => SyncPullResult | Promise<SyncPullResult>;
 }
 
 export interface LocalApiServer {
@@ -165,6 +167,11 @@ export function createLocalApiServer(options: LocalApiServerOptions): LocalApiSe
       const action = profileActionMatch[2];
       const data = action === 'launch' ? await options.launchProfile(profileId) : await options.stopProfile(profileId);
       sendJson(response, 200, { data });
+      return;
+    }
+
+    if (requestUrl.pathname === '/v1/sync/pull' && method === 'POST') {
+      sendJson(response, 200, { data: await options.pullWorkspace() });
       return;
     }
 

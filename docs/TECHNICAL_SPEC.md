@@ -3,7 +3,7 @@
 版本：0.1.0  
 日期：2026-04-30  
 适用仓库：`fingerbrowser`  
-目标平台：macOS arm64 优先
+目标平台：macOS arm64 优先，Linux x64 服务器版第一版支持 Ubuntu 22.04/24.04
 
 ## 1. 产品定位
 
@@ -21,11 +21,11 @@
 | 主进程 | Node.js、TypeScript |
 | 本地数据库 | SQLite via `better-sqlite3` |
 | 加密 | Electron `safeStorage`，E2E/不可用时使用 Node fallback |
-| 浏览器运行时 | Chrome for Testing 官方通道、自研 Chromium 内核通道 |
+| 浏览器运行时 | macOS 支持 Chrome for Testing 官方通道和自研 Chromium 内核通道；Linux 仅支持自研 Chromium 内核通道 |
 | 图标 | lucide-react |
 | 单元测试 | Vitest |
 | E2E | Playwright |
-| 打包 | electron-builder mac dir target |
+| 打包 | electron-builder mac dir target；Linux AppImage 与 tar.gz |
 
 ## 3. 总体架构
 
@@ -58,6 +58,7 @@ flowchart LR
 | 路径 | 说明 |
 | --- | --- |
 | `src/main/index.ts` | Electron 窗口创建和 IPC 注册入口 |
+| `src/main/server-mode.ts` | Linux 服务器模式入口，云账号自动登录、工作区拉取和 Local API 启动 |
 | `src/main/ipc.ts` | IPC handler 白名单与服务调用编排 |
 | `src/main/services.ts` | 应用服务初始化、数据库、加密、运行时管理器装配 |
 | `src/main/domain/*` | 领域服务：环境、代理、内核、授权、试卖、密码库等 |
@@ -168,7 +169,7 @@ flowchart LR
 - 名称非空校验
 - 标签去重和 trim
 - 时区通过 `Intl.DateTimeFormat(...).resolvedOptions().timeZone` 校验
-- runtime channel 默认 `official`
+- runtime channel 在 macOS 默认 `official`，在 Linux 默认 `custom-kernel`
 - 窗口尺寸、语言、权限、WebRTC 策略使用默认值合并
 
 默认策略：

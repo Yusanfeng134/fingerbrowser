@@ -32,6 +32,7 @@ import { createBrowserController } from './infrastructure/browser-runtime';
 import type { BrowserController } from './domain/chromium';
 import { LocalProxyManager } from './domain/local-proxy';
 import { createLocalApiServer, createLocalApiToken, type LocalApiServer } from './domain/local-api';
+import { assertLocalApiExternalBindingToken, resolveLocalApiHost } from './domain/local-api-binding';
 import { launchProfileRuntime, stopProfileRuntime } from './domain/profile-runtime';
 import { createCloudApiService, type CloudApiService } from '../../cloud-api/src/service';
 import { createMemoryCloudStore } from '../../cloud-api/src/memory-store';
@@ -60,8 +61,9 @@ export interface ApplicationServices {
   browserController: BrowserController;
 }
 
-export function createApplicationServices(): ApplicationServices {
+export function createApplicationServices(options: { serverMode?: boolean } = {}): ApplicationServices {
   const isE2E = process.env.FINGERBROWSER_E2E === '1';
+  const serverMode = options.serverMode ?? false;
   const dataDir = process.env.FINGERBROWSER_DATA_DIR ?? path.join(app.getPath('userData'), 'data');
   mkdirSync(dataDir, { recursive: true });
 
@@ -113,7 +115,9 @@ export function createApplicationServices(): ApplicationServices {
     version: {
       version: app.getVersion(),
       channel: 'trial',
-      releaseUrl: RELEASES_PAGE_URL
+      releaseUrl: RELEASES_PAGE_URL,
+      platform: process.platform,
+      arch: process.arch
     }
   });
   const chromiumInstaller = isE2E
@@ -133,12 +137,15 @@ export function createApplicationServices(): ApplicationServices {
     localProxyManager,
     dataDir,
     secretBox,
-    isE2E
+    isE2E,
+    serverMode
   });
+  const localApiHost = resolveLocalApiHost(process.env.FINGERBROWSER_LOCAL_API_HOST);
+  assertLocalApiExternalBindingToken(localApiHost, process.env.FINGERBROWSER_LOCAL_API_TOKEN);
   const localApiToken = resolveLocalApiToken(dataDir);
   const localApiPort = normalizeLocalApiPort(process.env.FINGERBROWSER_LOCAL_API_PORT, isE2E);
   const localApiServer = createLocalApiServer({
-    host: '127.0.0.1',
+    host: localApiHost,
     port: localApiPort,
     token: localApiToken.token,
     version: () => trialService.version(),
@@ -166,6 +173,10 @@ export function createApplicationServices(): ApplicationServices {
     localProxyStatus: (profileId) => {
       userService.requireAuthenticated();
       return profileId ? [localProxyManager.statusOrStopped(profileId)] : localProxyManager.listStatuses();
+    },
+    pullWorkspace: () => {
+      userService.requireAuthenticated();
+      return syncService.pullWorkspace();
     }
   });
 

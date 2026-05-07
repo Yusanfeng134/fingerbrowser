@@ -125,7 +125,8 @@ describe('MCP Local API bridge', () => {
         return { profileId, status: 'closed' };
       },
       listAuditEvents: () => audits,
-      localProxyStatus: () => []
+      localProxyStatus: () => [],
+      pullWorkspace: async () => ({ profiles: 3, credentials: 2, auditEvents: 1 })
     });
     servers.push(server);
     await server.start();
@@ -146,6 +147,7 @@ describe('MCP Local API bridge', () => {
 
     const listProfiles = await registered.get('fingerbrowser_list_profiles')?.handler({});
     const launch = await registered.get('fingerbrowser_launch_profile')?.handler({ profileId: 'profile-1' });
+    const pull = await registered.get('fingerbrowser_pull_workspace')?.handler({});
     const audit = await registered.get('fingerbrowser_list_audit')?.handler({ profileId: 'profile-1' });
 
     expect(listProfiles).toMatchObject({
@@ -166,6 +168,7 @@ describe('MCP Local API bridge', () => {
     expect(JSON.stringify(listProfiles)).not.toContain('/tmp/private-profile-dir');
     expect(JSON.stringify(listProfiles)).not.toContain('proxy.example.test');
     expect(launch).toMatchObject({ structuredContent: { data: { profileId: 'profile-1', status: 'running' } } });
+    expect(pull).toMatchObject({ structuredContent: { data: { profiles: 3, credentials: 2, auditEvents: 1 } } });
     expect(audit).toMatchObject({ structuredContent: { data: [{ metadata: { token: '[redacted]' } }] } });
     expect(launched).toEqual(['profile-1']);
     expect(stopped).toEqual([]);
@@ -188,7 +191,8 @@ describe('MCP Local API bridge', () => {
       }),
       stopProfile: async (profileId): Promise<StopResult> => ({ profileId, status: 'closed' }),
       listAuditEvents: () => [],
-      localProxyStatus: () => []
+      localProxyStatus: () => [],
+      pullWorkspace: async () => ({ profiles: 0, credentials: 0, auditEvents: 0 })
     });
     servers.push(server);
     await server.start();

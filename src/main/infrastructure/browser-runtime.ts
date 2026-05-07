@@ -12,7 +12,9 @@ import type { SecretBox } from '../domain/encryption';
 import { writeEnvironmentCheckPage } from '../domain/environment-check-page';
 import { writeKernelPolicyFile, type KernelRuntimeManager } from '../domain/kernel-runtime';
 import type { LocalProxyManager } from '../domain/local-proxy';
+import { assertRuntimeChannelSupported } from '../domain/runtime-channel-policy';
 import type { ChromiumInstaller } from './chromium-installer';
+import { resolveChromiumSpawnCommand } from './chromium-spawn';
 
 export function createBrowserController(options: {
   chromiumInstaller: ChromiumInstaller;
@@ -21,6 +23,7 @@ export function createBrowserController(options: {
   dataDir: string;
   secretBox: SecretBox;
   isE2E: boolean;
+  serverMode?: boolean;
 }): BrowserController {
   if (options.isE2E) {
     return new MockBrowserController(options.dataDir, options.localProxyManager, (value) => options.secretBox.decrypt(value));
@@ -30,7 +33,8 @@ export function createBrowserController(options: {
     options.kernelRuntimeManager,
     options.localProxyManager,
     options.dataDir,
-    options.secretBox
+    options.secretBox,
+    options.serverMode ?? false
   );
 }
 
@@ -42,10 +46,12 @@ class ExternalChromiumController implements BrowserController {
     private readonly kernelRuntimeManager: KernelRuntimeManager,
     private readonly localProxyManager: LocalProxyManager,
     private readonly dataDir: string,
-    private readonly secretBox: SecretBox
+    private readonly secretBox: SecretBox,
+    private readonly serverMode: boolean
   ) {}
 
   async launch(profile: BrowserProfile, proxy: ProxyConfig | null, options: BrowserLaunchOptions = {}): Promise<BrowserLaunchResult> {
+    assertRuntimeChannelSupported(profile.runtimeChannel);
     const officialInstallation = profile.runtimeChannel === 'official' ? await this.chromiumInstaller.ensureInstalled() : null;
     const kernelInstallation =
       profile.runtimeChannel === 'custom-kernel' ? await this.kernelRuntimeManager.ensureInstalled() : null;
@@ -81,8 +87,14 @@ class ExternalChromiumController implements BrowserController {
       startUrl: environmentCheckPage.url,
       startUrls: options.startUrls
     });
-    const child = spawn(plan.executablePath, plan.args, {
+    const spawnCommand = resolveChromiumSpawnCommand({
+      executablePath: plan.executablePath,
+      args: plan.args,
       env: plan.env,
+      serverMode: this.serverMode
+    });
+    const child = spawn(spawnCommand.command, spawnCommand.args, {
+      env: spawnCommand.env,
       stdio: 'ignore',
       detached: true
     });

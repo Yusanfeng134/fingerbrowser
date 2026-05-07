@@ -4,6 +4,7 @@ import { createApplicationServices } from './services';
 import { registerIpcHandlers } from './ipc';
 import type { ApplicationServices } from './services';
 import { resolveRendererEntry } from './renderer-entry';
+import { isServerMode, startServerMode } from './server-mode';
 
 let mainWindow: BrowserWindow | null = null;
 let applicationServices: ApplicationServices | null = null;
@@ -42,9 +43,16 @@ function createMainWindow(): void {
   }
 }
 
-void app.whenReady().then(() => {
-  const services = createApplicationServices();
+void app.whenReady().then(async () => {
+  const serverMode = isServerMode();
+  const services = createApplicationServices({ serverMode });
   applicationServices = services;
+  if (serverMode) {
+    await startServerMode(services);
+    registerServerShutdownHandlers();
+    return;
+  }
+
   registerIpcHandlers(services);
   void services.localApiServer.start().catch((error) => {
     console.error('Local API 启动失败', error);
@@ -56,6 +64,9 @@ void app.whenReady().then(() => {
       createMainWindow();
     }
   });
+}).catch((error) => {
+  console.error('FingerBrowser 启动失败', error);
+  app.exit(1);
 });
 
 app.on('before-quit', () => {
@@ -67,3 +78,13 @@ app.on('window-all-closed', () => {
     app.quit();
   }
 });
+
+function registerServerShutdownHandlers(): void {
+  const shutdown = (): void => {
+    void applicationServices?.localApiServer.stop().finally(() => {
+      app.quit();
+    });
+  };
+  process.once('SIGINT', shutdown);
+  process.once('SIGTERM', shutdown);
+}

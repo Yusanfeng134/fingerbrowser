@@ -8,6 +8,8 @@ export type LicensePlanId = 'trial' | 'pro' | 'team';
 export type LicenseStatus = 'inactive' | 'active' | 'grace' | 'expired';
 export type ReleaseStatus = 'up-to-date' | 'update-available' | 'unavailable' | 'error';
 export type KernelManifestSource = 'default' | 'environment' | 'imported';
+export type KernelRuntimePlatform = 'darwin' | 'linux';
+export type KernelRuntimeArch = 'arm64' | 'x64';
 export type ProxyRuntimeState = 'stopped' | 'running' | 'error';
 export type SystemProxySource = 'http' | 'https' | 'socks5' | 'local-scan';
 export type FeedbackIssueType = 'bug' | 'setup' | 'feature' | 'other';
@@ -469,6 +471,8 @@ export interface AppVersionInfo {
   version: string;
   channel: 'trial';
   releaseUrl: string;
+  platform?: NodeJS.Platform;
+  arch?: string;
 }
 
 export interface ReleaseCheckResult {
@@ -518,8 +522,8 @@ export interface KernelRuntimeManifest {
   version: string;
   baseChromiumRevision: string;
   patchsetVersion: string;
-  platform: 'darwin';
-  arch: 'arm64';
+  platform: KernelRuntimePlatform;
+  arch: KernelRuntimeArch;
   artifactUrl: string;
   sha256: string;
   executableRelativePath: string;

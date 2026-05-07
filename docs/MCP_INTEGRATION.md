@@ -103,6 +103,7 @@ npm --silent run mcp
 | `fingerbrowser_get_profile` | `profileId` | 获取单个脱敏环境摘要 | 是 |
 | `fingerbrowser_launch_profile` | `profileId` | 启动一个浏览器环境 | 否 |
 | `fingerbrowser_stop_profile` | `profileId` | 停止一个浏览器环境 | 否 |
+| `fingerbrowser_pull_workspace` | 无 | 拉取当前云工作区到本地缓存 | 否 |
 | `fingerbrowser_local_proxy_status` | `profileId?` | 查询本地代理运行状态 | 是 |
 | `fingerbrowser_list_audit` | `profileId?` | 查询脱敏审计日志 | 是 |
 
@@ -168,6 +169,7 @@ GET /v1/profiles
 GET /v1/profiles/:profileId
 POST /v1/profiles/:profileId/launch
 POST /v1/profiles/:profileId/stop
+POST /v1/sync/pull
 GET /v1/proxy/local-status?profileId=:profileId
 GET /v1/audit?profileId=:profileId
 ```
@@ -252,4 +254,4 @@ npm --silent run mcp
 - MCP 客户端能看到 `fingerbrowser_*` 工具列表。
 - `fingerbrowser_status` 能返回应用和 Local API 状态。
 - `fingerbrowser_list_profiles` 返回 profile 摘要，且不包含密码、Cookie、profile 目录或代理密码。
-- `fingerbrowser_launch_profile` 和 `fingerbrowser_stop_profile` 可按授权 profile id 执行。
+- `fingerbrowser_pull_workspace`、`fingerbrowser_launch_profile` 和 `fingerbrowser_stop_profile` 可按当前登录团队权限执行。

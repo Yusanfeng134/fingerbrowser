@@ -23,6 +23,7 @@ import type {
 import type { ApplicationDatabase } from '../infrastructure/database';
 import type { SecretBox } from './encryption';
 import { assertValidProxyEndpoint, redactProxyConfig } from './proxy';
+import { defaultRuntimeChannelForPlatform } from './runtime-channel-policy';
 
 interface ProfileServiceOptions {
   db: ApplicationDatabase;
@@ -121,6 +122,9 @@ export function createProfileService(options: ProfileServiceOptions): ProfileSer
   }
 
   function normalizeRuntimeChannel(input?: RuntimeChannel): RuntimeChannel {
+    if (!input) {
+      return defaultRuntimeChannelForPlatform();
+    }
     return input === 'custom-kernel' ? 'custom-kernel' : 'official';
   }
 

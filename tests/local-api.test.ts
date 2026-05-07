@@ -91,7 +91,8 @@ describe('local API server', () => {
       }),
       stopProfile: async (profileId): Promise<StopResult> => ({ profileId, status: 'closed' }),
       listAuditEvents: () => [],
-      localProxyStatus: () => []
+      localProxyStatus: () => [],
+      pullWorkspace: async () => ({ profiles: 0, credentials: 0, auditEvents: 0 })
     });
     servers.push(server);
     await server.start();
@@ -144,7 +145,8 @@ describe('local API server', () => {
         return { profileId, status: 'closed' };
       },
       listAuditEvents: () => [],
-      localProxyStatus: () => []
+      localProxyStatus: () => [],
+      pullWorkspace: async () => ({ profiles: 0, credentials: 0, auditEvents: 0 })
     });
     servers.push(server);
     await server.start();
@@ -204,7 +206,8 @@ describe('local API server', () => {
       }),
       stopProfile: async (profileId): Promise<StopResult> => ({ profileId, status: 'closed' }),
       listAuditEvents: () => audits,
-      localProxyStatus: () => []
+      localProxyStatus: () => [],
+      pullWorkspace: async () => ({ profiles: 0, credentials: 0, auditEvents: 0 })
     });
     servers.push(server);
     await server.start();
@@ -224,5 +227,47 @@ describe('local API server', () => {
       }
     });
     expect(createLocalApiToken()).toMatch(/^fb_local_[A-Za-z0-9_-]{32,}$/);
+  });
+
+  it('pulls the authenticated cloud workspace without exposing create or edit routes', async () => {
+    const server = createLocalApiServer({
+      host: '127.0.0.1',
+      port: 0,
+      token: 'local-api-token',
+      version: () => ({ version: '0.1.0', channel: 'trial', releaseUrl: 'https://example.test/releases' }),
+      authStatus,
+      listProfiles: () => [],
+      getProfile: () => {
+        throw new Error('环境不存在');
+      },
+      launchProfile: async (profileId): Promise<LaunchResult> => ({
+        profileId,
+        pid: 1,
+        runtimeChannel: 'custom-kernel',
+        status: 'running'
+      }),
+      stopProfile: async (profileId): Promise<StopResult> => ({ profileId, status: 'closed' }),
+      listAuditEvents: () => [],
+      localProxyStatus: () => [],
+      pullWorkspace: async () => ({ profiles: 3, credentials: 2, auditEvents: 5 })
+    });
+    servers.push(server);
+    await server.start();
+
+    const pull = await jsonRequest<{ data: { profiles: number; credentials: number; auditEvents: number } }>(
+      `${server.status().baseUrl}/v1/sync/pull`,
+      {
+        method: 'POST',
+        headers: { authorization: 'Bearer local-api-token' }
+      }
+    );
+    const create = await jsonRequest<{ error: { message: string } }>(`${server.status().baseUrl}/v1/profiles`, {
+      method: 'POST',
+      headers: { authorization: 'Bearer local-api-token' }
+    });
+
+    expect(pull.status).toBe(200);
+    expect(pull.body.data).toEqual({ profiles: 3, credentials: 2, auditEvents: 5 });
+    expect(create.status).toBe(404);
   });
 });

@@ -10,6 +10,7 @@ export const FINGERBROWSER_MCP_TOOL_NAMES = [
   'fingerbrowser_get_profile',
   'fingerbrowser_launch_profile',
   'fingerbrowser_stop_profile',
+  'fingerbrowser_pull_workspace',
   'fingerbrowser_local_proxy_status',
   'fingerbrowser_list_audit'
 ] as const;
@@ -32,6 +33,7 @@ export interface FingerBrowserMcpLocalApiClient {
   getProfile(profileId: string): Promise<unknown>;
   launchProfile(profileId: string): Promise<unknown>;
   stopProfile(profileId: string): Promise<unknown>;
+  pullWorkspace(): Promise<unknown>;
   localProxyStatus(profileId?: string): Promise<unknown>;
   listAudit(profileId?: string): Promise<unknown>;
 }
@@ -128,6 +130,10 @@ export function createFingerBrowserMcpLocalApiClient(
       request(`/v1/profiles/${encodeURIComponent(profileId)}/stop`, {
         method: 'POST'
       }),
+    pullWorkspace: () =>
+      request('/v1/sync/pull', {
+        method: 'POST'
+      }),
     localProxyStatus: (profileId) => request(withOptionalProfileId('/v1/proxy/local-status', profileId)),
     listAudit: (profileId) => request(withOptionalProfileId('/v1/audit', profileId))
   };
@@ -200,6 +206,22 @@ export function registerFingerBrowserMcpTools(
       }
     },
     async ({ profileId }) => runTool(() => client.stopProfile(String(profileId)))
+  );
+
+  server.registerTool(
+    'fingerbrowser_pull_workspace',
+    {
+      title: 'Pull FingerBrowser workspace',
+      description: 'Pull the current authenticated cloud workspace into the local cache.',
+      annotations: {
+        title: 'Pull FingerBrowser workspace',
+        readOnlyHint: false,
+        destructiveHint: false,
+        idempotentHint: false,
+        openWorldHint: false
+      }
+    },
+    async () => runTool(() => client.pullWorkspace())
   );
 
   server.registerTool(

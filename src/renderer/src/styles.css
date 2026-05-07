@@ -1192,6 +1192,13 @@ p {
   background: transparent;
 }
 
+.inline-hint {
+  margin: -2px 0 0;
+  color: #60736f;
+  font-size: 12px;
+  font-weight: 650;
+}
+
 .profile-health-card {
   display: grid;
   gap: 8px;

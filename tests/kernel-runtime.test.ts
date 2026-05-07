@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { chmodSync, mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import path from 'node:path';
 import { afterEach, describe, expect, it } from 'vitest';
@@ -99,10 +100,31 @@ describe('kernel runtime domain', () => {
       policySchemaVersion: KERNEL_POLICY_SCHEMA_VERSION
     };
 
-    expect(validateKernelRuntimeManifest(manifest)).toEqual(manifest);
+    expect(validateKernelRuntimeManifest(manifest, { platform: 'darwin', arch: 'arm64' })).toEqual(manifest);
     expect(verifyKernelArtifact(manifest, artifactPath)).toEqual({ sha256, verified: true });
-    expect(() => validateKernelRuntimeManifest({ ...manifest, platform: 'linux' })).toThrow('仅支持 macOS arm64 自研内核');
+    expect(() =>
+      validateKernelRuntimeManifest({ ...manifest, platform: 'linux', arch: 'x64' }, { platform: 'darwin', arch: 'arm64' })
+    ).toThrow('自研内核 manifest 平台不匹配');
     expect(() => verifyKernelArtifact({ ...manifest, sha256: 'bad' }, artifactPath)).toThrow('自研内核校验失败');
+  });
+
+  it('accepts Linux x64 manifests for the Linux runtime target', () => {
+    const manifest: KernelRuntimeManifest = {
+      version: '0.2.0',
+      baseChromiumRevision: 'chromium-linux-revision',
+      patchsetVersion: '2026.05.07.1',
+      platform: 'linux',
+      arch: 'x64',
+      artifactUrl: 'file:///opt/fingerbrowser/fingerbrowser-kernel-v0.2.0-linux-x64.tar.gz',
+      sha256: '4444444444444444444444444444444444444444444444444444444444444444',
+      executableRelativePath: 'fingerbrowser-kernel/chrome',
+      policySchemaVersion: KERNEL_POLICY_SCHEMA_VERSION
+    };
+
+    expect(validateKernelRuntimeManifest(manifest, { platform: 'linux', arch: 'x64' })).toEqual(manifest);
+    expect(() => validateKernelRuntimeManifest(manifest, { platform: 'darwin', arch: 'arm64' })).toThrow(
+      '需要 darwin/arm64，收到 linux/x64'
+    );
   });
 
   it('adds kernel policy launch args only for the custom runtime channel', () => {
@@ -158,8 +180,41 @@ describe('kernel runtime domain', () => {
     };
     writeFileSync(manifestPath, JSON.stringify(manifest));
 
-    expect(loadKernelRuntimeManifestFile(manifestPath)).toEqual(manifest);
+    expect(loadKernelRuntimeManifestFile(manifestPath, { platform: 'darwin', arch: 'arm64' })).toEqual(manifest);
     expect(() => loadKernelRuntimeManifestFile(path.join(dir, 'missing.json'))).toThrow('自研内核 manifest 不存在');
+  });
+
+  it('installs a Linux tar.gz kernel runtime after checksum and executable validation', async () => {
+    const dir = createTempDir();
+    const payloadRoot = path.join(dir, 'payload');
+    const artifactPath = path.join(dir, 'fingerbrowser-kernel-v0.2.0-linux-x64.tar.gz');
+    const chromePath = path.join(payloadRoot, 'fingerbrowser-kernel', 'chrome');
+    mkdirSync(path.dirname(chromePath), { recursive: true });
+    writeFileSync(chromePath, '#!/bin/sh\nexit 0\n');
+    chmodSync(chromePath, 0o755);
+    execFileSync('tar', ['-czf', artifactPath, '-C', payloadRoot, 'fingerbrowser-kernel']);
+    const sha256 = createHash('sha256').update(readFileSync(artifactPath)).digest('hex');
+    const manifest: KernelRuntimeManifest = {
+      version: '0.2.0',
+      baseChromiumRevision: 'chromium-linux-revision',
+      patchsetVersion: '2026.05.07.1',
+      platform: 'linux',
+      arch: 'x64',
+      artifactUrl: `file://${artifactPath}`,
+      sha256,
+      executableRelativePath: 'fingerbrowser-kernel/chrome',
+      policySchemaVersion: KERNEL_POLICY_SCHEMA_VERSION
+    };
+
+    const manager = createKernelRuntimeManager({
+      dataDir: dir,
+      manifest,
+      target: { platform: 'linux', arch: 'x64' }
+    });
+    const installed = await manager.ensureInstalled();
+
+    expect(installed.installed).toBe(true);
+    expect(installed.executablePath).toBe(path.join(dir, 'kernel-runtime', '0.2.0', 'fingerbrowser-kernel/chrome'));
   });
 
   it('persists an imported custom kernel manifest and reloads it after service restart', () => {

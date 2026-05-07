@@ -561,6 +561,14 @@ export function App(): JSX.Element {
   const [activeNavKey, setActiveNavKey] = useState<SideNavKey>('profiles');
   const [notice, setNotice] = useState('准备就绪');
   const [busy, setBusy] = useState(false);
+  const linuxRuntimeOnly = appVersion?.platform === 'linux';
+  const platformEmptyDraft = useMemo<DraftState>(
+    () => ({
+      ...emptyDraft,
+      runtimeChannel: linuxRuntimeOnly ? 'custom-kernel' : 'official'
+    }),
+    [linuxRuntimeOnly]
+  );
 
   const selectedProfile = useMemo(
     () => profiles.find((profile) => profile.id === selectedId) ?? null,
@@ -908,14 +916,32 @@ export function App(): JSX.Element {
         setNotice(error instanceof Error ? error.message : '加载本地代理状态失败')
       );
     } else {
-      setDraft(emptyDraft);
+      setDraft(platformEmptyDraft);
       setCredentials([]);
       void loadAudits();
     }
     setCredentialDraft(emptyCredentialDraft);
     setCredentialQuery('');
     setRevealedCredential(null);
-  }, [authStatus?.authenticated, credentialsEnabled, loadAudits, loadCredentials, loadProxyRuntimeStatus, selectedProfile]);
+  }, [
+    authStatus?.authenticated,
+    credentialsEnabled,
+    loadAudits,
+    loadCredentials,
+    loadProxyRuntimeStatus,
+    platformEmptyDraft,
+    selectedProfile
+  ]);
+
+  useEffect(() => {
+    if (!linuxRuntimeOnly) {
+      return;
+    }
+    if (profileRuntimeFilter === 'official') {
+      setProfileRuntimeFilter('all');
+    }
+    setDraft((current) => (current.id ? current : { ...current, runtimeChannel: 'custom-kernel' }));
+  }, [linuxRuntimeOnly, profileRuntimeFilter]);
 
   useEffect(() => {
     if (!authStatus?.authenticated) {
@@ -980,7 +1006,7 @@ export function App(): JSX.Element {
     setProfileArchiveFilter('active');
     setProfileBatchDraft(emptyProfileBatchDraft);
     setSelectedId(null);
-    setDraft(emptyDraft);
+    setDraft(platformEmptyDraft);
     setAudits([]);
     setCredentials([]);
     setCredentialDraft(emptyCredentialDraft);
@@ -1613,7 +1639,7 @@ export function App(): JSX.Element {
     }
     setSelectedId(null);
     setDraft({
-      ...emptyDraft,
+      ...platformEmptyDraft,
       name: `运营环境 ${profiles.length + 1}`
     });
     setActiveTab('config');
@@ -2786,7 +2812,7 @@ export function App(): JSX.Element {
                 onChange={(event) => setProfileRuntimeFilter(event.target.value as WorkbenchRuntimeFilter)}
               >
                 <option value="all">全部内核</option>
-                <option value="official">官方稳定版</option>
+                {linuxRuntimeOnly ? null : <option value="official">官方稳定版</option>}
                 <option value="custom-kernel">自研内核</option>
               </select>
             </label>
@@ -4206,10 +4232,16 @@ export function App(): JSX.Element {
                   value={draft.runtimeChannel}
                   onChange={(event) => setDraft({ ...draft, runtimeChannel: event.target.value as RuntimeChannel })}
                 >
-                  <option value="official">官方稳定版</option>
+                  {linuxRuntimeOnly && draft.runtimeChannel === 'official' ? (
+                    <option value="official" disabled>
+                      官方稳定版（Linux 不支持）
+                    </option>
+                  ) : null}
+                  {linuxRuntimeOnly ? null : <option value="official">官方稳定版</option>}
                   <option value="custom-kernel">自研内核</option>
                 </select>
               </label>
+              {linuxRuntimeOnly ? <p className="inline-hint">Linux 服务器版仅支持自研内核。</p> : null}
               <div className="kernel-status-card">
                 <span>当前选择：{runtimeChannelText[draft.runtimeChannel]}</span>
                 <span>自研内核：{kernelStatus?.installed ? '已安装' : '未安装'}</span>

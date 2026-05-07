@@ -62,6 +62,7 @@ The MCP server exposes:
 - `fingerbrowser_get_profile`
 - `fingerbrowser_launch_profile`
 - `fingerbrowser_stop_profile`
+- `fingerbrowser_pull_workspace`
 - `fingerbrowser_local_proxy_status`
 - `fingerbrowser_list_audit`
 

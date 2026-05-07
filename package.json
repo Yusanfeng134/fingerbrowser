@@ -23,8 +23,10 @@
     "test": "npm run rebuild:node && vitest run",
     "e2e": "npm run build && npm run rebuild:electron && playwright test",
     "package:mac": "npm run build && npm run rebuild:electron && ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/ electron-builder --mac --dir",
+    "package:linux": "npm run build && npm run rebuild:electron && ELECTRON_MIRROR=https://npmmirror.com/mirrors/electron/ electron-builder --linux AppImage tar.gz --x64 --config.directories.output=release/linux-x64",
     "license:issue": "node scripts/issue-license.mjs",
     "release:trial": "node scripts/prepare-trial-release.mjs",
+    "release:linux:trial": "node scripts/prepare-linux-trial-release.mjs",
     "release:trial:publish": "node scripts/prepare-trial-release.mjs --publish",
     "admin:reset": "node scripts/reset-admin.mjs"
   },
@@ -75,6 +77,24 @@
         "dir"
       ],
       "identity": null
+    },
+    "linux": {
+      "category": "Utility",
+      "target": [
+        {
+          "target": "AppImage",
+          "arch": [
+            "x64"
+          ]
+        },
+        {
+          "target": "tar.gz",
+          "arch": [
+            "x64"
+          ]
+        }
+      ],
+      "artifactName": "fingerbrowser-v${version}-linux-${arch}.${ext}"
     }
   }
 }

@@ -6,11 +6,13 @@ Local API is a localhost-only integration surface for compliant desktop workflow
 
 - Bind address: `127.0.0.1`
 - Default port: `17345`
+- Override bind address with `FINGERBROWSER_LOCAL_API_HOST`.
 - E2E mode uses a dynamic port.
 - Override port with `FINGERBROWSER_LOCAL_API_PORT`.
 - Override token with `FINGERBROWSER_LOCAL_API_TOKEN`.
 - When no token is provided, the app creates `local-api.key` under the app data directory.
 - In development or tests, `FINGERBROWSER_DATA_DIR` controls that data directory.
+- If `FINGERBROWSER_LOCAL_API_HOST` is set to a non-loopback address such as `0.0.0.0`, `FINGERBROWSER_LOCAL_API_TOKEN` is required. Token-file fallback is intentionally not enough for external binding.
 
 The API requires:
 
@@ -38,6 +40,7 @@ GET /v1/profiles
 GET /v1/profiles/:profileId
 POST /v1/profiles/:profileId/launch
 POST /v1/profiles/:profileId/stop
+POST /v1/sync/pull
 GET /v1/proxy/local-status?profileId=:profileId
 GET /v1/audit?profileId=:profileId
 ```
@@ -64,4 +67,8 @@ curl -X POST \
 curl -X POST \
   -H "Authorization: Bearer $TOKEN" \
   http://127.0.0.1:17345/v1/profiles/<profileId>/stop
+
+curl -X POST \
+  -H "Authorization: Bearer $TOKEN" \
+  http://127.0.0.1:17345/v1/sync/pull
 ```
