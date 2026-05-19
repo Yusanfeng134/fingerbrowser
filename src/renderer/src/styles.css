@@ -101,18 +101,18 @@ button:disabled {
 
 .app-shell {
   display: grid;
-  grid-template-columns: 220px minmax(560px, 1fr) 408px;
+  grid-template-columns: 220px minmax(560px, 1fr) 392px;
   min-height: 100vh;
-  background: #f6f8f5;
+  background: #f7f9f7;
 }
 
 .sidebar {
   display: flex;
   flex-direction: column;
-  gap: 30px;
-  padding: 24px 18px;
+  gap: 22px;
+  padding: 22px 18px;
   border-right: 1px solid #d9e0d8;
-  background: #e8f0ea;
+  background: #edf4ef;
 }
 
 .brand-lockup {
@@ -176,11 +176,11 @@ p {
 
 .user-session-card {
   display: grid;
-  gap: 10px;
-  padding: 12px;
-  border: 1px solid rgba(31, 122, 107, 0.18);
+  gap: 8px;
+  padding: 11px;
+  border: 1px solid rgba(31, 122, 107, 0.14);
   border-radius: 8px;
-  background: rgba(255, 255, 255, 0.46);
+  background: rgba(255, 255, 255, 0.52);
 }
 
 .user-session-card div {
@@ -209,7 +209,7 @@ p {
 
 .sync-actions {
   display: grid;
-  gap: 8px;
+  gap: 6px;
 }
 
 .sync-actions .secondary-button {
@@ -234,12 +234,12 @@ p {
 .profile-list,
 .details-drawer {
   min-width: 0;
-  padding: 22px 24px;
+  padding: 20px 22px;
 }
 
 .profile-list {
   border-right: 1px solid #d9e0d8;
-  background: #fbfcfa;
+  background: #fcfdfc;
 }
 
 .desktop-workspace {
@@ -255,22 +255,55 @@ p {
   align-items: flex-start;
   justify-content: space-between;
   gap: 16px;
-  padding-bottom: 16px;
+  padding-bottom: 14px;
   border-bottom: 1px solid #e1e6df;
 }
 
 .drawer-header {
   display: grid;
-  gap: 14px;
-  padding-bottom: 14px;
+  gap: 12px;
+  padding-bottom: 12px;
   border-bottom: 1px solid #dfe6de;
 }
 
 .topbar h2,
 .drawer-header h2 {
   margin-top: 2px;
-  font-size: 24px;
+  font-size: 23px;
   line-height: 1.2;
+}
+
+.drawer-title-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: start;
+}
+
+.drawer-health-badge {
+  display: inline-flex;
+  align-items: center;
+  min-height: 26px;
+  border-radius: 999px;
+  padding: 0 9px;
+  font-size: 12px;
+  font-weight: 780;
+  white-space: nowrap;
+}
+
+.drawer-health-badge.good {
+  color: #176757;
+  background: rgba(31, 122, 107, 0.1);
+}
+
+.drawer-health-badge.warn {
+  color: #875514;
+  background: #fff0d3;
+}
+
+.drawer-health-badge.muted {
+  color: #6a7068;
+  background: #ece8df;
 }
 
 .primary-button,
@@ -321,11 +354,12 @@ p {
 
 .license-banner {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) 160px auto;
+  grid-template-columns: minmax(0, 1fr) 180px auto;
   align-items: center;
   gap: 12px;
-  margin: 14px 0 12px;
-  padding: 10px 12px;
+  min-height: 48px;
+  margin: 12px 0 10px;
+  padding: 8px 12px;
   border: 1px solid #dde5dc;
   border-left: 3px solid #1f7a6b;
   border-radius: 8px;
@@ -421,9 +455,9 @@ p {
 
 .profile-ops-summary {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) minmax(230px, 0.42fr);
-  gap: 8px;
-  margin: 0 0 12px;
+  grid-template-columns: minmax(0, 1fr) minmax(210px, 0.32fr);
+  gap: 6px;
+  margin: 0 0 10px;
   padding: 0;
   border: 0;
   background: transparent;
@@ -464,8 +498,8 @@ p {
 }
 
 .profile-ops-summary .profile-health-summary {
-  min-height: 42px;
-  padding: 0 10px;
+  min-height: 38px;
+  padding: 0 9px;
   border: 0;
   border-left: 1px solid #e4e8e2;
   border-radius: 0;
@@ -485,7 +519,7 @@ p {
 }
 
 .profile-ops-summary .profile-health-summary strong {
-  font-size: 14px;
+  font-size: 13px;
 }
 
 .profile-health-summary small {
@@ -545,7 +579,8 @@ p {
 .profile-ops-summary .profile-issue-strip {
   grid-column: 1 / -1;
   margin: 0;
-  padding: 0 2px;
+  min-height: 30px;
+  padding: 0;
   border: 0;
   background: transparent;
 }
@@ -560,7 +595,7 @@ p {
   display: inline-flex;
   align-items: center;
   gap: 6px;
-  min-height: 27px;
+  min-height: 25px;
   border: 0;
   border-radius: 999px;
   padding: 0 9px;
@@ -602,9 +637,9 @@ p {
 }
 
 .profile-ops-summary .profile-delivery-guidance {
-  min-height: 42px;
+  min-height: 38px;
   margin: 0;
-  padding: 8px 10px;
+  padding: 7px 10px;
   align-self: stretch;
   border-radius: 8px;
 }
@@ -696,12 +731,12 @@ p {
 
 .profile-command-panel {
   display: grid;
-  gap: 8px;
-  margin: 0 0 12px;
-  padding: 10px;
+  gap: 7px;
+  margin: 0 0 10px;
+  padding: 8px 10px 7px;
   border: 1px solid #d9e0d8;
   border-radius: 8px;
-  background: #ffffff;
+  background: rgba(255, 255, 255, 0.74);
 }
 
 .profile-command-panel .search-row {
@@ -718,7 +753,7 @@ p {
 .profile-filter-bar {
   display: grid;
   grid-template-columns: repeat(7, minmax(0, 1fr));
-  gap: 6px;
+  gap: 5px;
   margin: 0;
 }
 
@@ -737,7 +772,7 @@ p {
 .batch-grid input,
 .batch-grid select {
   width: 100%;
-  height: 30px;
+  height: 29px;
   border: 1px solid #d5ddd5;
   border-radius: 8px;
   padding: 0 9px;
@@ -759,7 +794,7 @@ p {
   align-items: center;
   justify-content: space-between;
   gap: 12px;
-  min-height: 34px;
+  min-height: 30px;
   padding: 0 2px;
   color: #59645d;
   cursor: pointer;
@@ -905,9 +940,10 @@ p {
 
 .profile-table-shell {
   overflow: hidden;
-  border: 1px solid #d9e0d8;
+  border: 1px solid #d6dfd6;
   border-radius: 8px;
   background: #ffffff;
+  box-shadow: 0 8px 22px rgba(41, 49, 44, 0.04);
 }
 
 .table-header {
@@ -918,11 +954,11 @@ p {
 }
 
 .table-header {
-  min-height: 38px;
+  min-height: 34px;
   padding: 0 14px;
   border-bottom: 1px solid #e3e8e1;
   color: #85887f;
-  background: #f0f4ef;
+  background: #f4f7f3;
   font-size: 11px;
   font-weight: 760;
 }
@@ -989,8 +1025,8 @@ p {
   gap: 12px;
   align-items: center;
   width: 100%;
-  min-height: 58px;
-  padding: 10px 14px;
+  min-height: 56px;
+  padding: 9px 14px;
   border: 0;
   border-bottom: 1px solid #edf0ec;
   border-left: 3px solid transparent;
@@ -1005,7 +1041,7 @@ p {
 }
 
 .profile-row:hover {
-  background: #f8fbf8;
+  background: #f7faf7;
 }
 
 .profile-row-content {
@@ -1021,6 +1057,12 @@ p {
   text-align: left;
 }
 
+.profile-row-content:focus-visible {
+  outline: 2px solid rgba(31, 122, 107, 0.42);
+  outline-offset: 4px;
+  border-radius: 6px;
+}
+
 .profile-check-cell {
   display: grid;
   place-items: center;
@@ -1033,7 +1075,7 @@ p {
 
 .profile-row.selected {
   border-left-color: #1f7a6b;
-  background: #f1faf7;
+  background: #f0faf6;
   box-shadow: none;
 }
 
@@ -1061,8 +1103,8 @@ p {
   justify-content: center;
   gap: 6px;
   width: fit-content;
-  min-width: 72px;
-  height: 26px;
+  min-width: 68px;
+  height: 24px;
   border-radius: 999px;
   padding: 0 9px;
   font-size: 12px;
@@ -1089,8 +1131,8 @@ p {
   align-items: center;
   justify-content: center;
   width: fit-content;
-  min-width: 72px;
-  height: 26px;
+  min-width: 68px;
+  height: 24px;
   border-radius: 999px;
   padding: 0 9px;
   font-size: 12px;
@@ -1116,18 +1158,19 @@ p {
   display: flex;
   flex-direction: column;
   max-height: 100vh;
-  padding: 20px;
-  background: #f6f8f5;
+  padding: 18px;
+  background: #f7f9f7;
 }
 
 .drawer-actions {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 8px;
+  display: grid;
+  grid-template-columns: repeat(5, 1fr);
+  gap: 7px;
 }
 
 .drawer-actions .icon-button {
-  flex: 0 0 36px;
+  width: 100%;
+  min-width: 0;
 }
 
 .drawer-actions .secondary-button {
@@ -1136,22 +1179,23 @@ p {
 }
 
 .drawer-actions .primary-button {
-  flex: 1 0 100%;
-  min-height: 46px;
+  grid-column: 1 / -1;
+  grid-row: 1;
+  min-height: 44px;
 }
 
 .tabs {
   display: flex;
-  gap: 6px;
-  margin: 16px 0 14px;
-  padding: 4px;
+  gap: 4px;
+  margin: 14px 0 12px;
+  padding: 3px;
   border-radius: 8px;
   background: #e1e8e0;
 }
 
 .tabs button {
   flex: 1;
-  height: 32px;
+  height: 30px;
   border: 0;
   border-radius: 7px;
   color: #626962;
@@ -1170,7 +1214,7 @@ p {
 .credential-panel,
 .trial-panel {
   display: grid;
-  gap: 10px;
+  gap: 8px;
   overflow: auto;
   padding-right: 4px;
 }
@@ -1185,7 +1229,7 @@ p {
 }
 
 .details-drawer .form-section {
-  padding: 14px 0;
+  padding: 12px 0;
   border: 0;
   border-top: 1px solid #dfe6de;
   border-radius: 0;
@@ -1201,24 +1245,26 @@ p {
 
 .profile-health-card {
   display: grid;
-  gap: 8px;
-  padding: 12px;
-  border: 1px solid #d9e0d8;
+  gap: 7px;
+  padding: 10px 0;
+  border: 0;
+  border-top: 1px solid #dfe6de;
+  border-bottom: 1px solid #dfe6de;
   border-radius: 8px;
-  background: #ffffff;
+  background: transparent;
 }
 
 .profile-health-card.ready {
-  border-color: rgba(31, 122, 107, 0.28);
+  border-color: rgba(31, 122, 107, 0.2);
 }
 
 .profile-health-card.attention {
-  border-color: rgba(200, 132, 37, 0.34);
-  background: #fffaf1;
+  border-color: rgba(200, 132, 37, 0.28);
+  background: transparent;
 }
 
 .profile-health-card.archived {
-  background: #f1eee8;
+  background: transparent;
 }
 
 .profile-health-card-header {
@@ -1238,8 +1284,8 @@ p {
 .profile-health-card-header > span {
   display: grid;
   place-items: center;
-  width: 44px;
-  height: 34px;
+  width: 42px;
+  height: 30px;
   border-radius: 8px;
   color: #173f37;
   background: rgba(31, 122, 107, 0.1);
@@ -1269,10 +1315,10 @@ p {
   display: inline-flex;
   align-items: center;
   gap: 5px;
-  min-height: 27px;
-  border-radius: 8px;
-  padding: 0 9px;
-  font-size: 12px;
+  min-height: 24px;
+  border-radius: 7px;
+  padding: 0 8px;
+  font-size: 11px;
   font-weight: 700;
 }
 

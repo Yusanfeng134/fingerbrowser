@@ -3921,45 +3921,78 @@ export function App(): JSX.Element {
         ) : (
           <>
         <div className="drawer-header">
-          <div>
-            <p className="section-kicker">详情抽屉</p>
-            <h2>{draft.id ? draft.name : '新建环境'}</h2>
+          <div className="drawer-title-row">
+            <div>
+              <p className="section-kicker">详情抽屉</p>
+              <h2>{draft.id ? draft.name : '新建环境'}</h2>
+            </div>
+            {selectedProfileHealth ? (
+              <span className={`drawer-health-badge ${profileHealthTone[selectedProfileHealth.status]}`}>
+                {selectedProfileHealth.label}
+              </span>
+            ) : null}
           </div>
           <div className="drawer-actions">
-            <button type="button" className="icon-button" onClick={handleEnsureChromium} title="检查 Chromium">
+            <button
+              type="button"
+              className="icon-button"
+              onClick={handleEnsureChromium}
+              aria-label="刷新环境状态"
+              title="刷新环境状态"
+            >
               <RefreshCw size={16} />
             </button>
             <button
               type="button"
-              className="secondary-button"
+              className="icon-button"
               onClick={() => handleCreateDesktopShortcut()}
               disabled={!selectedProfile || busy || (selectedProfile ? desktopProfileIds.has(selectedProfile.id) : false)}
+              aria-label="添加到桌面"
+              title="添加到桌面"
             >
               <Grid2X2 size={16} />
-              添加到桌面
             </button>
-            <button type="button" className="secondary-button" onClick={handleDuplicateProfile} disabled={!selectedProfile || busy}>
+            <button
+              type="button"
+              className="icon-button"
+              onClick={handleDuplicateProfile}
+              disabled={!selectedProfile || busy}
+              aria-label="复制环境"
+              title="复制环境"
+            >
               <Clipboard size={16} />
-              复制环境
             </button>
-            <button type="button" className="secondary-button" onClick={handleStop} disabled={!selectedProfile || busy}>
+            <button
+              type="button"
+              className="icon-button"
+              onClick={handleStop}
+              disabled={!selectedProfile || busy}
+              aria-label="关闭环境"
+              title="关闭环境"
+            >
               <Power size={16} />
-              关闭环境
             </button>
             {selectedProfile?.archivedAt ? (
-              <button type="button" className="secondary-button" onClick={handleRestoreProfile} disabled={!selectedProfile || busy}>
+              <button
+                type="button"
+                className="icon-button"
+                onClick={handleRestoreProfile}
+                disabled={!selectedProfile || busy}
+                aria-label="恢复环境"
+                title="恢复环境"
+              >
                 <RotateCcw size={16} />
-                恢复环境
               </button>
             ) : (
               <button
                 type="button"
-                className="secondary-button"
+                className="icon-button"
                 onClick={handleArchiveProfile}
                 disabled={!selectedProfile || busy || selectedProfile.status === 'running'}
+                aria-label="归档环境"
+                title="归档环境"
               >
                 <PackageCheck size={16} />
-                归档环境
               </button>
             )}
             <button type="button" className="primary-button" onClick={handleLaunch} disabled={!selectedProfile || busy || Boolean(selectedProfile?.archivedAt)}>
