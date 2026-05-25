@@ -1,6 +1,7 @@
 import {
   Activity,
   BadgeCheck,
+  BarChart3,
   CheckCircle2,
   Circle,
   Clipboard,
@@ -139,9 +140,9 @@ interface CredentialDraftState {
 }
 
 type ActiveTab = 'config' | 'credentials' | 'audit' | 'users' | 'license' | 'trial';
-type WorkspaceView = 'profiles' | 'vault' | 'desktop' | 'proxies';
+type WorkspaceView = 'overview' | 'profiles' | 'vault' | 'desktop' | 'proxies';
 type VaultEditorMode = 'view' | 'edit' | 'new';
-type SideNavKey = 'profiles' | 'vault' | 'desktop' | 'proxies';
+type SideNavKey = 'overview' | 'profiles' | 'vault' | 'desktop' | 'proxies';
 type PasswordGeneratorTarget = 'vault' | 'profile' | null;
 type DesktopDragPayload =
   | { type: 'shortcut'; id: string; folderId: string | null }
@@ -557,8 +558,8 @@ export function App(): JSX.Element {
   const [activationCode, setActivationCode] = useState('');
   const [query, setQuery] = useState('');
   const [activeTab, setActiveTab] = useState<ActiveTab>('config');
-  const [workspaceView, setWorkspaceView] = useState<WorkspaceView>('profiles');
-  const [activeNavKey, setActiveNavKey] = useState<SideNavKey>('profiles');
+  const [workspaceView, setWorkspaceView] = useState<WorkspaceView>('overview');
+  const [activeNavKey, setActiveNavKey] = useState<SideNavKey>('overview');
   const [notice, setNotice] = useState('准备就绪');
   const [busy, setBusy] = useState(false);
   const linuxRuntimeOnly = appVersion?.platform === 'linux';
@@ -611,6 +612,23 @@ export function App(): JSX.Element {
   const profileHealthIssueStats = useMemo(() => getProfileHealthIssueStats(profiles), [profiles]);
 
   const profileDeliveryGuidance = useMemo(() => getProfileDeliveryGuidance(profiles), [profiles]);
+
+  const runningProfileCount = useMemo(
+    () => profiles.filter((profile) => profile.status === 'running').length,
+    [profiles]
+  );
+
+  const failedProxyPoolCount = useMemo(
+    () => proxyPoolEntries.filter((entry) => entry.lastTestStatus === 'failed').length,
+    [proxyPoolEntries]
+  );
+
+  const untestedProxyPoolCount = useMemo(
+    () => proxyPoolEntries.filter((entry) => entry.lastTestStatus === 'untested').length,
+    [proxyPoolEntries]
+  );
+
+  const recentAuditItems = useMemo(() => audits.slice(0, 5), [audits]);
 
   const selectedProfileHealth = useMemo(
     () => (selectedProfile ? (profileHealthById.get(selectedProfile.id) ?? getProfileHealth(selectedProfile)) : null),
@@ -908,7 +926,7 @@ export function App(): JSX.Element {
     }
     if (selectedProfile) {
       setDraft(profileToDraft(selectedProfile));
-      void loadAudits(selectedProfile.id);
+      void loadAudits(workspaceView === 'overview' || workspaceView === 'vault' ? undefined : selectedProfile.id);
       void loadCredentials(selectedProfile.id, credentialsEnabled).catch((error) =>
         setNotice(error instanceof Error ? error.message : '加载密码库失败')
       );
@@ -930,7 +948,8 @@ export function App(): JSX.Element {
     loadCredentials,
     loadProxyRuntimeStatus,
     platformEmptyDraft,
-    selectedProfile
+    selectedProfile,
+    workspaceView
   ]);
 
   useEffect(() => {
@@ -1028,8 +1047,8 @@ export function App(): JSX.Element {
     setLicense(null);
     setUsage(null);
     setMetrics(null);
-    setWorkspaceView('profiles');
-    setActiveNavKey('profiles');
+    setWorkspaceView('overview');
+    setActiveNavKey('overview');
     setActiveTab('config');
   };
 
@@ -1107,6 +1126,12 @@ export function App(): JSX.Element {
       await loadAudits();
       return `${updated.displayName} 已${userStatusText[updated.status]}`;
     });
+  };
+
+  const handleOpenOverview = (): void => {
+    setWorkspaceView('overview');
+    setActiveNavKey('overview');
+    void loadAudits().catch((error) => setNotice(error instanceof Error ? error.message : '加载审计失败'));
   };
 
   const handleOpenProfiles = (navKey: SideNavKey = 'profiles'): void => {
@@ -2507,6 +2532,17 @@ export function App(): JSX.Element {
         </div>
         <nav className="side-nav" aria-label="主导航">
           <a
+            className={activeNavKey === 'overview' ? 'active' : ''}
+            href="#overview"
+            onClick={(event) => {
+              event.preventDefault();
+              handleOpenOverview();
+            }}
+          >
+            <BarChart3 size={17} />
+            总览
+          </a>
+          <a
             className={activeNavKey === 'profiles' ? 'active' : ''}
             href="#profiles"
             onClick={(event) => {
@@ -2594,7 +2630,169 @@ export function App(): JSX.Element {
         </div>
       </aside>
 
-      {workspaceView === 'profiles' ? (
+      {workspaceView === 'overview' ? (
+        <section className="profile-list overview-workspace" id="overview">
+          <header className="topbar">
+            <div>
+              <p className="section-kicker">团队工作台</p>
+              <h2>运营总览</h2>
+            </div>
+            <button className="primary-button" type="button" onClick={handleNewProfile}>
+              <FolderPlus size={17} />
+              新建环境
+            </button>
+          </header>
+
+          <section className="overview-hero" aria-label="团队运营状态">
+            <div className="overview-hero-copy">
+              <span className={`overview-status-dot ${profileDeliveryGuidance.tone}`} />
+              <div>
+                <p className="section-kicker">当前交付状态</p>
+                <h3>{profileDeliveryGuidance.conclusion}</h3>
+                <span>{profileDeliveryGuidance.nextStep}</span>
+              </div>
+            </div>
+            <div className="overview-hero-actions">
+              {syncStatus?.hasLocalDataToMigrate ? (
+                <button className="secondary-button" type="button" onClick={handleMigrateLocalData} disabled={busy}>
+                  <Upload size={16} />
+                  迁移本机数据
+                </button>
+              ) : null}
+              <button className="secondary-button" type="button" onClick={handlePullWorkspace} disabled={busy}>
+                <Download size={16} />
+                拉取云端
+              </button>
+              <button
+                className="secondary-button"
+                type="button"
+                onClick={handlePushPendingChanges}
+                disabled={busy || !syncStatus || syncStatus.pendingLocalRecords === 0}
+              >
+                <Upload size={16} />
+                推送变更
+              </button>
+            </div>
+          </section>
+
+          <section className="overview-kpi-grid" aria-label="运营关键指标">
+            <article className="overview-kpi">
+              <span>环境就绪率</span>
+              <strong>{profileHealthReadiness.label}</strong>
+              <small>
+                已就绪 {profileHealthReadiness.ready}/{profileHealthReadiness.activeTotal} · 运行中 {runningProfileCount}
+              </small>
+            </article>
+            <article className={`overview-kpi ${profileHealthStats.attention > 0 ? 'warn' : 'good'}`}>
+              <span>待处理环境</span>
+              <strong>{profileHealthStats.attention}</strong>
+              <small>归档 {profileHealthStats.archived} · 总环境 {profiles.length}</small>
+            </article>
+            <article className={`overview-kpi ${failedProxyPoolCount > 0 ? 'bad' : 'good'}`}>
+              <span>代理风险</span>
+              <strong>{failedProxyPoolCount}</strong>
+              <small>未检测 {untestedProxyPoolCount} · 代理资产 {proxyPoolEntries.length}</small>
+            </article>
+            <article className={`overview-kpi ${syncStatus?.pendingLocalRecords ? 'warn' : 'good'}`}>
+              <span>云同步</span>
+              <strong>{syncStatus?.pendingLocalRecords ?? 0}</strong>
+              <small>运行锁 {syncStatus?.runningProfileLocks ?? 0} · {syncStatus?.authenticated ? '已登录' : '未登录'}</small>
+            </article>
+          </section>
+
+          <section className="overview-columns">
+            <section className="overview-panel" aria-label="运营队列">
+              <div className="overview-panel-header">
+                <div>
+                  <p className="section-kicker">待办</p>
+                  <h3>运营队列</h3>
+                </div>
+                <button className="secondary-button compact-button" type="button" onClick={() => handleOpenProfiles('profiles')}>
+                  查看环境
+                </button>
+              </div>
+              <div className="overview-queue">
+                <button
+                  className="overview-queue-item"
+                  type="button"
+                  onClick={() => {
+                    handleOpenProfiles('profiles');
+                    handleProfileHealthFilterChange('attention');
+                  }}
+                >
+                  <span className={profileHealthStats.attention > 0 ? 'warn' : 'good'}>{profileHealthStats.attention}</span>
+                  <div>
+                    <strong>待补全环境</strong>
+                    <small>负责人、备注、代理或启动记录缺失</small>
+                  </div>
+                </button>
+                <button className="overview-queue-item" type="button" onClick={handleOpenProxyPool}>
+                  <span className={failedProxyPoolCount > 0 ? 'bad' : 'good'}>{failedProxyPoolCount}</span>
+                  <div>
+                    <strong>代理检测失败</strong>
+                    <small>进入代理池处理出口连通与时区一致性</small>
+                  </div>
+                </button>
+                <button
+                  className="overview-queue-item"
+                  type="button"
+                  onClick={() => {
+                    handleOpenProfiles('profiles');
+                    setActiveTab('license');
+                  }}
+                >
+                  <span className={license?.status === 'active' || license?.status === 'grace' ? 'good' : 'warn'}>
+                    {license ? licenseStatusText[license.status] : '未激活'}
+                  </span>
+                  <div>
+                    <strong>授权与用量</strong>
+                    <small>
+                      环境 {usage?.profilesUsed ?? 0}/{usage?.profileLimit ?? 0} · 席位 {usage?.seatsUsed ?? 0}/{usage?.seatLimit ?? 0}
+                    </small>
+                  </div>
+                </button>
+              </div>
+            </section>
+
+            <section className="overview-panel" aria-label="最近审计">
+              <div className="overview-panel-header">
+                <div>
+                  <p className="section-kicker">审计</p>
+                  <h3>最近操作</h3>
+                </div>
+                <button
+                  className="secondary-button compact-button"
+                  type="button"
+                  onClick={() => {
+                    handleOpenProfiles('profiles');
+                    setActiveTab('audit');
+                  }}
+                >
+                  查看审计
+                </button>
+              </div>
+              <div className="overview-audit-list">
+                {recentAuditItems.map((event) => (
+                  <article className="overview-audit-row" key={event.id}>
+                    <Clock3 size={15} />
+                    <div>
+                      <strong>{actionLabel[event.action] ?? event.action}</strong>
+                      <small>{event.action}</small>
+                    </div>
+                    <time>{formatDate(event.createdAt)}</time>
+                  </article>
+                ))}
+                {recentAuditItems.length === 0 ? <div className="empty-state">暂无审计日志</div> : null}
+              </div>
+            </section>
+          </section>
+
+          <footer className="notice-bar overview-notice" aria-live="polite">
+            {busy ? <RefreshCw className="spin" size={15} /> : <CheckCircle2 size={15} />}
+            {notice}
+          </footer>
+        </section>
+      ) : workspaceView === 'profiles' ? (
       <section className="profile-list" id="profiles">
         <header className="topbar">
           <div>
@@ -3501,7 +3699,7 @@ export function App(): JSX.Element {
         </section>
       )}
 
-      {workspaceView !== 'desktop' ? (
+      {workspaceView !== 'desktop' && workspaceView !== 'overview' ? (
       <aside className="details-drawer">
         {workspaceView === 'vault' ? (
           <>

@@ -81,6 +81,11 @@ test('中文 UI 完成激活 license、新建环境、代理测试、导出审�
     await expect(page.getByLabel('当前用户')).toContainText('E2E 云工作区');
     await expect(page.getByText('试卖上手清单')).toHaveCount(0);
     await expect(page.getByText('试卖清单')).toHaveCount(0);
+    await expect(page.getByRole('heading', { name: '运营总览' })).toBeVisible();
+
+    const sideNav = page.getByRole('navigation', { name: '主导航' });
+    await expect(sideNav.getByRole('link', { name: '总览' })).toBeVisible();
+    await sideNav.getByRole('link', { name: '环境' }).click();
 
     await page.getByRole('tab', { name: '密码' }).click();
     await expect(page.getByText('密码库需要有效许可证')).toBeVisible();
@@ -166,7 +171,7 @@ test('中文 UI 完成激活 license、新建环境、代理测试、导出审�
     await expect(page.getByLabel('环境列表').getByText('E2E 运营环境')).toBeVisible();
     await page.getByLabel('搜索环境').fill('');
 
-    const sideNav = page.getByRole('navigation', { name: '主导航' });
+    await expect(sideNav.getByRole('link', { name: '总览' })).toBeVisible();
     await expect(sideNav.getByRole('link', { name: '环境' })).toBeVisible();
     await expect(sideNav.getByRole('link', { name: '我的桌面' })).toBeVisible();
     await expect(sideNav.getByRole('link', { name: '代理池' })).toBeVisible();
@@ -215,9 +220,9 @@ test('中文 UI 完成激活 license、新建环境、代理测试、导出审�
 
     await page.evaluate(async (manifestPath) => window.fingerBrowser.kernel.importManifest(manifestPath), importedManifestPath);
     await page.reload();
+    await sideNav.getByRole('link', { name: '环境' }).click();
     await expect(page.getByText('来源：应用内导入')).toBeVisible();
     await expect(page.getByText('版本：e2e-imported-kernel')).toBeVisible();
-    await sideNav.getByRole('link', { name: '环境' }).click();
     await expect(sideNav.getByRole('link', { name: '环境' })).toHaveClass(/active/);
 
     await page.getByRole('link', { name: '密码库' }).click();
