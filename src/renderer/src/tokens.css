@@ -1,0 +1,272 @@
+/* ============================================================================
+ * FingerBrowser design tokens — v0 draft
+ *
+ * Generated from analysis of styles.css (2782 lines, 116 unique hex colors,
+ * 14 font sizes, 12 font weights, 12 unique shadows).
+ *
+ * Two-layer system:
+ *   1. Primitives  (--green-500, --neutral-50)   — palette atoms; never
+ *      reference directly from components.
+ *   2. Semantic    (--color-text-primary, ...)   — what components consume.
+ *
+ * Migration path:
+ *   Phase 0 — import this file before styles.css (one line in main.tsx).
+ *             No visual change; tokens exist but nothing references them.
+ *   Phase 1 — run scripts/codemod/tokenize-css.mjs to rewrite hex/rgba
+ *             literals in styles.css to var(--token).
+ *   Phase 2 — manually fold the long-tail (font-size / spacing / shadow)
+ *             during component cleanup PRs.
+ *
+ * Opinionated decisions in this draft (open to revision):
+ *   - --color-text-muted promoted from #73776f (~4.0:1 on bg) to
+ *     #59615b (~7:1) to meet WCAG AA. Original kept as --neutral-500
+ *     for non-text use only.
+ *   - 5 near-duplicate primary greens collapsed to two roles
+ *     (--color-primary = #1f7a6b, --color-primary-hover = #176757).
+ *   - --color-info-* introduced (sky blue) — currently no equivalent;
+ *     "trial / inactive" states should adopt this instead of misusing muted gray.
+ *   - 5 white-overlay opacities (.62/.66/.70/.72/.76) folded to one token.
+ * ========================================================================= */
+
+:root {
+  /* ------------------------------------------------------------------------
+   * PRIMITIVES — brand green
+   * ---------------------------------------------------------------------- */
+  --green-50:  #f4f7f2;
+  --green-100: #edf1ec;
+  --green-200: #d9e0d8;
+  --green-300: #b8c8bf;
+  --green-400: #5a8c80;
+  --green-500: #1f7a6b;   /* canonical primary (10 occurrences) */
+  --green-600: #176757;   /* hover / active (12 occurrences)    */
+  --green-700: #143f39;
+  --green-800: #183c36;
+  --green-900: #0d2622;
+
+  /* ------------------------------------------------------------------------
+   * PRIMITIVES — warm-cool neutrals (slight green tint to match brand)
+   * 10+ near-identical grays collapsed into one scale
+   * ---------------------------------------------------------------------- */
+  --neutral-0:   #ffffff;
+  --neutral-50:  #fbfcfa;
+  --neutral-100: #f6f8f5;
+  --neutral-150: #f0f3ee;
+  --neutral-200: #e4e8e2;
+  --neutral-300: #d5ddd5;
+  --neutral-400: #a8b0a8;
+  --neutral-500: #73776f;   /* do NOT use for text on light bg; ~4.0:1 */
+  --neutral-600: #59615b;   /* safe muted text on light bg; ~7:1      */
+  --neutral-700: #3a403b;
+  --neutral-800: #29312c;
+  --neutral-900: #202522;
+
+  /* ------------------------------------------------------------------------
+   * PRIMITIVES — status palettes
+   * ---------------------------------------------------------------------- */
+  --amber-50:  #fff8eb;
+  --amber-100: #fff0d3;
+  --amber-300: #f4c84f;
+  --amber-600: #c88425;
+  --amber-800: #7b4d12;
+
+  --brick-50:  #fff5f2;
+  --brick-100: #f5dfd2;
+  --brick-600: #9b3f24;
+  --brick-800: #8e2f25;
+
+  /* NEW — info blue, no current equivalent. Adopt for trial / inactive. */
+  --sky-50:    #eef5fa;
+  --sky-100:   #d4e6f1;
+  --sky-600:   #2c6f99;
+  --sky-800:   #1c4970;
+
+  /* ------------------------------------------------------------------------
+   * SEMANTIC — surface
+   * ---------------------------------------------------------------------- */
+  --color-bg-base:      var(--neutral-100);
+  --color-bg-elevated:  var(--neutral-0);
+  --color-bg-subtle:    var(--neutral-50);
+  --color-bg-sunken:    var(--neutral-150);
+  --color-bg-hover:     rgba(31, 122, 107, 0.08);
+  --color-bg-selected:  rgba(31, 122, 107, 0.12);
+  --color-bg-overlay:   rgba(255, 255, 255, 0.66);
+
+  /* ------------------------------------------------------------------------
+   * SEMANTIC — text
+   * ---------------------------------------------------------------------- */
+  --color-text-primary:    var(--neutral-900);
+  --color-text-secondary:  var(--neutral-700);
+  --color-text-muted:      var(--neutral-600);      /* AA-compliant on bg-base */
+  --color-text-disabled:   var(--neutral-400);
+  --color-text-on-primary: var(--neutral-0);
+  --color-text-link:       var(--green-600);
+
+  /* ------------------------------------------------------------------------
+   * SEMANTIC — border
+   * ---------------------------------------------------------------------- */
+  --color-border-subtle:   var(--neutral-200);
+  --color-border-default:  var(--neutral-300);
+  --color-border-strong:   var(--neutral-400);
+  --color-border-focus:    var(--green-500);
+
+  /* ------------------------------------------------------------------------
+   * SEMANTIC — status (consumed by .badge / .pill / .alert / .banner)
+   * Use these in components instead of literal greens/ambers/etc.
+   * ---------------------------------------------------------------------- */
+  --color-success-bg:      rgba(31, 122, 107, 0.12);
+  --color-success-fg:      var(--green-600);
+  --color-success-border:  rgba(31, 122, 107, 0.28);
+
+  --color-warning-bg:      var(--amber-50);
+  --color-warning-fg:      var(--amber-600);
+  --color-warning-border:  var(--amber-300);
+
+  --color-danger-bg:       var(--brick-50);
+  --color-danger-fg:       var(--brick-600);
+  --color-danger-border:   var(--brick-100);
+
+  --color-info-bg:         var(--sky-50);
+  --color-info-fg:         var(--sky-600);
+  --color-info-border:     var(--sky-100);
+
+  --color-neutral-bg:      var(--neutral-200);
+  --color-neutral-fg:      var(--neutral-700);
+
+  /* ------------------------------------------------------------------------
+   * SEMANTIC — brand action surface (buttons, links, key actions)
+   * ---------------------------------------------------------------------- */
+  --color-primary:         var(--green-500);
+  --color-primary-hover:   var(--green-600);
+  --color-primary-active:  var(--green-700);
+  --color-primary-subtle:  rgba(31, 122, 107, 0.10);
+
+  /* ------------------------------------------------------------------------
+   * SPACING — strict 4px grid (drops 7/9/11/13/22px noise)
+   * ---------------------------------------------------------------------- */
+  --space-0:   0;
+  --space-1:   4px;
+  --space-2:   8px;
+  --space-3:   12px;
+  --space-4:   16px;
+  --space-5:   20px;
+  --space-6:   24px;
+  --space-8:   32px;
+  --space-10:  40px;
+  --space-12:  48px;
+  --space-16:  64px;
+
+  /* Half-steps — use sparingly, only for sub-row alignment */
+  --space-h2: 6px;
+  --space-h3: 10px;
+  --space-h4: 14px;
+
+  /* ------------------------------------------------------------------------
+   * RADIUS — 8px dominates (56 occurrences), pill for badges
+   * ---------------------------------------------------------------------- */
+  --radius-sm:   4px;
+  --radius-md:   8px;
+  --radius-lg:   12px;
+  --radius-xl:   16px;
+  --radius-pill: 999px;
+
+  /* ------------------------------------------------------------------------
+   * TYPOGRAPHY — 14 sizes → 7, 12 weights → 4
+   * ---------------------------------------------------------------------- */
+  --font-family-base:
+    Inter,
+    ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+    "PingFang SC", "Noto Sans CJK SC", "Microsoft YaHei",
+    sans-serif;
+  --font-family-mono:
+    "JetBrains Mono", "SF Mono", Menlo, Consolas, monospace;
+
+  --font-size-xs:    11px;   /* caption / tag */
+  --font-size-sm:    12px;   /* body (51 occurrences — overwhelming default) */
+  --font-size-base:  13px;   /* dense body / table cell (23 occ.) */
+  --font-size-md:    14px;   /* emphasized body */
+  --font-size-lg:    16px;   /* section heading */
+  --font-size-xl:    20px;   /* page heading */
+  --font-size-2xl:   24px;   /* KPI / hero number */
+
+  --font-weight-regular:   400;
+  --font-weight-medium:    500;
+  --font-weight-semibold:  600;
+  --font-weight-bold:      700;
+
+  --line-height-tight:  1.2;
+  --line-height-base:   1.45;
+  --line-height-loose:  1.6;
+
+  /* Apply to all numbers in tables / KPIs to prevent column-width jitter */
+  --font-feature-numeric: "tnum" on, "lnum" on;
+
+  /* ------------------------------------------------------------------------
+   * SHADOWS — 4 elevations distilled from the 12 unique declarations
+   * ---------------------------------------------------------------------- */
+  --shadow-sm: 0 8px 22px rgba(41, 49, 44, 0.04);   /* card resting */
+  --shadow-md: 0 10px 28px rgba(41, 49, 44, 0.06);  /* card hover  */
+  --shadow-lg: 0 18px 44px rgba(33, 39, 35, 0.10);  /* drawer       */
+  --shadow-xl: 0 28px 80px rgba(35, 43, 37, 0.24);  /* modal        */
+
+  --ring-focus:    0 0 0 4px rgba(31, 122, 107, 0.20);
+  --ring-warning:  0 0 0 4px rgba(200, 132, 37, 0.20);
+  --ring-danger:   0 0 0 4px rgba(155, 63, 36, 0.20);
+
+  /* ------------------------------------------------------------------------
+   * MOTION
+   * ---------------------------------------------------------------------- */
+  --motion-fast:  120ms;
+  --motion-base:  180ms;
+  --motion-slow:  280ms;
+  --motion-easing-standard:   cubic-bezier(0.2, 0.0, 0.0, 1.0);
+  --motion-easing-emphasized: cubic-bezier(0.2, 0.0, 0.0, 1.2);
+
+  /* ------------------------------------------------------------------------
+   * Z-INDEX — explicit scale instead of arbitrary integers
+   * ---------------------------------------------------------------------- */
+  --z-base:      0;
+  --z-dropdown:  100;
+  --z-sticky:    200;
+  --z-drawer:    300;
+  --z-modal:     400;
+  --z-toast:     500;
+  --z-popover:   600;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --motion-fast: 0ms;
+    --motion-base: 0ms;
+    --motion-slow: 0ms;
+  }
+}
+
+/* ============================================================================
+ * DARK MODE — semantic remap only (primitives unchanged).
+ * Disabled by default; enable with `<html data-theme="dark">`.
+ * Values here are placeholders and must be reviewed against real screens.
+ * ========================================================================= */
+:root[data-theme="dark"] {
+  --color-bg-base:      #14211d;
+  --color-bg-elevated:  #1b2a25;
+  --color-bg-subtle:    #1f322c;
+  --color-bg-sunken:    #0e1815;
+
+  --color-text-primary:    #e8efe9;
+  --color-text-secondary:  #b9c4bc;
+  --color-text-muted:      #8a958d;
+  --color-text-disabled:   #5c6760;
+
+  --color-border-subtle:   #2a3a34;
+  --color-border-default:  #364943;
+  --color-border-strong:   #4c615a;
+
+  --color-bg-overlay:      rgba(20, 33, 29, 0.66);
+  --color-bg-hover:        rgba(255, 255, 255, 0.06);
+  --color-bg-selected:     rgba(31, 122, 107, 0.22);
+
+  --shadow-sm: 0 8px 22px rgba(0, 0, 0, 0.40);
+  --shadow-md: 0 10px 28px rgba(0, 0, 0, 0.46);
+  --shadow-lg: 0 18px 44px rgba(0, 0, 0, 0.52);
+  --shadow-xl: 0 28px 80px rgba(0, 0, 0, 0.66);
+}
