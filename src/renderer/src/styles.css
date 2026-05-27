@@ -54,7 +54,7 @@ body {
 }
 
 .auth-heading span {
-  color: var(--neutral-500);
+  color: var(--color-text-muted);
   font-size: 13px;
   line-height: 1.5;
 }
@@ -67,7 +67,7 @@ body {
 .auth-form label {
   display: grid;
   gap: 6px;
-  color: var(--neutral-500);
+  color: var(--color-text-muted);
   font-size: 12px;
   font-weight: 680;
 }
@@ -147,7 +147,7 @@ p {
 .brand-lockup p,
 .section-kicker {
   margin-top: 4px;
-  color: #6f746e;
+  color: var(--color-text-muted);
   font-size: 12px;
   line-height: 1.4;
 }
@@ -202,7 +202,7 @@ p {
 }
 
 .user-session-card span {
-  color: #66716a;
+  color: var(--color-text-muted);
   font-size: 12px;
   font-weight: 640;
 }
@@ -309,7 +309,7 @@ p {
 
 .overview-hero span,
 .overview-panel small {
-  color: var(--neutral-500);
+  color: var(--color-text-muted);
   font-size: 12px;
   line-height: 1.45;
 }
@@ -339,7 +339,7 @@ p {
 }
 
 .overview-kpi span {
-  color: #69716b;
+  color: var(--color-text-muted);
   font-size: 12px;
   font-weight: 720;
 }
@@ -351,7 +351,7 @@ p {
 }
 
 .overview-kpi small {
-  color: var(--neutral-500);
+  color: var(--color-text-muted);
   font-size: 12px;
   line-height: 1.4;
 }
@@ -464,7 +464,7 @@ p {
 }
 
 .overview-audit-row time {
-  color: var(--neutral-500);
+  color: var(--color-text-muted);
   font-size: 12px;
   font-weight: 680;
   white-space: nowrap;
@@ -526,7 +526,7 @@ p {
 }
 
 .drawer-health-badge.muted {
-  color: var(--neutral-500);
+  color: var(--color-text-muted);
   background: var(--color-bg-sunken);
 }
 
@@ -573,7 +573,7 @@ p {
   border: 1px solid var(--color-border-default);
   border-radius: 8px;
   background: var(--color-bg-overlay);
-  color: #6b706a;
+  color: var(--color-text-muted);
 }
 
 .license-banner {
@@ -608,7 +608,7 @@ p {
 
 .license-banner p {
   margin-top: 3px;
-  color: var(--neutral-500);
+  color: var(--color-text-muted);
   font-size: 12px;
   line-height: 1.45;
 }
@@ -631,7 +631,7 @@ p {
 
 .trial-checklist-card p {
   margin-top: 4px;
-  color: var(--neutral-500);
+  color: var(--color-text-muted);
   font-size: 12px;
 }
 
@@ -652,7 +652,7 @@ p {
   min-height: 27px;
   border-radius: 8px;
   padding: 0 9px;
-  color: var(--neutral-500);
+  color: var(--color-text-muted);
   background: var(--green-100);
   font-size: 12px;
   font-weight: 680;
@@ -748,7 +748,7 @@ p {
 
 .profile-health-summary small {
   grid-column: 2 / -1;
-  color: var(--neutral-500);
+  color: var(--color-text-muted);
   font-size: 11px;
   font-weight: 720;
 }
@@ -779,7 +779,7 @@ p {
 }
 
 .profile-health-summary.archived {
-  color: var(--neutral-500);
+  color: var(--color-text-muted);
   background: var(--color-bg-sunken);
 }
 
@@ -810,7 +810,7 @@ p {
 }
 
 .profile-issue-title {
-  color: var(--neutral-500);
+  color: var(--color-text-muted);
   font-size: 12px;
   font-weight: 760;
 }
@@ -892,7 +892,7 @@ p {
 
 .profile-delivery-guidance p {
   margin: 0;
-  color: var(--neutral-500);
+  color: var(--color-text-muted);
   font-size: 12px;
   line-height: 1.45;
 }
@@ -985,7 +985,7 @@ p {
 .batch-grid label {
   display: grid;
   gap: 3px;
-  color: var(--neutral-500);
+  color: var(--color-text-muted);
   font-size: 11px;
   font-weight: 680;
 }
@@ -1044,7 +1044,7 @@ p {
 
 .profile-tool-panel summary small,
 .profile-tool-panel-hint {
-  color: var(--neutral-500);
+  color: var(--color-text-muted);
   font-size: 11px;
   font-weight: 720;
 }
@@ -1093,7 +1093,7 @@ p {
 }
 
 .template-toolbar-title span {
-  color: var(--neutral-500);
+  color: var(--color-text-muted);
   font-size: 12px;
   font-weight: 680;
 }
@@ -1101,7 +1101,7 @@ p {
 .template-toolbar label {
   display: grid;
   gap: 6px;
-  color: var(--neutral-500);
+  color: var(--color-text-muted);
   font-size: 12px;
   font-weight: 680;
 }
@@ -1129,7 +1129,7 @@ p {
 }
 
 .batch-toolbar-title span {
-  color: var(--neutral-500);
+  color: var(--color-text-muted);
   font-size: 12px;
   font-weight: 680;
 }
@@ -1181,7 +1181,7 @@ p {
   min-height: 34px;
   padding: 0 14px;
   border-bottom: 1px solid var(--color-border-subtle);
-  color: var(--neutral-500);
+  color: var(--color-text-muted);
   background: #f4f7f3;
   font-size: 11px;
   font-weight: 760;
@@ -1239,7 +1239,7 @@ p {
 
 .proxy-pool-main small,
 .proxy-pool-row > span {
-  color: var(--neutral-500);
+  color: var(--color-text-muted);
   font-size: 12px;
 }
 
@@ -1315,7 +1315,7 @@ p {
 .profile-name-cell small,
 .profile-row-content span {
   overflow: hidden;
-  color: var(--neutral-500);
+  color: var(--color-text-muted);
   font-size: 12px;
   text-overflow: ellipsis;
   white-space: nowrap;
@@ -1341,7 +1341,7 @@ p {
 }
 
 .status-pill.muted {
-  color: var(--neutral-500);
+  color: var(--color-text-muted);
   background: var(--color-bg-sunken);
 }
 
@@ -1374,7 +1374,7 @@ p {
 }
 
 .health-pill.muted {
-  color: var(--neutral-500);
+  color: var(--color-text-muted);
   background: var(--color-bg-sunken);
 }
 
@@ -1462,7 +1462,7 @@ p {
 
 .inline-hint {
   margin: -2px 0 0;
-  color: #60736f;
+  color: var(--color-text-muted);
   font-size: 12px;
   font-weight: 650;
 }
@@ -1523,7 +1523,7 @@ p {
 }
 
 .profile-health-card.archived .profile-health-card-header > span {
-  color: var(--neutral-500);
+  color: var(--color-text-muted);
   background: #e7e3da;
 }
 
@@ -1580,7 +1580,7 @@ p {
 .proxy-pool-panel label {
   display: grid;
   gap: 6px;
-  color: var(--neutral-500);
+  color: var(--color-text-muted);
   font-size: 12px;
   font-weight: 680;
 }
@@ -1589,7 +1589,7 @@ p {
   display: grid;
   align-content: end;
   gap: 6px;
-  color: var(--neutral-500);
+  color: var(--color-text-muted);
   font-size: 12px;
   font-weight: 680;
 }
@@ -1668,7 +1668,7 @@ p {
 
 .password-generator-header span,
 .password-generator-note {
-  color: var(--neutral-500);
+  color: var(--color-text-muted);
   font-size: 12px;
   font-weight: 620;
 }
@@ -1790,7 +1790,7 @@ p {
 .google-account-header span,
 .google-account-header small,
 .helper-text {
-  color: var(--neutral-500);
+  color: var(--color-text-muted);
   font-size: 12px;
   font-weight: 620;
 }
@@ -1940,7 +1940,7 @@ p {
 
 .vault-menu-section p {
   margin: 10px 4px 4px;
-  color: var(--neutral-500);
+  color: var(--color-text-muted);
   font-size: 11px;
   font-weight: 780;
 }
@@ -1974,13 +1974,13 @@ p {
 }
 
 .vault-menu-section button strong {
-  color: #7a8179;
+  color: var(--color-text-muted);
   font-size: 11px;
 }
 
 .vault-menu-empty {
   padding: 8px;
-  color: var(--neutral-500);
+  color: var(--color-text-muted);
   font-size: 12px;
 }
 
@@ -2000,7 +2000,7 @@ p {
 }
 
 .vault-list-header p {
-  color: var(--neutral-500);
+  color: var(--color-text-muted);
   font-size: 11px;
   font-weight: 760;
 }
@@ -2011,7 +2011,7 @@ p {
 }
 
 .vault-list-header span {
-  color: var(--neutral-500);
+  color: var(--color-text-muted);
   font-size: 12px;
   font-weight: 720;
 }
@@ -2064,7 +2064,7 @@ p {
 
 .credential-locked p {
   margin-top: 4px;
-  color: var(--neutral-500);
+  color: var(--color-text-muted);
   font-size: 12px;
   line-height: 1.45;
 }
@@ -2115,7 +2115,7 @@ p {
 
 .credential-main span,
 .credential-main small {
-  color: var(--neutral-500);
+  color: var(--color-text-muted);
   font-size: 12px;
 }
 
@@ -2124,7 +2124,7 @@ p {
   place-items: center;
   height: 28px;
   border-radius: 8px;
-  color: var(--neutral-500);
+  color: var(--color-text-muted);
   background: var(--green-100);
   font-size: 12px;
   letter-spacing: 0;
@@ -2209,7 +2209,7 @@ p {
 }
 
 .vault-detail-grid span {
-  color: var(--neutral-500);
+  color: var(--color-text-muted);
   font-size: 12px;
   font-weight: 720;
 }
@@ -2300,7 +2300,7 @@ p {
 
 .user-row span,
 .user-row small {
-  color: var(--neutral-500);
+  color: var(--color-text-muted);
   font-size: 12px;
 }
 
@@ -2318,7 +2318,7 @@ p {
 }
 
 .user-status-pill.disabled {
-  color: #77756e;
+  color: var(--color-text-muted);
   background: var(--color-bg-sunken);
 }
 
@@ -2420,7 +2420,7 @@ p {
 .audit-row p,
 .audit-row time {
   margin-top: 4px;
-  color: var(--neutral-500);
+  color: var(--color-text-muted);
   font-size: 12px;
 }
 
@@ -2443,7 +2443,7 @@ p {
   min-height: 96px;
   border: 1px dashed #d0cabd;
   border-radius: 8px;
-  color: var(--neutral-500);
+  color: var(--color-text-muted);
   font-size: 13px;
 }
 
@@ -2555,7 +2555,7 @@ p {
 .desktop-shortcut-status {
   max-width: 132px;
   overflow: hidden;
-  color: #71766f;
+  color: var(--color-text-muted);
   font-size: 11px;
   font-weight: 720;
   text-align: center;
@@ -2596,7 +2596,7 @@ p {
   min-height: 260px;
   border: 1px dashed #ccd6cf;
   border-radius: 8px;
-  color: #6c746f;
+  color: var(--color-text-muted);
   background: rgba(255, 255, 255, 0.54);
   text-align: center;
 }
