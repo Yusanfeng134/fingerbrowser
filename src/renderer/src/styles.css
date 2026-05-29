@@ -686,6 +686,161 @@ p {
   background: var(--color-primary);
 }
 
+/* --- env-summary-bar: compact replacement for .profile-ops-summary --- */
+/* Replaces a ~110px tall block of 5 health buttons + delivery card +    */
+/* 4 issue chips with a single ~48px bar (expands to ~80px when there   */
+/* are attention items). All filter affordances preserved.              */
+
+.env-summary-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  margin: var(--space-3) 0 var(--space-2);
+  padding: var(--space-2) var(--space-3);
+  border: 1px solid var(--color-border-subtle);
+  border-radius: var(--radius-md);
+  background: var(--color-bg-elevated);
+}
+
+.env-progress {
+  display: flex;
+  flex: 0 1 280px;
+  min-width: 160px;
+  height: 8px;
+  gap: 1px;
+  border-radius: var(--radius-pill);
+  background: var(--color-bg-sunken);
+  overflow: hidden;
+}
+
+.env-seg {
+  display: block;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  cursor: pointer;
+  transition: opacity var(--motion-fast) var(--motion-easing-standard);
+}
+
+.env-seg-ready     { background: var(--color-success-fg); }
+.env-seg-attention { background: var(--color-warning-fg); }
+.env-seg-archived  { background: var(--color-neutral-fg); }
+.env-seg-empty     { flex: 1; background: var(--color-border-default); cursor: default; }
+
+.env-seg:hover:not(.env-seg-empty) {
+  opacity: 0.85;
+}
+
+.env-seg.active,
+.env-seg:focus-visible {
+  outline: 2px solid var(--color-primary);
+  outline-offset: 2px;
+}
+
+.env-summary-counts {
+  display: flex;
+  align-items: baseline;
+  gap: 4px;
+  color: var(--color-text-secondary);
+  font-size: var(--font-size-sm);
+  font-feature-settings: var(--font-feature-numeric);
+}
+
+.env-summary-counts strong {
+  color: var(--color-text-primary);
+  font-weight: var(--font-weight-semibold);
+}
+
+.env-summary-counts strong.env-count-ok   { color: var(--color-success-fg); }
+.env-summary-counts strong.env-count-warn { color: var(--color-warning-fg); }
+
+.env-summary-divider {
+  color: var(--color-border-default);
+}
+
+.env-summary-clear {
+  height: 26px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-border-default);
+  border-radius: var(--radius-pill);
+  background: var(--color-bg-elevated);
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  cursor: pointer;
+  transition: color var(--motion-fast), border-color var(--motion-fast);
+}
+
+.env-summary-clear:hover {
+  border-color: var(--color-primary);
+  color: var(--color-primary);
+}
+
+.env-summary-copy {
+  margin-left: auto;
+  width: 30px;
+  height: 30px;
+}
+
+.env-attention-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  flex: 1 1 100%;
+  margin-top: var(--space-1);
+  padding-top: var(--space-2);
+  border-top: 1px dashed var(--color-border-subtle);
+}
+
+.env-attention-label {
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-semibold);
+}
+
+.env-issue-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  height: 24px;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--color-warning-border);
+  border-radius: var(--radius-pill);
+  background: var(--color-warning-bg);
+  color: var(--color-warning-fg);
+  font-size: var(--font-size-xs);
+  font-weight: var(--font-weight-medium);
+  cursor: pointer;
+  transition: background var(--motion-fast), color var(--motion-fast);
+}
+
+.env-issue-chip strong {
+  font-weight: var(--font-weight-semibold);
+}
+
+.env-issue-chip:hover {
+  border-color: var(--color-warning-fg);
+}
+
+.env-issue-chip.active {
+  background: var(--color-warning-fg);
+  color: var(--color-bg-elevated);
+  border-color: var(--color-warning-fg);
+}
+
+.env-attention-note {
+  flex: 1 1 auto;
+  color: var(--color-text-muted);
+  font-size: var(--font-size-xs);
+  font-style: italic;
+  text-align: right;
+}
+
+/* TODO(cleanup): the .profile-ops-summary / .profile-health-strip /
+   .profile-health-summary / .profile-delivery-guidance / .profile-issue-strip
+   rules below are now unreferenced and can be removed in a follow-up PR. */
+
 .profile-ops-summary {
   display: grid;
   grid-template-columns: minmax(0, 1fr) minmax(210px, 0.32fr);

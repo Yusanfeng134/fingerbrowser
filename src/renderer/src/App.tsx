@@ -2872,101 +2872,131 @@ export function App(): JSX.Element {
           ) : null}
         </section>
 
-        <section className="profile-ops-summary" aria-label="环境运营摘要">
-          <section className="profile-health-strip" aria-label="环境健康概览">
-            <div className="profile-health-summary readiness" aria-label="环境就绪率">
-              <BadgeCheck size={16} />
-              <span>就绪率</span>
-              <strong>{profileHealthReadiness.label}</strong>
-              <small>
-                {profileHealthReadiness.ready}/{profileHealthReadiness.activeTotal}
-              </small>
-            </div>
-            <button
-              className={`profile-health-summary all ${profileHealthFilter === 'all' ? 'active' : ''}`}
-              type="button"
-              aria-label="筛选全部健康环境"
-              aria-pressed={profileHealthFilter === 'all'}
-              onClick={() => handleProfileHealthFilterChange('all')}
-            >
-              <Globe2 size={16} />
-              <span>全部</span>
-              <strong>{profiles.length}</strong>
-            </button>
-            <button
-              className={`profile-health-summary ready ${profileHealthFilter === 'ready' ? 'active' : ''}`}
-              type="button"
-              aria-label="筛选已就绪环境"
-              aria-pressed={profileHealthFilter === 'ready'}
-              onClick={() => handleProfileHealthFilterChange('ready')}
-            >
-              <CheckCircle2 size={16} />
-              <span>已就绪</span>
-              <strong>{profileHealthStats.ready}</strong>
-            </button>
-            <button
-              className={`profile-health-summary attention ${profileHealthFilter === 'attention' ? 'active' : ''}`}
-              type="button"
-              aria-label="筛选待补全环境"
-              aria-pressed={profileHealthFilter === 'attention'}
-              onClick={() => handleProfileHealthFilterChange('attention')}
-            >
-              <Activity size={16} />
-              <span>待补全</span>
-              <strong>{profileHealthStats.attention}</strong>
-            </button>
-            <button
-              className={`profile-health-summary archived ${profileHealthFilter === 'archived' ? 'active' : ''}`}
-              type="button"
-              aria-label="筛选已归档环境"
-              aria-pressed={profileHealthFilter === 'archived'}
-              onClick={() => handleProfileHealthFilterChange('archived')}
-            >
-              <PackageCheck size={16} />
-              <span>已归档</span>
-              <strong>{profileHealthStats.archived}</strong>
-            </button>
-          </section>
-
-          <section
-            className={`profile-delivery-guidance ${profileDeliveryGuidance.tone}`}
-            aria-label="交付检查结论"
-          >
-            <div>
-              <PackageCheck size={16} />
-              <span>交付结论</span>
-              <strong>{profileDeliveryGuidance.conclusion}</strong>
-            </div>
-            <p>{profileDeliveryGuidance.nextStep}</p>
-          </section>
-
-          <section className="profile-issue-strip" aria-label="健康问题分布">
-            <span className="profile-issue-title">问题分布</span>
-            {profileHealthIssueStats.map((stat) => (
+        <section className="env-summary-bar" aria-label="环境运营摘要">
+          <div className="env-progress" role="group" aria-label="按健康分布筛选环境">
+            {profileHealthStats.ready > 0 ? (
               <button
-                className={`profile-issue-chip ${stat.count > 0 ? 'issue-hot' : 'issue-clear'} ${
-                  profileHealthIssueFilter === stat.key ? 'active' : ''
-                }`}
                 type="button"
-                aria-label={`筛选${stat.key}问题环境`}
-                aria-pressed={profileHealthIssueFilter === stat.key}
-                onClick={() => handleProfileHealthIssueFilterChange(stat.key)}
-                key={stat.key}
-              >
-                {stat.label}
-                <strong>{stat.count}</strong>
-              </button>
-            ))}
+                className={`env-seg env-seg-ready ${profileHealthFilter === 'ready' ? 'active' : ''}`}
+                aria-label={`已就绪 ${profileHealthStats.ready} · 点击仅看已就绪`}
+                aria-pressed={profileHealthFilter === 'ready'}
+                onClick={() =>
+                  handleProfileHealthFilterChange(profileHealthFilter === 'ready' ? 'all' : 'ready')
+                }
+                title={`已就绪 ${profileHealthStats.ready}`}
+                style={{ flex: profileHealthStats.ready }}
+              />
+            ) : null}
+            {profileHealthStats.attention > 0 ? (
+              <button
+                type="button"
+                className={`env-seg env-seg-attention ${profileHealthFilter === 'attention' ? 'active' : ''}`}
+                aria-label={`待补全 ${profileHealthStats.attention} · 点击仅看待补全`}
+                aria-pressed={profileHealthFilter === 'attention'}
+                onClick={() =>
+                  handleProfileHealthFilterChange(
+                    profileHealthFilter === 'attention' ? 'all' : 'attention'
+                  )
+                }
+                title={`待补全 ${profileHealthStats.attention}`}
+                style={{ flex: profileHealthStats.attention }}
+              />
+            ) : null}
+            {profileHealthStats.archived > 0 ? (
+              <button
+                type="button"
+                className={`env-seg env-seg-archived ${profileHealthFilter === 'archived' ? 'active' : ''}`}
+                aria-label={`已归档 ${profileHealthStats.archived} · 点击仅看已归档`}
+                aria-pressed={profileHealthFilter === 'archived'}
+                onClick={() =>
+                  handleProfileHealthFilterChange(
+                    profileHealthFilter === 'archived' ? 'all' : 'archived'
+                  )
+                }
+                title={`已归档 ${profileHealthStats.archived}`}
+                style={{ flex: profileHealthStats.archived }}
+              />
+            ) : null}
+            {profiles.length === 0 ? <div className="env-seg env-seg-empty" /> : null}
+          </div>
+
+          <div className="env-summary-counts" aria-live="polite">
+            <strong>{profiles.length}</strong>
+            <span>环境</span>
+            <span className="env-summary-divider">·</span>
+            <strong className="env-count-ok">{profileHealthStats.ready}</strong>
+            <span>就绪</span>
+            <span className="env-summary-divider">·</span>
+            <strong className={profileHealthStats.attention > 0 ? 'env-count-warn' : ''}>
+              {profileHealthStats.attention}
+            </strong>
+            <span>待补全</span>
+            {profileHealthStats.archived > 0 ? (
+              <>
+                <span className="env-summary-divider">·</span>
+                <strong>{profileHealthStats.archived}</strong>
+                <span>已归档</span>
+              </>
+            ) : null}
+          </div>
+
+          {profileHealthFilter !== 'all' || profileHealthIssueFilter !== 'all' ? (
             <button
-              className="secondary-button compact-button profile-health-copy-button"
               type="button"
-              onClick={handleCopyProfileHealthReport}
-              disabled={busy}
+              className="env-summary-clear"
+              onClick={() => {
+                handleProfileHealthFilterChange('all');
+                handleProfileHealthIssueFilterChange('all');
+              }}
+              title="清除健康筛选"
             >
-              <ClipboardCheck size={14} />
-              复制健康摘要
+              清除筛选
             </button>
-          </section>
+          ) : null}
+
+          <button
+            type="button"
+            className="icon-button env-summary-copy"
+            onClick={handleCopyProfileHealthReport}
+            disabled={busy}
+            aria-label="复制健康摘要"
+            title="复制健康摘要"
+          >
+            <ClipboardCheck size={14} />
+          </button>
+
+          {profileHealthStats.attention > 0 ? (
+            <div className="env-attention-row" aria-label="健康问题分布">
+              <span className="env-attention-label">问题</span>
+              {profileHealthIssueStats
+                .filter((stat) => stat.count > 0 && stat.key !== 'all')
+                .map((stat) => (
+                  <button
+                    key={stat.key}
+                    type="button"
+                    className={`env-issue-chip ${profileHealthIssueFilter === stat.key ? 'active' : ''}`}
+                    aria-pressed={profileHealthIssueFilter === stat.key}
+                    onClick={() =>
+                      handleProfileHealthIssueFilterChange(
+                        profileHealthIssueFilter === stat.key ? 'all' : stat.key
+                      )
+                    }
+                    title={`筛选 ${stat.label} 问题环境`}
+                  >
+                    {stat.label}
+                    <strong>{stat.count}</strong>
+                  </button>
+                ))}
+              {profileDeliveryGuidance.nextStep ? (
+                <span
+                  className="env-attention-note"
+                  title={profileDeliveryGuidance.conclusion}
+                >
+                  {profileDeliveryGuidance.nextStep}
+                </span>
+              ) : null}
+            </div>
+          ) : null}
         </section>
 
         <section className="profile-command-panel" aria-label="环境查询与工具">
