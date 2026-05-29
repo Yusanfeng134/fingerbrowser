@@ -592,9 +592,18 @@ p {
 
 .license-banner.grace,
 .license-banner.expired {
-  border-color: #e6b15f;
+  border-color: var(--color-warning-border);
   border-left-color: var(--color-warning-fg);
   background: var(--color-warning-bg);
+}
+
+.license-banner.expired {
+  border-left-width: 4px;
+  box-shadow: var(--ring-danger);
+}
+
+.license-banner.expired .license-banner-title {
+  color: var(--color-danger-fg);
 }
 
 .license-banner-title {
@@ -1172,7 +1181,7 @@ p {
 
 .table-header {
   display: grid;
-  grid-template-columns: 28px minmax(180px, 1.5fr) 112px 96px minmax(150px, 1fr) 100px;
+  grid-template-columns: 28px minmax(180px, 1.5fr) 112px 96px minmax(150px, 1fr) 100px 40px;
   gap: 12px;
   align-items: center;
 }
@@ -1245,7 +1254,7 @@ p {
 
 .profile-row {
   display: grid;
-  grid-template-columns: 28px minmax(0, 1fr);
+  grid-template-columns: 28px minmax(0, 1fr) 40px;
   gap: 12px;
   align-items: center;
   width: 100%;
@@ -1285,6 +1294,34 @@ p {
   outline: 2px solid var(--green-400);
   outline-offset: 4px;
   border-radius: 6px;
+}
+
+.profile-row-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.profile-row-actions .icon-button {
+  width: 30px;
+  height: 30px;
+  border-radius: var(--radius-md);
+}
+
+.row-action-launch {
+  color: var(--color-primary);
+}
+
+.row-action-launch:hover:not(:disabled) {
+  background: var(--color-bg-selected);
+}
+
+.row-action-stop {
+  color: var(--color-danger-fg);
+}
+
+.row-action-stop:hover:not(:disabled) {
+  background: var(--color-danger-bg);
 }
 
 .profile-check-cell {

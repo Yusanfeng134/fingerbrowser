@@ -1903,6 +1903,34 @@ export function App(): JSX.Element {
     });
   };
 
+  // Row-scoped launch/stop — does not depend on selectedProfile.
+  // Used by the inline ▶/■ button on each profile list row so operators
+  // can start/stop without first opening the right-side drawer.
+  const handleLaunchProfileRow = (profile: BrowserProfile): void => {
+    if (profile.archivedAt) {
+      setNotice('请先恢复环境再启动');
+      return;
+    }
+    void run(`启动 ${profile.name}`, async () => {
+      await window.fingerBrowser.profiles.launch(profile.id);
+      await loadProfiles();
+      await loadProxyRuntimeStatus(profile.id);
+      await loadCommercialState();
+      await loadTrialState();
+      await loadAudits(profile.id);
+    });
+  };
+
+  const handleStopProfileRow = (profile: BrowserProfile): void => {
+    void run(`关闭 ${profile.name}`, async () => {
+      await window.fingerBrowser.profiles.stop(profile.id);
+      await loadProfiles();
+      await loadProxyRuntimeStatus(profile.id);
+      await loadCommercialState();
+      await loadAudits(profile.id);
+    });
+  };
+
   const handleArchiveProfile = (): void => {
     if (!selectedProfile) {
       return;
@@ -2799,7 +2827,13 @@ export function App(): JSX.Element {
             <p className="section-kicker">本地工作台</p>
             <h2>浏览器环境</h2>
           </div>
-          <button className="primary-button" type="button" onClick={handleNewProfile}>
+          <button
+            className="primary-button"
+            type="button"
+            onClick={handleNewProfile}
+            disabled={!canCreateProfile}
+            title={canCreateProfile ? undefined : '许可证未激活、已过期或环境数已达上限'}
+          >
             <FolderPlus size={17} />
             新建环境
           </button>
@@ -2826,7 +2860,7 @@ export function App(): JSX.Element {
           {license?.status === 'inactive' || license?.status === 'expired' ? (
             <button
               type="button"
-              className="secondary-button"
+              className="primary-button"
               onClick={() => {
                 handleOpenProfiles('profiles');
                 setActiveTab('license');
@@ -3107,6 +3141,7 @@ export function App(): JSX.Element {
           </section>
         </details>
 
+        {visibleSelectedProfileIds.length > 0 ? (
         <details className="profile-tool-panel selection-panel" aria-label="批量操作工具">
           <summary>
             <span>
@@ -3184,6 +3219,7 @@ export function App(): JSX.Element {
           </div>
           </section>
         </details>
+        ) : null}
         </section>
 
         <section className="profile-table-shell" aria-label="环境资产表格">
@@ -3201,6 +3237,7 @@ export function App(): JSX.Element {
             <span>健康</span>
             <span>代理</span>
             <span>内核</span>
+            <span aria-hidden="true" />
           </div>
 
           <div className="profile-rows" role="list" aria-label="环境列表">
@@ -3249,6 +3286,31 @@ export function App(): JSX.Element {
                     <span>{profile.proxy ? `${profile.proxy.scheme}://${profile.proxy.host}:${profile.proxy.port}` : '未配置'}</span>
                     <span>{runtimeChannelText[profile.runtimeChannel]}</span>
                   </button>
+                  <div className="profile-row-actions">
+                    {profile.status === 'running' ? (
+                      <button
+                        type="button"
+                        className="icon-button row-action-stop"
+                        onClick={() => handleStopProfileRow(profile)}
+                        disabled={busy}
+                        aria-label={`停止 ${profile.name}`}
+                        title="停止"
+                      >
+                        <Power size={15} />
+                      </button>
+                    ) : (
+                      <button
+                        type="button"
+                        className="icon-button row-action-launch"
+                        onClick={() => handleLaunchProfileRow(profile)}
+                        disabled={busy || Boolean(profile.archivedAt)}
+                        aria-label={`启动 ${profile.name}`}
+                        title="启动 Chromium"
+                      >
+                        <Play size={15} />
+                      </button>
+                    )}
+                  </div>
                 </article>
               );
             })}
