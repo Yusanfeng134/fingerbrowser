@@ -8,6 +8,7 @@ export default tseslint.config(
       'website/dist/**',
       'out/**',
       'node_modules/**',
+      '.claude/**',
       '.superpowers/**',
       'coverage/**',
       'test-results/**',

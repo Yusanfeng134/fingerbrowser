@@ -496,6 +496,21 @@ function formatDate(value: string): string {
   }).format(new Date(value));
 }
 
+function formatShortProfileId(id: string): string {
+  return id.slice(0, 8);
+}
+
+function formatProfileProxy(profile: ProfileDetails): string {
+  if (!profile.proxy) {
+    return '未配置';
+  }
+  return `${profile.proxy.scheme.toUpperCase()} ${profile.proxy.host}:${profile.proxy.port}`;
+}
+
+function formatProfileTags(tags: string[]): string {
+  return tags.length > 0 ? tags.join(' / ') : '-';
+}
+
 export function App(): JSX.Element {
   const [authStatus, setAuthStatus] = useState<AuthStatus | null>(null);
   const [authDraft, setAuthDraft] = useState<AuthDraftState>(emptyAuthDraft);
@@ -1305,6 +1320,38 @@ export function App(): JSX.Element {
     });
   };
 
+  const handleClearProfileFilters = (): void => {
+    setQuery('');
+    setProfileGroupFilter('');
+    setProfileStatusFilter('all');
+    handleProfileHealthFilterChange('all');
+    setProfileRuntimeFilter('all');
+    setProfileProxyFilter('all');
+    setProfileArchiveFilter('active');
+  };
+
+  const handleBatchLaunchProfiles = (): void => {
+    const launchableProfiles = selectedProfilesForBatch.filter(
+      (profile) => !profile.archivedAt && profile.status !== 'running'
+    );
+    if (launchableProfiles.length === 0) {
+      setNotice('已选环境中没有可打开的环境');
+      return;
+    }
+    void run('批量打开环境', async () => {
+      for (const profile of launchableProfiles) {
+        await window.fingerBrowser.profiles.launch(profile.id);
+      }
+      await loadProfiles();
+      await loadDesktopShortcuts();
+      await loadProxyRuntimeStatus();
+      await loadCommercialState();
+      await loadTrialState();
+      await loadAudits();
+      return `已打开 ${launchableProfiles.length} 个环境`;
+    });
+  };
+
   const handleBatchUpdateGroup = (): void => {
     if (selectedProfilesForBatch.length === 0) {
       setNotice('请先选择环境');
@@ -1411,6 +1458,42 @@ export function App(): JSX.Element {
       await loadProxyRuntimeStatus();
       await loadAudits();
       return `已关闭 ${runningProfiles.length} 个环境`;
+    });
+  };
+
+  const handleBatchArchiveProfiles = (): void => {
+    const archivableProfiles = selectedProfilesForBatch.filter(
+      (profile) => !profile.archivedAt && profile.status !== 'running'
+    );
+    if (archivableProfiles.length === 0) {
+      setNotice('已选环境中没有可归档的已关闭环境');
+      return;
+    }
+    void run('批量归档环境', async () => {
+      for (const profile of archivableProfiles) {
+        await window.fingerBrowser.profiles.archive(profile.id);
+      }
+      await loadProfiles();
+      await loadDesktopShortcuts();
+      await loadCommercialState();
+      await loadAudits();
+      return `已归档 ${archivableProfiles.length} 个环境`;
+    });
+  };
+
+  const handleBatchCreateDesktopShortcuts = (): void => {
+    const shortcutCandidates = selectedProfilesForBatch.filter((profile) => !desktopProfileIds.has(profile.id));
+    if (shortcutCandidates.length === 0) {
+      setNotice('已选环境已在我的桌面中');
+      return;
+    }
+    void run('批量添加桌面快捷方式', async () => {
+      for (const profile of shortcutCandidates) {
+        await window.fingerBrowser.desktop.createShortcut({ profileId: profile.id });
+      }
+      await loadDesktopShortcuts();
+      await loadAudits();
+      return `已添加 ${shortcutCandidates.length} 个环境到我的桌面`;
     });
   };
 
@@ -1695,6 +1778,26 @@ export function App(): JSX.Element {
     });
   };
 
+  const handleDuplicateProfileFromRow = (source: ProfileDetails): void => {
+    if (!canCreateProfile) {
+      setSelectedId(source.id);
+      setActiveTab('license');
+      setNotice(license?.status === 'inactive' ? '请先激活许可证' : '当前套餐环境数已达上限');
+      return;
+    }
+    void run('复制环境', async () => {
+      const duplicated = await window.fingerBrowser.profiles.duplicate({ profileId: source.id });
+      await loadProfiles();
+      await loadCommercialState();
+      await loadTrialState();
+      setSelectedId(duplicated.id);
+      setDraft(profileToDraft(duplicated));
+      setActiveTab('config');
+      await loadAudits(duplicated.id);
+      return `已复制环境：${duplicated.name}`;
+    });
+  };
+
   const handleSaveProfileTemplate = (): void => {
     const source = selectedProfile;
     if (!source) {
@@ -1890,6 +1993,26 @@ export function App(): JSX.Element {
     });
   };
 
+  const handleLaunchProfile = (profile: ProfileDetails): void => {
+    setSelectedId(profile.id);
+    setActiveTab('config');
+    setActiveNavKey('profiles');
+    if (profile.archivedAt) {
+      setNotice('请先恢复环境再启动');
+      return;
+    }
+    void run('启动环境', async () => {
+      await window.fingerBrowser.profiles.launch(profile.id);
+      await loadProfiles();
+      await loadDesktopShortcuts();
+      await loadProxyRuntimeStatus(profile.id);
+      await loadCommercialState();
+      await loadTrialState();
+      await loadAudits(profile.id);
+      return `已启动：${profile.name}`;
+    });
+  };
+
   const handleStop = (): void => {
     if (!selectedProfile) {
       return;
@@ -1900,6 +2023,21 @@ export function App(): JSX.Element {
       await loadProxyRuntimeStatus(selectedProfile.id);
       await loadCommercialState();
       await loadAudits(selectedProfile.id);
+    });
+  };
+
+  const handleStopProfile = (profile: ProfileDetails): void => {
+    setSelectedId(profile.id);
+    setActiveTab('config');
+    setActiveNavKey('profiles');
+    void run('关闭环境', async () => {
+      await window.fingerBrowser.profiles.stop(profile.id);
+      await loadProfiles();
+      await loadDesktopShortcuts();
+      await loadProxyRuntimeStatus(profile.id);
+      await loadCommercialState();
+      await loadAudits(profile.id);
+      return `已关闭：${profile.name}`;
     });
   };
 
@@ -2935,18 +3073,8 @@ export function App(): JSX.Element {
           </section>
         </section>
 
-        <section className="profile-command-panel" aria-label="环境查询与工具">
-          <div className="search-row">
-            <Search size={16} />
-            <input
-              aria-label="搜索环境"
-              value={query}
-              onChange={(event) => setQuery(event.target.value)}
-              placeholder="搜索名称、负责人、备注、标签、代理或状态"
-            />
-          </div>
-
-          <div className="profile-filter-bar" aria-label="环境筛选">
+        <section className="profile-command-panel management-console" aria-label="环境查询与工具">
+          <div className="management-searchbar">
             <label>
               分组
               <select
@@ -2962,6 +3090,66 @@ export function App(): JSX.Element {
                 ))}
               </select>
             </label>
+            <div className="search-row">
+              <Search size={16} />
+              <input
+                aria-label="搜索环境"
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="搜索名称、负责人、备注、标签、代理或状态"
+              />
+            </div>
+            <button
+              className="icon-button"
+              type="button"
+              onClick={handleClearProfileFilters}
+              disabled={
+                busy ||
+                (!query &&
+                  !profileGroupFilter &&
+                  profileStatusFilter === 'all' &&
+                  profileHealthFilter === 'all' &&
+                  profileHealthIssueFilter === 'all' &&
+                  profileRuntimeFilter === 'all' &&
+                  profileProxyFilter === 'all' &&
+                  profileArchiveFilter === 'active')
+              }
+              aria-label="重置环境筛选"
+              title="重置筛选"
+            >
+              <X size={15} />
+            </button>
+          </div>
+
+          <div className="profile-action-strip" aria-label="环境批量操作">
+            <span className="selection-count">已选 {visibleSelectedProfileIds.length} / 当前 {filteredProfiles.length}</span>
+            <button className="primary-button compact-button" type="button" onClick={handleBatchLaunchProfiles} disabled={busy || visibleSelectedProfileIds.length === 0}>
+              <Play size={14} />
+              打开
+            </button>
+            <button className="secondary-button compact-button" type="button" onClick={handleBatchStopProfiles} disabled={busy || visibleSelectedProfileIds.length === 0}>
+              <Power size={14} />
+              关闭
+            </button>
+            <button className="secondary-button compact-button" type="button" onClick={handleProfilesExport} disabled={busy}>
+              <Download size={14} />
+              导出
+            </button>
+            <button className="secondary-button compact-button" type="button" onClick={handleBatchCreateDesktopShortcuts} disabled={busy || visibleSelectedProfileIds.length === 0}>
+              <Grid2X2 size={14} />
+              桌面
+            </button>
+            <button className="secondary-button compact-button" type="button" onClick={handleBatchArchiveProfiles} disabled={busy || visibleSelectedProfileIds.length === 0}>
+              <PackageCheck size={14} />
+              归档
+            </button>
+            <button className="secondary-button compact-button" type="button" onClick={handleCopyProfileHealthReport} disabled={busy}>
+              <ClipboardCheck size={14} />
+              摘要
+            </button>
+          </div>
+
+          <div className="profile-filter-bar" aria-label="环境筛选">
             <label>
               状态
               <select
@@ -3196,17 +3384,17 @@ export function App(): JSX.Element {
                 onChange={handleToggleAllFilteredProfiles}
               />
             </label>
-            <span>环境</span>
-            <span>状态</span>
-            <span>健康</span>
+            <span>编号/ID</span>
+            <span>分组</span>
+            <span>名称</span>
             <span>代理</span>
-            <span>内核</span>
+            <span>操作</span>
           </div>
 
           <div className="profile-rows" role="list" aria-label="环境列表">
-            {filteredProfiles.map((profile) => {
+            {filteredProfiles.map((profile, index) => {
               const health = profileHealthById.get(profile.id) ?? getProfileHealth(profile);
-              const healthTitle = health.issues.length > 0 ? health.issues.join('；') : '环境配置完整';
+              const hasDesktopShortcut = desktopProfileIds.has(profile.id);
               return (
                 <article
                   className={`profile-row ${profile.id === selectedId ? 'selected' : ''}`}
@@ -3229,26 +3417,69 @@ export function App(): JSX.Element {
                     }}
                     type="button"
                   >
+                    <span className="profile-id-cell">
+                      <strong>{index + 1}</strong>
+                      <small>{formatShortProfileId(profile.id)}</small>
+                    </span>
+                    <span className="profile-group-cell">{profile.groupName || '未分组'}</span>
                     <span className="profile-name-cell">
                       <strong>{profile.name}</strong>
                       <small>
                         {profile.archivedAt ? '已归档 · ' : ''}
-                        {profile.groupName ? `${profile.groupName} · ` : ''}
                         {profile.owner ? `${profile.owner} · ` : ''}
-                        {profile.tags.length > 0 ? profile.tags.join(' / ') : '未设置标签'}
-                        {profile.lastLaunchedAt ? ` · 最近 ${formatDate(profile.lastLaunchedAt)}` : ''}
+                        {profile.tags.length > 0 ? `${formatProfileTags(profile.tags)} · ` : ''}
+                        {profile.lastLaunchedAt ? `最近 ${formatDate(profile.lastLaunchedAt)} · ` : ''}
+                        {statusText[profile.status]} · {health.label} ·
+                        {runtimeChannelText[profile.runtimeChannel]} · {profile.chromiumVersion}
                       </small>
                     </span>
-                    <span className={`status-pill ${statusTone[profile.status]}`}>
-                      <Circle size={9} fill="currentColor" />
-                      {statusText[profile.status]}
+                    <span className={`profile-proxy-cell ${profile.proxy?.lastTestStatus ?? 'missing'}`}>
+                      <strong>{formatProfileProxy(profile)}</strong>
+                      <small>{profile.proxy ? proxyTestStatusText[profile.proxy.lastTestStatus] : '未绑定代理'}</small>
                     </span>
-                    <span className={`health-pill ${profileHealthTone[health.status]}`} title={healthTitle}>
-                      {health.label}
-                    </span>
-                    <span>{profile.proxy ? `${profile.proxy.scheme}://${profile.proxy.host}:${profile.proxy.port}` : '未配置'}</span>
-                    <span>{runtimeChannelText[profile.runtimeChannel]}</span>
                   </button>
+                  <div className="profile-row-actions" aria-label={`环境操作 ${profile.name}`}>
+                    <button
+                      className="row-open-button"
+                      type="button"
+                      onClick={() => handleLaunchProfile(profile)}
+                      disabled={busy || Boolean(profile.archivedAt)}
+                      aria-label={`打开此行环境 ${profile.name}`}
+                    >
+                      <Play size={14} />
+                      打开
+                    </button>
+                    <button
+                      className="icon-button table-icon-button"
+                      type="button"
+                      onClick={() => handleStopProfile(profile)}
+                      disabled={busy || profile.status !== 'running'}
+                      aria-label={`关闭此行环境 ${profile.name}`}
+                      title="关闭环境"
+                    >
+                      <Power size={14} />
+                    </button>
+                    <button
+                      className="icon-button table-icon-button"
+                      type="button"
+                      onClick={() => handleDuplicateProfileFromRow(profile)}
+                      disabled={busy || !canCreateProfile}
+                      aria-label={`复制此行环境 ${profile.name}`}
+                      title="复制环境"
+                    >
+                      <Clipboard size={14} />
+                    </button>
+                    <button
+                      className="icon-button table-icon-button"
+                      type="button"
+                      onClick={() => handleCreateDesktopShortcut(profile.id)}
+                      disabled={busy || hasDesktopShortcut}
+                      aria-label={`创建桌面快捷方式 ${profile.name}`}
+                      title={hasDesktopShortcut ? '已在桌面' : '添加到桌面'}
+                    >
+                      <Grid2X2 size={14} />
+                    </button>
+                  </div>
                 </article>
               );
             })}
