@@ -500,13 +500,6 @@ function formatShortProfileId(id: string): string {
   return id.slice(0, 8);
 }
 
-function formatProfileProxy(profile: ProfileDetails): string {
-  if (!profile.proxy) {
-    return '未配置';
-  }
-  return `${profile.proxy.scheme.toUpperCase()} ${profile.proxy.host}:${profile.proxy.port}`;
-}
-
 function formatProfileTags(tags: string[]): string {
   return tags.length > 0 ? tags.join(' / ') : '-';
 }
@@ -2657,7 +2650,7 @@ export function App(): JSX.Element {
   }
 
   return (
-    <main className="app-shell">
+    <main className={`app-shell ${workspaceView === 'profiles' ? 'adspower-mode' : ''}`}>
       <aside className="sidebar">
         <div className="brand-lockup">
           <div className="brand-mark">
@@ -2689,7 +2682,7 @@ export function App(): JSX.Element {
             }}
           >
             <Globe2 size={17} />
-            环境
+            环境管理
           </a>
           <a
             className={activeNavKey === 'desktop' ? 'active' : ''}
@@ -2931,15 +2924,15 @@ export function App(): JSX.Element {
           </footer>
         </section>
       ) : workspaceView === 'profiles' ? (
-      <section className="profile-list" id="profiles">
-        <header className="topbar">
+      <section className="profile-list adspower-profile-workspace" id="profiles">
+        <header className="topbar adspower-page-header">
           <div>
-            <p className="section-kicker">本地工作台</p>
-            <h2>浏览器环境</h2>
+            <p className="section-kicker">浏览器工作台</p>
+            <h2>环境管理</h2>
           </div>
-          <button className="primary-button" type="button" onClick={handleNewProfile}>
+          <button className="primary-button" type="button" onClick={handleNewProfile} aria-label="新建环境">
             <FolderPlus size={17} />
-            新建环境
+            新建浏览器
           </button>
         </header>
 
@@ -3387,7 +3380,12 @@ export function App(): JSX.Element {
             <span>编号/ID</span>
             <span>分组</span>
             <span>名称</span>
-            <span>代理</span>
+            <span>IP</span>
+            <span>最近打开</span>
+            <span>负责人</span>
+            <span>标签</span>
+            <span>备注</span>
+            <span>创建时间</span>
             <span>操作</span>
           </div>
 
@@ -3426,17 +3424,19 @@ export function App(): JSX.Element {
                       <strong>{profile.name}</strong>
                       <small>
                         {profile.archivedAt ? '已归档 · ' : ''}
-                        {profile.owner ? `${profile.owner} · ` : ''}
-                        {profile.tags.length > 0 ? `${formatProfileTags(profile.tags)} · ` : ''}
-                        {profile.lastLaunchedAt ? `最近 ${formatDate(profile.lastLaunchedAt)} · ` : ''}
                         {statusText[profile.status]} · {health.label} ·
                         {runtimeChannelText[profile.runtimeChannel]} · {profile.chromiumVersion}
                       </small>
                     </span>
                     <span className={`profile-proxy-cell ${profile.proxy?.lastTestStatus ?? 'missing'}`}>
-                      <strong>{formatProfileProxy(profile)}</strong>
-                      <small>{profile.proxy ? proxyTestStatusText[profile.proxy.lastTestStatus] : '未绑定代理'}</small>
+                      <strong>{profile.proxy?.host ?? '-'}</strong>
+                      <small>{profile.proxy ? `${profile.proxy.scheme.toUpperCase()} ${profile.proxy.port}` : '未配置'}</small>
                     </span>
+                    <span>{profile.lastLaunchedAt ? formatDate(profile.lastLaunchedAt) : '-'}</span>
+                    <span>{profile.owner || '-'}</span>
+                    <span>{formatProfileTags(profile.tags)}</span>
+                    <span>{profile.notes || '-'}</span>
+                    <span>{formatDate(profile.createdAt)}</span>
                   </button>
                   <div className="profile-row-actions" aria-label={`环境操作 ${profile.name}`}>
                     <button
@@ -3486,7 +3486,7 @@ export function App(): JSX.Element {
             {filteredProfiles.length === 0 ? (
               <div className="empty-state">
                 <Activity size={18} />
-                <span>暂无环境，点击“新建环境”开始。</span>
+                <span>暂无环境，点击“新建浏览器”开始。</span>
               </div>
             ) : null}
             </div>
