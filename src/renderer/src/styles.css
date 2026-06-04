@@ -1245,10 +1245,10 @@ p {
 
 .table-header {
   display: grid;
-  grid-template-columns: 28px 94px 96px minmax(170px, 1fr) minmax(150px, 0.85fr) 104px 116px 116px 136px 118px 168px;
+  grid-template-columns: 28px 94px 96px minmax(190px, 1fr) minmax(150px, 0.82fr) 104px 116px 116px 136px 118px 44px 54px 104px;
   gap: 10px;
   align-items: center;
-  min-width: 1300px;
+  min-width: 1480px;
   min-height: 34px;
   padding: 0 12px;
   border-bottom: 1px solid #edf0f6;
@@ -1273,7 +1273,7 @@ p {
 .profile-rows {
   display: grid;
   gap: 0;
-  min-width: 1300px;
+  min-width: 1480px;
 }
 
 .proxy-pool-list {
@@ -1329,7 +1329,7 @@ p {
 
 .profile-row {
   display: grid;
-  grid-template-columns: 28px minmax(0, 1fr) 168px;
+  grid-template-columns: 28px minmax(0, 1fr) 104px;
   gap: 10px;
   align-items: center;
   width: 100%;
@@ -1354,7 +1354,7 @@ p {
 
 .profile-row-content {
   display: grid;
-  grid-template-columns: 94px 96px minmax(170px, 1fr) minmax(150px, 0.85fr) 104px 116px 116px 136px 118px;
+  grid-template-columns: 94px 96px minmax(190px, 1fr) minmax(150px, 0.82fr) 104px 116px 116px 136px 118px 44px 54px;
   gap: 10px;
   align-items: center;
   min-width: 0;
@@ -1450,7 +1450,7 @@ p {
   right: 0;
   z-index: 1;
   display: grid;
-  grid-template-columns: 64px repeat(3, 30px);
+  grid-template-columns: 64px 30px;
   gap: 6px;
   align-items: center;
   align-self: stretch;
@@ -1494,6 +1494,57 @@ p {
   width: 30px;
   min-height: 30px;
   padding: 0;
+}
+
+.profile-table-footer {
+  position: sticky;
+  left: 0;
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 10px;
+  min-width: 100%;
+  min-height: 44px;
+  padding: 0 12px;
+  border-top: 1px solid #edf0f6;
+  color: #657087;
+  background: #ffffff;
+  font-size: 12px;
+  font-weight: 680;
+}
+
+.profile-pagination {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.profile-pagination input,
+.profile-table-footer select {
+  height: 30px;
+  border: 1px solid #d8deeb;
+  border-radius: 6px;
+  color: #334056;
+  background: #ffffff;
+  font-size: 12px;
+  outline: none;
+}
+
+.profile-pagination input {
+  width: 56px;
+  text-align: center;
+}
+
+.profile-table-footer select {
+  width: 92px;
+  padding: 0 8px;
+}
+
+.profile-notice-bar {
+  min-height: 30px;
+  margin-top: 0;
+  padding: 0 4px;
+  color: #657087;
 }
 
 .status-pill {
@@ -2903,7 +2954,7 @@ p {
 }
 
 .adspower-mode {
-  grid-template-columns: 184px minmax(880px, 1fr) 332px;
+  grid-template-columns: 184px minmax(1040px, 1fr);
   color: #1f2430;
   background: #f5f6fa;
 }
@@ -2980,6 +3031,7 @@ p {
   flex-direction: column;
   gap: 8px;
   padding: 14px 14px 12px;
+  border-right: 0;
 }
 
 .adspower-mode .adspower-page-header {
@@ -3288,6 +3340,33 @@ p {
   background: #ffffff;
 }
 
+.adspower-mode .profile-editor-modal {
+  position: fixed;
+  top: 56px;
+  left: 50%;
+  z-index: 40;
+  width: min(760px, calc(100vw - 280px));
+  max-height: calc(100vh - 96px);
+  padding: 16px 18px;
+  overflow: auto;
+  border: 1px solid #e6ebf5;
+  border-radius: 8px;
+  background: #ffffff;
+  box-shadow:
+    0 0 0 9999px rgba(31, 36, 48, 0.34),
+    0 18px 54px rgba(31, 36, 48, 0.18);
+  transform: translateX(-50%);
+}
+
+.adspower-mode .profile-editor-modal .drawer-header {
+  position: sticky;
+  top: -16px;
+  z-index: 2;
+  margin: -16px -18px 0;
+  padding: 14px 18px 12px;
+  background: #ffffff;
+}
+
 .adspower-mode .drawer-header {
   gap: 10px;
   padding-bottom: 10px;
@@ -3312,6 +3391,18 @@ p {
 .adspower-mode .drawer-health-badge.muted {
   color: #6f778a;
   background: #eef1f6;
+}
+
+.adspower-mode .drawer-title-actions {
+  display: flex;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.adspower-mode .drawer-close-button {
+  width: 30px;
+  min-height: 30px;
 }
 
 .adspower-mode .drawer-actions {

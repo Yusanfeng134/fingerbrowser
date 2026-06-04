@@ -87,6 +87,7 @@ test('中文 UI 完成激活 license、新建环境、代理测试、导出审�
     await expect(sideNav.getByRole('link', { name: '总览' })).toBeVisible();
     await sideNav.getByRole('link', { name: '环境' }).click();
 
+    await page.getByRole('button', { name: '激活许可证' }).click();
     await page.getByRole('tab', { name: '密码' }).click();
     await expect(page.getByText('密码库需要有效许可证')).toBeVisible();
     await expect(page.getByRole('button', { name: '保存密码项' })).toHaveCount(0);
@@ -150,6 +151,7 @@ test('中文 UI 完成激活 license、新建环境、代理测试、导出审�
     await expect(page.locator('.notice-bar').getByText('健康摘要已复制到剪贴板')).toBeVisible();
     await expect(page.getByLabel('环境健康详情')).toContainText('待补全');
     await expect(page.locator('.profile-row-content').filter({ hasText: 'E2E 运营环境' }).getByText('待补全')).toBeVisible();
+    await page.getByRole('button', { name: '关闭环境详情' }).click();
     await page.getByRole('button', { name: /筛选proxy问题环境/ }).click();
     await expect(page.getByLabel('筛选问题')).toHaveValue('proxy');
     await expect(page.getByLabel('筛选健康')).toHaveValue('attention');
@@ -180,6 +182,7 @@ test('中文 UI 完成激活 license、新建环境、代理测试、导出审�
     await expect(sideNav.getByRole('link', { name: '设置' })).toHaveCount(0);
     await expect(sideNav.getByRole('link', { name: '试卖' })).toHaveCount(0);
     await expect(sideNav.getByRole('link', { name: '授权' })).toHaveCount(0);
+    await page.getByRole('button', { name: '更多操作 E2E 运营环境', exact: true }).click();
     await page.getByRole('tab', { name: '审计' }).click();
     await expect(page.getByRole('button', { name: '导出审计' })).toBeVisible();
     await page.getByRole('tab', { name: '用户' }).click();
@@ -221,6 +224,7 @@ test('中文 UI 完成激活 license、新建环境、代理测试、导出审�
     await page.evaluate(async (manifestPath) => window.fingerBrowser.kernel.importManifest(manifestPath), importedManifestPath);
     await page.reload();
     await sideNav.getByRole('link', { name: '环境' }).click();
+    await page.getByRole('button', { name: '更多操作 E2E 运营环境', exact: true }).click();
     await expect(page.getByText('来源：应用内导入')).toBeVisible();
     await expect(page.getByText('版本：e2e-imported-kernel')).toBeVisible();
     await expect(sideNav.getByRole('link', { name: '环境' })).toHaveClass(/active/);
@@ -266,6 +270,7 @@ test('中文 UI 完成激活 license、新建环境、代理测试、导出审�
     await expect(page.getByLabel('全局密码列表').getByText('全局邮箱')).toBeVisible();
 
     await page.getByRole('link', { name: '环境' }).click();
+    await page.getByRole('button', { name: '更多操作 E2E 运营环境', exact: true }).click();
     await page.getByRole('tab', { name: '密码' }).click();
     await expect(page.getByText('全局邮箱')).toBeVisible();
     await page.getByLabel('密码名称').fill('环境后台');
@@ -310,6 +315,7 @@ test('中文 UI 完成激活 license、新建环境、代理测试、导出审�
     await expect(page.getByText('环境后台')).toHaveCount(0);
 
     await page.getByRole('link', { name: '环境' }).click();
+    await page.getByRole('button', { name: '更多操作 E2E 运营环境', exact: true }).click();
 
     await page.getByRole('tab', { name: '试卖' }).click();
     await expect(page.getByText(/试卖清单/)).toHaveCount(0);
@@ -372,7 +378,9 @@ test('中文 UI 完成激活 license、新建环境、代理测试、导出审�
     await expect(
       page.locator('.profile-row-content').filter({ hasText: 'E2E 运营环境', hasNotText: '副本' }).getByText('已就绪')
     ).toBeVisible();
+    await page.getByRole('button', { name: '更多操作 E2E 运营环境', exact: true }).click();
     await expect(page.getByLabel('环境健康详情')).toContainText('已就绪');
+    await page.getByRole('button', { name: '关闭环境详情' }).click();
     await expect(page.getByLabel('环境就绪率')).toContainText('100%');
     await expect(page.getByLabel('环境就绪率')).toContainText('1/1');
     await expect(page.getByLabel('健康问题分布')).toContainText('代理0');
@@ -387,6 +395,7 @@ test('中文 UI 完成激活 license、新建环境、代理测试、导出审�
     await page.getByLabel('筛选健康').selectOption('ready');
     await expect(page.getByLabel('环境列表').getByText('E2E 运营环境')).toBeVisible();
     await page.getByLabel('筛选健康').selectOption('all');
+    await page.getByRole('button', { name: '更多操作 E2E 运营环境', exact: true }).click();
     await expect(page.getByLabel('本地代理状态')).toContainText('运行中');
     await expect(page.getByLabel('本地代理状态')).toContainText('HTTP');
     const checkPagePath = path.join(dataDir, 'environment-check', 'environment-check.html');
@@ -400,7 +409,7 @@ test('中文 UI 完成激活 license、新建环境、代理测试、导出审�
     expect(checkPageHtml).toContain('启动预检');
     expect(checkPageHtml).toContain('主进程代理预检通过');
     expect(checkPageHtml).not.toContain('proxy-password');
-    await page.getByRole('button', { name: '关闭环境' }).click();
+    await page.getByRole('button', { name: '关闭环境', exact: true }).click();
     await expect(page.getByLabel('环境列表').getByText('已关闭').first()).toBeVisible();
     await expect(page.getByLabel('本地代理状态')).toContainText('未启动');
     await sideNav.getByRole('link', { name: '我的桌面' }).click();
@@ -412,6 +421,7 @@ test('中文 UI 完成激活 license、新建环境、代理测试、导出审�
     await expect(page.getByText(/已从我的桌面移除：E2E 运营环境/)).toBeVisible();
     await expect(page.getByLabel('我的桌面快捷方式').getByText('E2E 运营环境')).toHaveCount(0);
     await sideNav.getByRole('link', { name: '环境' }).click();
+    await page.getByRole('button', { name: '更多操作 E2E 运营环境', exact: true }).click();
 
     await page.getByLabel('内核通道').selectOption('custom-kernel');
     await page.getByLabel('Google API Key').fill('e2e-google-api-key');
@@ -425,7 +435,7 @@ test('中文 UI 完成激活 license、新建环境、代理测试、导出审�
     await page.getByRole('button', { name: '启动 Chromium' }).click();
     await expect(page.getByLabel('环境列表').getByText('运行中').first()).toBeVisible();
     await expect(page.getByLabel('最后启动时间')).not.toHaveValue('尚未启动');
-    await page.getByRole('button', { name: '关闭环境' }).click();
+    await page.getByRole('button', { name: '关闭环境', exact: true }).click();
     await expect(page.getByLabel('环境列表').getByText('已关闭').first()).toBeVisible();
     await page.getByRole('tab', { name: '审计' }).click();
     await expect(page.getByText('KERNEL_LAUNCHED')).toBeVisible();
@@ -438,6 +448,7 @@ test('中文 UI 完成激活 license、新建环境、代理测试、导出审�
     await expect(page.getByText('PROFILE_DUPLICATED')).toBeVisible();
     await expect(page.getByText('proxy-password')).toHaveCount(0);
     await page.getByRole('tab', { name: '配置' }).click();
+    await page.getByRole('button', { name: '关闭环境详情' }).click();
     await page.locator('details[aria-label="环境模板工具"] summary').click();
     await page.getByLabel('模板名称').fill('E2E 客服模板');
     await page.getByRole('button', { name: '保存为模板' }).click();
@@ -453,18 +464,23 @@ test('中文 UI 完成激活 license、新建环境、代理测试、导出审�
     await page.getByRole('tab', { name: '配置' }).click();
     await page.getByRole('button', { name: '归档环境', exact: true }).click();
     await expect(page.getByText(/已归档环境：E2E 客服模板 环境 3/)).toBeVisible();
+    await page.getByRole('button', { name: '关闭环境详情' }).click();
     await expect(page.getByLabel('环境列表').getByText('E2E 客服模板 环境 3')).toHaveCount(0);
     await page.getByLabel('筛选归档').selectOption('archived');
     await expect(page.getByLabel('环境列表').getByText('E2E 客服模板 环境 3')).toBeVisible();
+    await page.getByRole('button', { name: /更多操作 E2E 客服模板 环境 3/ }).click();
     await page.getByRole('button', { name: '恢复环境' }).click();
     await expect(page.getByText(/已恢复环境：E2E 客服模板 环境 3/)).toBeVisible();
+    await page.getByRole('button', { name: '关闭环境详情' }).click();
     await expect(page.getByLabel('环境列表').getByText('E2E 客服模板 环境 3')).toHaveCount(0);
     await page.getByLabel('筛选归档').selectOption('active');
     await expect(page.getByLabel('环境列表').getByText('E2E 客服模板 环境 3')).toBeVisible();
+    await page.getByRole('button', { name: /更多操作 E2E 客服模板 环境 3/ }).click();
     await page.getByRole('tab', { name: '审计' }).click();
     await expect(page.getByText('PROFILE_ARCHIVED')).toBeVisible();
     await expect(page.getByText('PROFILE_RESTORED')).toBeVisible();
     await page.getByRole('tab', { name: '配置' }).click();
+    await page.getByRole('button', { name: '关闭环境详情' }).click();
 
     await page.getByRole('button', { name: '新建环境' }).click();
     await page.getByLabel('环境名称').fill('E2E 自研内核环境');
@@ -478,6 +494,7 @@ test('中文 UI 完成激活 license、新建环境、代理测试、导出审�
     await expect(page.getByText(/自研内核 e2e-imported-kernel 已就绪/)).toBeVisible();
     await page.getByRole('button', { name: '启动 Chromium' }).click();
     await expect(page.getByLabel('环境列表').getByText('运行中').first()).toBeVisible();
+    await page.getByRole('button', { name: '关闭环境详情' }).click();
     await page.getByLabel('筛选状态').selectOption('running');
     await page.getByLabel('选择当前筛选环境').check();
     await expect(page.locator('details[aria-label="批量操作工具"] summary')).toContainText('已选 1 个环境');
@@ -504,11 +521,13 @@ test('中文 UI 完成激活 license、新建环境、代理测试、导出审�
     await page.getByRole('tab', { name: '审计' }).click();
     await expect(page.getByText('KERNEL_POLICY_APPLIED')).toBeVisible();
     await expect(page.getByText('KERNEL_LAUNCHED')).toBeVisible();
+    await page.getByRole('button', { name: '关闭环境详情' }).click();
 
     await page
       .locator('.profile-row-content')
       .filter({ hasText: 'E2E 运营环境', hasNotText: '副本' })
       .click();
+    await page.getByRole('button', { name: '更多操作 E2E 运营环境', exact: true }).click();
     await page.getByRole('tab', { name: '审计' }).click();
     await page.getByRole('button', { name: '导出审计' }).click();
     await expect(page.getByText(/审计已导出/)).toBeVisible();

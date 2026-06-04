@@ -21,6 +21,7 @@ import {
   LogOut,
   Mail,
   MessageSquare,
+  MoreVertical,
   PackageCheck,
   Play,
   Power,
@@ -568,6 +569,7 @@ export function App(): JSX.Element {
   const [activeTab, setActiveTab] = useState<ActiveTab>('config');
   const [workspaceView, setWorkspaceView] = useState<WorkspaceView>('overview');
   const [activeNavKey, setActiveNavKey] = useState<SideNavKey>('overview');
+  const [profileEditorOpen, setProfileEditorOpen] = useState(false);
   const [notice, setNotice] = useState('准备就绪');
   const [busy, setBusy] = useState(false);
   const linuxRuntimeOnly = appVersion?.platform === 'linux';
@@ -657,6 +659,9 @@ export function App(): JSX.Element {
     () => filteredProfiles.length > 0 && visibleSelectedProfileIds.length === filteredProfiles.length,
     [filteredProfiles.length, visibleSelectedProfileIds.length]
   );
+
+  const profilePageSize = 50;
+  const profilePageCount = Math.max(1, Math.ceil(filteredProfiles.length / profilePageSize));
 
   const selectedProxyPoolEntry = useMemo(
     () => proxyPoolEntries.find((entry) => entry.id === selectedProxyPoolEntryId) ?? null,
@@ -1139,17 +1144,37 @@ export function App(): JSX.Element {
   const handleOpenOverview = (): void => {
     setWorkspaceView('overview');
     setActiveNavKey('overview');
+    setProfileEditorOpen(false);
     void loadAudits().catch((error) => setNotice(error instanceof Error ? error.message : '加载审计失败'));
   };
 
   const handleOpenProfiles = (navKey: SideNavKey = 'profiles'): void => {
     setWorkspaceView('profiles');
     setActiveNavKey(navKey);
+    setProfileEditorOpen(false);
+  };
+
+  const openProfileEditor = (profile: ProfileDetails | null, tab: ActiveTab = 'config'): void => {
+    setWorkspaceView('profiles');
+    setActiveNavKey('profiles');
+    if (profile) {
+      setSelectedId(profile.id);
+      setDraft(profileToDraft(profile));
+    }
+    setActiveTab(tab);
+    setProfileEditorOpen(true);
+  };
+
+  const closeProfileEditor = (): void => {
+    setProfileEditorOpen(false);
+    setPasswordGeneratorTarget(null);
+    setGeneratedPassword('');
   };
 
   const handleOpenVault = (menuId: CredentialVaultMenuId = 'all'): void => {
     setWorkspaceView('vault');
     setActiveNavKey('vault');
+    setProfileEditorOpen(false);
     setVaultMenuId(menuId);
     setVaultDraft(emptyCredentialDraft);
     setVaultEditorMode('view');
@@ -1161,6 +1186,7 @@ export function App(): JSX.Element {
   const handleOpenDesktop = (): void => {
     setWorkspaceView('desktop');
     setActiveNavKey('desktop');
+    setProfileEditorOpen(false);
     setPasswordGeneratorTarget(null);
     setGeneratedPassword('');
     setRevealedCredential(null);
@@ -1169,6 +1195,7 @@ export function App(): JSX.Element {
   const handleOpenProxyPool = (): void => {
     setWorkspaceView('proxies');
     setActiveNavKey('proxies');
+    setProfileEditorOpen(false);
     setPasswordGeneratorTarget(null);
     setGeneratedPassword('');
     setRevealedCredential(null);
@@ -1735,6 +1762,7 @@ export function App(): JSX.Element {
     setActiveNavKey('profiles');
     if (!canCreateProfile) {
       setActiveTab('license');
+      setProfileEditorOpen(true);
       setNotice(license?.status === 'inactive' ? '请先激活许可证' : '当前套餐环境数已达上限');
       return;
     }
@@ -1744,6 +1772,7 @@ export function App(): JSX.Element {
       name: `运营环境 ${profiles.length + 1}`
     });
     setActiveTab('config');
+    setProfileEditorOpen(true);
     setNotice('正在创建新环境');
   };
 
@@ -1755,6 +1784,7 @@ export function App(): JSX.Element {
     }
     if (!canCreateProfile) {
       setActiveTab('license');
+      setProfileEditorOpen(true);
       setNotice(license?.status === 'inactive' ? '请先激活许可证' : '当前套餐环境数已达上限');
       return;
     }
@@ -1766,26 +1796,7 @@ export function App(): JSX.Element {
       setSelectedId(duplicated.id);
       setDraft(profileToDraft(duplicated));
       setActiveTab('config');
-      await loadAudits(duplicated.id);
-      return `已复制环境：${duplicated.name}`;
-    });
-  };
-
-  const handleDuplicateProfileFromRow = (source: ProfileDetails): void => {
-    if (!canCreateProfile) {
-      setSelectedId(source.id);
-      setActiveTab('license');
-      setNotice(license?.status === 'inactive' ? '请先激活许可证' : '当前套餐环境数已达上限');
-      return;
-    }
-    void run('复制环境', async () => {
-      const duplicated = await window.fingerBrowser.profiles.duplicate({ profileId: source.id });
-      await loadProfiles();
-      await loadCommercialState();
-      await loadTrialState();
-      setSelectedId(duplicated.id);
-      setDraft(profileToDraft(duplicated));
-      setActiveTab('config');
+      setProfileEditorOpen(true);
       await loadAudits(duplicated.id);
       return `已复制环境：${duplicated.name}`;
     });
@@ -1818,6 +1829,7 @@ export function App(): JSX.Element {
     }
     if (!canCreateProfile) {
       setActiveTab('license');
+      setProfileEditorOpen(true);
       setNotice(license?.status === 'inactive' ? '请先激活许可证' : '当前套餐环境数已达上限');
       return;
     }
@@ -1832,6 +1844,7 @@ export function App(): JSX.Element {
       setSelectedId(profile.id);
       setDraft(profileToDraft(profile));
       setActiveTab('config');
+      setProfileEditorOpen(true);
       await loadAudits(profile.id);
       return `已从模板创建环境：${profile.name}`;
     });
@@ -1862,6 +1875,7 @@ export function App(): JSX.Element {
       await loadCommercialState();
       await loadTrialState();
       setSelectedId(saved.id);
+      setProfileEditorOpen(true);
       await loadAudits(saved.id);
     });
   };
@@ -2016,21 +2030,6 @@ export function App(): JSX.Element {
       await loadProxyRuntimeStatus(selectedProfile.id);
       await loadCommercialState();
       await loadAudits(selectedProfile.id);
-    });
-  };
-
-  const handleStopProfile = (profile: ProfileDetails): void => {
-    setSelectedId(profile.id);
-    setActiveTab('config');
-    setActiveNavKey('profiles');
-    void run('关闭环境', async () => {
-      await window.fingerBrowser.profiles.stop(profile.id);
-      await loadProfiles();
-      await loadDesktopShortcuts();
-      await loadProxyRuntimeStatus(profile.id);
-      await loadCommercialState();
-      await loadAudits(profile.id);
-      return `已关闭：${profile.name}`;
     });
   };
 
@@ -2959,8 +2958,7 @@ export function App(): JSX.Element {
               type="button"
               className="secondary-button"
               onClick={() => {
-                handleOpenProfiles('profiles');
-                setActiveTab('license');
+                openProfileEditor(selectedProfile, 'license');
               }}
             >
               <KeyRound size={16} />
@@ -3382,17 +3380,18 @@ export function App(): JSX.Element {
             <span>名称</span>
             <span>IP</span>
             <span>最近打开</span>
-            <span>负责人</span>
+            <span>账号平台</span>
             <span>标签</span>
             <span>备注</span>
             <span>创建时间</span>
+            <span>#</span>
+            <span>序号</span>
             <span>操作</span>
           </div>
 
           <div className="profile-rows" role="list" aria-label="环境列表">
             {filteredProfiles.map((profile, index) => {
               const health = profileHealthById.get(profile.id) ?? getProfileHealth(profile);
-              const hasDesktopShortcut = desktopProfileIds.has(profile.id);
               return (
                 <article
                   className={`profile-row ${profile.id === selectedId ? 'selected' : ''}`}
@@ -3437,6 +3436,8 @@ export function App(): JSX.Element {
                     <span>{formatProfileTags(profile.tags)}</span>
                     <span>{profile.notes || '-'}</span>
                     <span>{formatDate(profile.createdAt)}</span>
+                    <span>{index + 1}</span>
+                    <span>{profile.status === 'running' ? '1' : '0'}</span>
                   </button>
                   <div className="profile-row-actions" aria-label={`环境操作 ${profile.name}`}>
                     <button
@@ -3452,32 +3453,12 @@ export function App(): JSX.Element {
                     <button
                       className="icon-button table-icon-button"
                       type="button"
-                      onClick={() => handleStopProfile(profile)}
-                      disabled={busy || profile.status !== 'running'}
-                      aria-label={`关闭此行环境 ${profile.name}`}
-                      title="关闭环境"
+                      onClick={() => openProfileEditor(profile, 'config')}
+                      disabled={busy}
+                      aria-label={`更多操作 ${profile.name}`}
+                      title="更多"
                     >
-                      <Power size={14} />
-                    </button>
-                    <button
-                      className="icon-button table-icon-button"
-                      type="button"
-                      onClick={() => handleDuplicateProfileFromRow(profile)}
-                      disabled={busy || !canCreateProfile}
-                      aria-label={`复制此行环境 ${profile.name}`}
-                      title="复制环境"
-                    >
-                      <Clipboard size={14} />
-                    </button>
-                    <button
-                      className="icon-button table-icon-button"
-                      type="button"
-                      onClick={() => handleCreateDesktopShortcut(profile.id)}
-                      disabled={busy || hasDesktopShortcut}
-                      aria-label={`创建桌面快捷方式 ${profile.name}`}
-                      title={hasDesktopShortcut ? '已在桌面' : '添加到桌面'}
-                    >
-                      <Grid2X2 size={14} />
+                      <MoreVertical size={14} />
                     </button>
                   </div>
                 </article>
@@ -3490,7 +3471,29 @@ export function App(): JSX.Element {
               </div>
             ) : null}
             </div>
+          <footer className="profile-table-footer" aria-label="环境分页">
+            <span>总数: {filteredProfiles.length}</span>
+            <div className="profile-pagination" aria-label="分页">
+              <button type="button" className="icon-button compact-button" disabled aria-label="上一页">
+                ‹
+              </button>
+              <input aria-label="当前页" value="1" readOnly />
+              <span>/ {profilePageCount}</span>
+              <button type="button" className="icon-button compact-button" disabled aria-label="下一页">
+                ›
+              </button>
+            </div>
+            <select aria-label="每页数量" value={profilePageSize} onChange={() => undefined}>
+              <option value={50}>50条/页</option>
+            </select>
+          </footer>
         </section>
+        {!profileEditorOpen ? (
+          <footer className="notice-bar profile-notice-bar" aria-live="polite">
+            {busy ? <RefreshCw className="spin" size={15} /> : <CheckCircle2 size={15} />}
+            {notice}
+          </footer>
+        ) : null}
       </section>
       ) : workspaceView === 'proxies' ? (
         <section className="profile-list proxy-pool-workspace" id="proxy-pool">
@@ -3930,8 +3933,8 @@ export function App(): JSX.Element {
         </section>
       )}
 
-      {workspaceView !== 'desktop' && workspaceView !== 'overview' ? (
-      <aside className="details-drawer">
+      {workspaceView !== 'desktop' && workspaceView !== 'overview' && (workspaceView !== 'profiles' || profileEditorOpen) ? (
+      <aside className={`details-drawer ${workspaceView === 'profiles' ? 'profile-editor-modal' : ''}`}>
         {workspaceView === 'vault' ? (
           <>
             <div className="drawer-header">
@@ -4352,14 +4355,25 @@ export function App(): JSX.Element {
         <div className="drawer-header">
           <div className="drawer-title-row">
             <div>
-              <p className="section-kicker">详情抽屉</p>
+              <p className="section-kicker">环境详情</p>
               <h2>{draft.id ? draft.name : '新建环境'}</h2>
             </div>
-            {selectedProfileHealth ? (
-              <span className={`drawer-health-badge ${profileHealthTone[selectedProfileHealth.status]}`}>
-                {selectedProfileHealth.label}
-              </span>
-            ) : null}
+            <div className="drawer-title-actions">
+              {selectedProfileHealth ? (
+                <span className={`drawer-health-badge ${profileHealthTone[selectedProfileHealth.status]}`}>
+                  {selectedProfileHealth.label}
+                </span>
+              ) : null}
+              <button
+                type="button"
+                className="icon-button drawer-close-button"
+                onClick={closeProfileEditor}
+                aria-label="关闭环境详情"
+                title="关闭"
+              >
+                <X size={16} />
+              </button>
+            </div>
           </div>
           <div className="drawer-actions">
             <button
@@ -4424,9 +4438,15 @@ export function App(): JSX.Element {
                 <PackageCheck size={16} />
               </button>
             )}
-            <button type="button" className="primary-button" onClick={handleLaunch} disabled={!selectedProfile || busy || Boolean(selectedProfile?.archivedAt)}>
+            <button
+              type="button"
+              className="primary-button"
+              onClick={handleLaunch}
+              disabled={!selectedProfile || busy || Boolean(selectedProfile?.archivedAt)}
+              aria-label="启动 Chromium"
+            >
               <Play size={16} />
-              启动 Chromium
+              打开
             </button>
           </div>
         </div>
